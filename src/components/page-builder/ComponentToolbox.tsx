@@ -9,14 +9,15 @@ import {
   LayoutPanelLeft, 
   Square, 
   Type, 
-  Button as ButtonIcon,
+  CirclePlay as ButtonIcon,
   FormInput,
   Calendar,
   CheckSquare,
   CreditCard,
   Table,
   BarChart4,
-  Database
+  Database,
+  Plus
 } from 'lucide-react';
 
 interface ComponentToolboxProps {

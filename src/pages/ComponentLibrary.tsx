@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAppSelector } from "@/store/hooks";
@@ -38,12 +37,12 @@ const ComponentLibrary: React.FC = () => {
     queryKey: ["customComponents", currentOrg?.id],
     queryFn: async () => {
       // Mock data - in production, this would fetch from your database
-      return [
+      const mockComponents = [
         {
           id: "comp-123",
           name: "Customer Card",
           description: "Displays customer information in a card format",
-          type: "display",
+          type: "display" as const,
           objectBinding: "Customer__c",
           preview: "/placeholder.svg",
           elements: [
@@ -51,17 +50,23 @@ const ComponentLibrary: React.FC = () => {
               id: "el-1",
               type: "card",
               props: { title: "Customer Information" },
+              position: { x: 0, y: 0 },
+              size: { width: 400, height: 300 },
               children: [
                 {
                   id: "el-2",
                   type: "text",
                   props: { fieldBinding: "Name", label: "Name" },
+                  position: { x: 20, y: 20 },
+                  size: { width: 200, height: 40 },
                   children: []
                 },
                 {
                   id: "el-3",
                   type: "text",
                   props: { fieldBinding: "Email__c", label: "Email" },
+                  position: { x: 20, y: 70 },
+                  size: { width: 200, height: 40 },
                   children: []
                 }
               ]
@@ -74,7 +79,7 @@ const ComponentLibrary: React.FC = () => {
           id: "comp-456",
           name: "Project Form",
           description: "Form for creating or editing projects",
-          type: "form",
+          type: "form" as const,
           objectBinding: "Project__c",
           preview: "/placeholder.svg",
           elements: [
@@ -82,17 +87,23 @@ const ComponentLibrary: React.FC = () => {
               id: "el-4",
               type: "form",
               props: { submitLabel: "Save Project" },
+              position: { x: 0, y: 0 },
+              size: { width: 400, height: 300 },
               children: [
                 {
                   id: "el-5",
                   type: "input",
                   props: { fieldBinding: "Name", label: "Project Name" },
+                  position: { x: 20, y: 20 },
+                  size: { width: 200, height: 40 },
                   children: []
                 },
                 {
                   id: "el-6",
                   type: "datepicker",
                   props: { fieldBinding: "StartDate__c", label: "Start Date" },
+                  position: { x: 20, y: 70 },
+                  size: { width: 200, height: 40 },
                   children: []
                 }
               ]
@@ -101,7 +112,9 @@ const ComponentLibrary: React.FC = () => {
           createdAt: "2023-06-15T09:30:00Z",
           updatedAt: "2023-06-16T13:45:00Z"
         }
-      ] as CustomComponent[];
+      ];
+      
+      return mockComponents as CustomComponent[];
     }
   });
 
