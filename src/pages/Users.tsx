@@ -34,11 +34,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "@/hooks/use-toast";
+import UserInviteDialog from "@/components/user/UserInviteDialog";
+import UserRoleManagement from "@/components/user/UserRoleManagement";
+import UserDetailView from "@/components/user/UserDetailView";
 
 const Users = () => {
   const [users, setUsers] = useState<OrgUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [roleManagementOpen, setRoleManagementOpen] = useState(false);
+  const [userDetailOpen, setUserDetailOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<OrgUser | null>(null);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -108,11 +115,39 @@ const Users = () => {
     });
   };
 
-  const inviteUser = () => {
-    toast({
-      title: "Invite User",
-      description: "This feature will be implemented soon.",
-    });
+  const handleOpenUserDetail = (user: OrgUser) => {
+    setSelectedUser(user);
+    setUserDetailOpen(true);
+  };
+
+  const handleOpenRoleManagement = () => {
+    setUserDetailOpen(false);
+    setRoleManagementOpen(true);
+  };
+
+  const handleRefreshUsers = async () => {
+    setIsLoading(true);
+    try {
+      const response = await mockApis.getUsers();
+      setUsers(response.data.users);
+      toast({
+        title: "Refreshed",
+        description: "User list has been refreshed",
+      });
+    } catch (error) {
+      console.error("Failed to refresh users:", error);
+      toast({
+        title: "Error",
+        description: "Failed to refresh users. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleInviteSuccess = async () => {
+    await handleRefreshUsers();
   };
 
   return (
@@ -127,11 +162,16 @@ const Users = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleRefreshUsers}
+              disabled={isLoading}
+            >
               <RefreshCw className="h-4 w-4 mr-2" />
               Refresh
             </Button>
-            <Button onClick={inviteUser} size="sm">
+            <Button onClick={() => setInviteDialogOpen(true)} size="sm">
               <Plus className="h-4 w-4 mr-2" />
               Invite User
             </Button>
@@ -240,8 +280,15 @@ const Users = () => {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem>Edit user</DropdownMenuItem>
-                            <DropdownMenuItem>Manage roles</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleOpenUserDetail(user)}>
+                              View details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {
+                              setSelectedUser(user);
+                              setRoleManagementOpen(true);
+                            }}>
+                              Manage roles
+                            </DropdownMenuItem>
                             <DropdownMenuItem>Reset password</DropdownMenuItem>
                             <DropdownMenuSeparator />
                             {user.isActive ? (
@@ -276,6 +323,28 @@ const Users = () => {
           </div>
         </Card>
       </div>
+
+      {/* User Invite Dialog */}
+      <UserInviteDialog 
+        open={inviteDialogOpen}
+        onOpenChange={setInviteDialogOpen}
+        onInviteSuccess={handleInviteSuccess}
+      />
+
+      {/* User Role Management */}
+      <UserRoleManagement
+        user={selectedUser}
+        open={roleManagementOpen}
+        onOpenChange={setRoleManagementOpen}
+      />
+
+      {/* User Detail View */}
+      <UserDetailView
+        user={selectedUser}
+        open={userDetailOpen}
+        onOpenChange={setUserDetailOpen}
+        onManageRoles={handleOpenRoleManagement}
+      />
     </AppLayout>
   );
 };
