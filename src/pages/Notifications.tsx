@@ -7,7 +7,8 @@ import {
   markAsRead, 
   markAllAsRead,
   Notification, 
-  NotificationType 
+  NotificationType,
+  NotificationPriority 
 } from "@/store/slices/notificationSlice";
 import AppLayout from "@/components/layout/AppLayout";
 import { 
@@ -37,7 +38,7 @@ const Notifications = () => {
       
       // Mock API call - in a real app, this would be an API call
       // Using the same mock data as in NotificationCenter
-      const mockNotifications = [
+      const mockNotifications: Notification[] = [
         {
           id: "notif-1",
           type: "system" as NotificationType,
@@ -45,7 +46,7 @@ const Notifications = () => {
           message: "Scheduled maintenance will occur tomorrow at 2:00 AM UTC.",
           timestamp: new Date(Date.now() + 86400000).toISOString(),
           isRead: false,
-          priority: "normal",
+          priority: "normal" as NotificationPriority,
           userId: "user-123",
         },
         {
@@ -55,7 +56,7 @@ const Notifications = () => {
           message: "A new login was detected from Chicago, USA.",
           timestamp: new Date().toISOString(),
           isRead: false,
-          priority: "high",
+          priority: "high" as NotificationPriority,
           userId: "user-123",
           actionUrl: "/settings/security",
           actionLabel: "Review Activity",
@@ -67,7 +68,7 @@ const Notifications = () => {
           message: "Your API usage is approaching your monthly limit.",
           timestamp: new Date(Date.now() - 3600000).toISOString(),
           isRead: true,
-          priority: "high",
+          priority: "high" as NotificationPriority,
           userId: "user-123",
           actionUrl: "/settings/billing",
           actionLabel: "Upgrade Plan",
@@ -79,7 +80,7 @@ const Notifications = () => {
           message: "Jane Smith accepted your invitation to join the team.",
           timestamp: new Date(Date.now() - 86400000).toISOString(),
           isRead: true,
-          priority: "normal",
+          priority: "normal" as NotificationPriority,
           userId: "user-123",
         },
         {
@@ -89,7 +90,7 @@ const Notifications = () => {
           message: "Check out the new dashboard analytics features!",
           timestamp: new Date(Date.now() - 172800000).toISOString(),
           isRead: false,
-          priority: "low",
+          priority: "low" as NotificationPriority,
           userId: "user-123",
           actionUrl: "/dashboard",
           actionLabel: "View Dashboard",

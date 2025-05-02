@@ -1,10 +1,9 @@
-
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosError } from 'axios';
 import { store } from '../store/store';
 import { logout } from '../store/slices/authSlice';
 import { toast } from '@/hooks/use-toast';
 import { AuditEvent } from '@/store/slices/auditSlice';
-import { Notification } from '@/store/slices/notificationSlice';
+import { Notification, NotificationPriority } from '@/store/slices/notificationSlice';
 
 // Mock API base URL - would be replaced with real API endpoint
 const API_BASE_URL = 'https://api.platform.com';
@@ -301,7 +300,7 @@ export const mockApis = {
           message: "Scheduled maintenance will occur tomorrow at 2:00 AM UTC.",
           timestamp: new Date(Date.now() + 86400000).toISOString(),
           isRead: false,
-          priority: "normal",
+          priority: "normal" as NotificationPriority,
           userId: "user-123",
         },
         {
@@ -311,7 +310,7 @@ export const mockApis = {
           message: "A new login was detected from Chicago, USA.",
           timestamp: new Date().toISOString(),
           isRead: false,
-          priority: "high",
+          priority: "high" as NotificationPriority,
           userId: "user-123",
           actionUrl: "/settings/security",
           actionLabel: "Review Activity",
