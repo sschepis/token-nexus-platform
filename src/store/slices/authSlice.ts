@@ -1,0 +1,71 @@
+
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+
+export interface User {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  avatarUrl?: string;
+}
+
+export interface AuthState {
+  user: User | null;
+  token: string | null;
+  orgId: string | null;
+  permissions: string[];
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  error: string | null;
+}
+
+const initialState: AuthState = {
+  user: null,
+  token: null,
+  orgId: null,
+  permissions: [],
+  isAuthenticated: false,
+  isLoading: false,
+  error: null,
+};
+
+export const authSlice = createSlice({
+  name: 'auth',
+  initialState,
+  reducers: {
+    loginStart: (state) => {
+      state.isLoading = true;
+      state.error = null;
+    },
+    loginSuccess: (state, action: PayloadAction<{ user: User; token: string; orgId: string; permissions: string[] }>) => {
+      state.isAuthenticated = true;
+      state.isLoading = false;
+      state.user = action.payload.user;
+      state.token = action.payload.token;
+      state.orgId = action.payload.orgId;
+      state.permissions = action.payload.permissions;
+      state.error = null;
+    },
+    loginFailed: (state, action: PayloadAction<string>) => {
+      state.isLoading = false;
+      state.error = action.payload;
+    },
+    logout: (state) => {
+      state.isAuthenticated = false;
+      state.user = null;
+      state.token = null;
+      state.orgId = null;
+      state.permissions = [];
+    },
+    updatePermissions: (state, action: PayloadAction<string[]>) => {
+      state.permissions = action.payload;
+    },
+    switchOrg: (state, action: PayloadAction<string>) => {
+      state.orgId = action.payload;
+    }
+  },
+});
+
+export const { loginStart, loginSuccess, loginFailed, logout, updatePermissions, switchOrg } = authSlice.actions;
+
+export default authSlice.reducer;
