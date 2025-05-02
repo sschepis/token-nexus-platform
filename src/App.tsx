@@ -12,6 +12,8 @@ import Tokens from "./pages/Tokens";
 import TokenCreate from "./pages/TokenCreate";
 import Users from "./pages/Users";
 import Settings from "./pages/Settings";
+import AuditLogs from "./pages/AuditLogs";
+import Notifications from "./pages/Notifications";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,6 +33,8 @@ const App = () => (
             <Route path="/tokens/create" element={<TokenCreate />} />
             <Route path="/users" element={<Users />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/audit-logs" element={<AuditLogs />} />
+            <Route path="/notifications" element={<Notifications />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

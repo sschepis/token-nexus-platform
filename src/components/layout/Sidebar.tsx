@@ -15,7 +15,9 @@ import {
   Code,
   Calendar,
   File,
-  Shield
+  Shield,
+  Bell,
+  FileText
 } from "lucide-react";
 
 const Sidebar = () => {
@@ -42,6 +44,18 @@ const Sidebar = () => {
       icon: <Users size={20} />,
       path: "/users",
       permission: "users:read"
+    },
+    {
+      name: "Audit Logs",
+      icon: <FileText size={20} />,
+      path: "/audit-logs",
+      permission: "audit:read"
+    },
+    {
+      name: "Notifications",
+      icon: <Bell size={20} />,
+      path: "/notifications",
+      permission: "notifications:read"
     },
     {
       name: "Data",

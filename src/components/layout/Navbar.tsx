@@ -1,85 +1,101 @@
 
 import React from "react";
-import { useAppSelector, useAppDispatch } from "@/store/hooks";
-import { logout } from "@/store/slices/authSlice";
-import { Bell, ChevronDown, LogOut, User, Settings, CreditCard } from "lucide-react";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuLabel, 
-  DropdownMenuSeparator, 
-  DropdownMenuTrigger 
+import { useAppSelector } from "@/store/hooks";
+import { Link, useNavigate } from "react-router-dom";
+import NotificationCenter from "@/components/notifications/NotificationCenter";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 
 const Navbar = () => {
-  const dispatch = useAppDispatch();
   const { user } = useAppSelector((state) => state.auth);
-  const { currentOrg } = useAppSelector((state) => state.org);
+  const navigate = useNavigate();
 
   const handleLogout = () => {
-    dispatch(logout());
+    // In a real app, this would dispatch the logout action
+    navigate("/login");
   };
 
-  const userInitials = user 
-    ? `${user.firstName?.[0] || ''}${user.lastName?.[0] || ''}`
-    : 'U';
+  if (!user) return null;
 
   return (
-    <header className="bg-background border-b h-16 flex items-center px-4 md:px-6">
-      <div className="flex-1">
-        <h1 className="text-xl font-semibold hidden md:block">
-          {window.location.pathname === "/dashboard" ? "Dashboard" : 
-           window.location.pathname === "/tokens" ? "Token Management" :
-           window.location.pathname === "/users" ? "User Management" :
-           "Token Nexus Platform"}
-        </h1>
-      </div>
-
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell size={18} />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-        </Button>
+    <header className="bg-background border-b h-16 flex items-center px-4">
+      <div className="w-full flex justify-between items-center">
+        <div>
+          {/* Left side - can be used for breadcrumbs or search */}
+        </div>
         
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="flex items-center gap-2">
-              <Avatar className="h-8 w-8">
-                <AvatarImage src={user?.avatarUrl} alt={user?.firstName} />
-                <AvatarFallback>{userInitials}</AvatarFallback>
-              </Avatar>
-              <div className="hidden md:flex flex-col items-start text-sm">
-                <span className="font-medium">{user?.firstName} {user?.lastName}</span>
-                <span className="text-muted-foreground text-xs">{currentOrg?.name}</span>
-              </div>
-              <ChevronDown size={16} className="ml-1 hidden md:block" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>My Account</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <User className="mr-2 h-4 w-4" />
-              <span>Profile</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Settings className="mr-2 h-4 w-4" />
-              <span>Settings</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <CreditCard className="mr-2 h-4 w-4" />
-              <span>Billing</span>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleLogout}>
-              <LogOut className="mr-2 h-4 w-4" />
-              <span>Log out</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex items-center space-x-2">
+          <NotificationCenter />
+          
+          <Button
+            variant="ghost"
+            size="icon"
+            className="relative"
+            asChild
+          >
+            <Link to="/audit-logs">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-5 w-5"
+              >
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <path d="M14 2v6h6" />
+                <path d="M16 13H8" />
+                <path d="M16 17H8" />
+                <path d="M10 9H8" />
+              </svg>
+            </Link>
+          </Button>
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="p-1 h-8 w-8 rounded-full">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={user.avatarUrl} alt={user.firstName} />
+                  <AvatarFallback>
+                    {user.firstName?.[0]}
+                    {user.lastName?.[0]}
+                  </AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>
+                <div className="flex flex-col">
+                  <span>
+                    {user.firstName} {user.lastName}
+                  </span>
+                  <span className="text-xs text-muted-foreground font-normal">
+                    {user.email}
+                  </span>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link to="/settings">Profile Settings</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/notifications">Notifications</Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleLogout}>Logout</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
     </header>
   );

@@ -4,12 +4,16 @@ import authReducer from './slices/authSlice';
 import orgReducer from './slices/orgSlice';
 import tokenReducer from './slices/tokenSlice';
 import userReducer from './slices/userSlice';
+import auditReducer from './slices/auditSlice';
+import notificationReducer from './slices/notificationSlice';
 
 const rootReducer = combineReducers({
   auth: authReducer,
   org: orgReducer,
   token: tokenReducer,
   user: userReducer,
+  audit: auditReducer,
+  notification: notificationReducer,
 });
 
 export const store = configureStore({

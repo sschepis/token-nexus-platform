@@ -3,6 +3,8 @@ import axios, { AxiosInstance, AxiosRequestConfig, AxiosError } from 'axios';
 import { store } from '../store/store';
 import { logout } from '../store/slices/authSlice';
 import { toast } from '@/hooks/use-toast';
+import { AuditEvent } from '@/store/slices/auditSlice';
+import { Notification } from '@/store/slices/notificationSlice';
 
 // Mock API base URL - would be replaced with real API endpoint
 const API_BASE_URL = 'https://api.platform.com';
@@ -113,7 +115,7 @@ export const mockApis = {
       },
       token: 'mock-jwt-token',
       orgId: 'org-123',
-      permissions: ['dashboard:read', 'tokens:read', 'tokens:write', 'users:read'],
+      permissions: ['dashboard:read', 'tokens:read', 'tokens:write', 'users:read', 'audit:read', 'notifications:read', 'settings:read'],
     });
   },
   
@@ -259,6 +261,73 @@ export const mockApis = {
       }
     });
   },
+  
+  // Audit Log APIs
+  getAuditLogs: (filters?: any) => {
+    return mockResponse({
+      auditEvents: [
+        {
+          id: "audit-1",
+          eventType: "user_activity",
+          description: "User login successful",
+          userId: "user-123",
+          userEmail: "john.doe@example.com",
+          timestamp: new Date().toISOString(),
+          severity: "low",
+          ipAddress: "192.168.1.1",
+        },
+        {
+          id: "audit-2",
+          eventType: "security",
+          description: "Failed login attempt",
+          userId: "unknown",
+          timestamp: new Date(Date.now() - 3600000).toISOString(),
+          severity: "medium",
+          ipAddress: "203.0.113.1",
+        },
+        // Add more mock audit events as needed
+      ] as AuditEvent[]
+    });
+  },
+  
+  // Notification APIs
+  getNotifications: () => {
+    return mockResponse({
+      notifications: [
+        {
+          id: "notif-1",
+          type: "system",
+          title: "System Maintenance",
+          message: "Scheduled maintenance will occur tomorrow at 2:00 AM UTC.",
+          timestamp: new Date(Date.now() + 86400000).toISOString(),
+          isRead: false,
+          priority: "normal",
+          userId: "user-123",
+        },
+        {
+          id: "notif-2",
+          type: "security",
+          title: "New Login Detected",
+          message: "A new login was detected from Chicago, USA.",
+          timestamp: new Date().toISOString(),
+          isRead: false,
+          priority: "high",
+          userId: "user-123",
+          actionUrl: "/settings/security",
+          actionLabel: "Review Activity",
+        },
+        // Add more mock notifications as needed
+      ] as Notification[]
+    });
+  },
+  
+  markNotificationAsRead: (id: string) => {
+    return mockResponse({ success: true });
+  },
+  
+  markAllNotificationsAsRead: () => {
+    return mockResponse({ success: true });
+  }
 };
 
 // Export both the real API instance and mock methods
