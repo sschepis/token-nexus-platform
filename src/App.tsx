@@ -11,6 +11,7 @@ import Dashboard from "./pages/Dashboard";
 import Tokens from "./pages/Tokens";
 import TokenCreate from "./pages/TokenCreate";
 import Users from "./pages/Users";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,6 +30,7 @@ const App = () => (
             <Route path="/tokens" element={<Tokens />} />
             <Route path="/tokens/create" element={<TokenCreate />} />
             <Route path="/users" element={<Users />} />
+            <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
