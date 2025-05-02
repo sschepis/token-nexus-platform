@@ -17,6 +17,7 @@ import Notifications from "./pages/Notifications";
 import Integrations from "./pages/Integrations";
 import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
+import ObjectManager from "./pages/ObjectManager";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +40,7 @@ const App = () => (
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/integrations" element={<Integrations />} />
             <Route path="/reports" element={<Reports />} />
+            <Route path="/object-manager" element={<ObjectManager />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

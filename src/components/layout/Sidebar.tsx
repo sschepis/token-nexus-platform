@@ -35,6 +35,12 @@ const Sidebar = () => {
       permission: "dashboard:read"
     },
     {
+      name: "Object Manager",
+      icon: <Database size={20} />,
+      path: "/object-manager",
+      permission: "objects:read"
+    },
+    {
       name: "Tokens",
       icon: <Coins size={20} />,
       path: "/tokens",
