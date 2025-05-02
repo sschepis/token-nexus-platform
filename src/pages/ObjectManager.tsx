@@ -72,17 +72,21 @@ const ObjectManager: React.FC = () => {
   };
 
   return (
-    <AppLayout
-      title="Object Manager"
-      description="Create and manage custom objects and fields"
-      actions={
-        <Button onClick={() => setIsCreateModalOpen(true)}>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          New Object
-        </Button>
-      }
-    >
+    <AppLayout>
       <div className="space-y-6">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Object Manager</h1>
+            <p className="text-muted-foreground">
+              Create and manage custom objects and fields
+            </p>
+          </div>
+          <Button onClick={() => setIsCreateModalOpen(true)}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            New Object
+          </Button>
+        </div>
+        
         <Card>
           <CardHeader className="pb-3">
             <CardTitle>Custom Object Management</CardTitle>
