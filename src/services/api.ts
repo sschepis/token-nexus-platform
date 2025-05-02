@@ -1,3 +1,4 @@
+
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosError } from 'axios';
 import { store } from '../store/store';
 import { logout } from '../store/slices/authSlice';
@@ -114,11 +115,21 @@ export const mockApis = {
       },
       token: 'mock-jwt-token',
       orgId: 'org-123',
-      permissions: ['dashboard:read', 'tokens:read', 'tokens:write', 'users:read', 'audit:read', 'notifications:read', 'settings:read'],
+      permissions: [
+        'dashboard:read', 
+        'tokens:read', 
+        'tokens:write', 
+        'users:read', 
+        'audit:read', 
+        'notifications:read', 
+        'settings:read',
+        'integrations:read',
+        'integrations:write',
+        'reports:read'
+      ],
     });
   },
   
-  // Orgs APIs
   getUserOrgs: () => {
     return mockResponse({
       orgs: [
@@ -142,7 +153,6 @@ export const mockApis = {
     });
   },
   
-  // Tokens APIs
   getTokens: () => {
     return mockResponse({
       tokens: [
@@ -201,7 +211,6 @@ export const mockApis = {
     });
   },
   
-  // Users APIs
   getUsers: () => {
     return mockResponse({
       users: [
@@ -284,7 +293,6 @@ export const mockApis = {
           severity: "medium",
           ipAddress: "203.0.113.1",
         },
-        // Add more mock audit events as needed
       ] as AuditEvent[]
     });
   },
@@ -315,7 +323,6 @@ export const mockApis = {
           actionUrl: "/settings/security",
           actionLabel: "Review Activity",
         },
-        // Add more mock notifications as needed
       ] as Notification[]
     });
   },
@@ -326,6 +333,114 @@ export const mockApis = {
   
   markAllNotificationsAsRead: () => {
     return mockResponse({ success: true });
+  },
+
+  // Integration APIs
+  getIntegrations: () => {
+    return mockResponse({
+      services: [
+        {
+          id: "service-1",
+          name: "Salesforce",
+          status: "connected",
+          lastSynced: "2023-06-10T14:30:00Z",
+          icon: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f9/Salesforce.com_logo.svg/2560px-Salesforce.com_logo.svg.png"
+        },
+        {
+          id: "service-2",
+          name: "Stripe",
+          status: "connected",
+          lastSynced: "2023-06-09T11:45:00Z",
+          icon: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/Stripe_Logo%2C_revised_2016.svg/2560px-Stripe_Logo%2C_revised_2016.svg.png"
+        },
+        {
+          id: "service-3",
+          name: "Slack",
+          status: "disconnected",
+          lastSynced: null,
+          icon: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/Slack_icon_2019.svg/2048px-Slack_icon_2019.svg.png"
+        }
+      ],
+      webhooks: [
+        {
+          id: "webhook-1",
+          name: "Notification Webhook",
+          endpoint: "https://example.com/webhook/notifications",
+          events: ["user.created", "user.updated"],
+          active: true
+        },
+        {
+          id: "webhook-2",
+          name: "Transaction Webhook",
+          endpoint: "https://example.com/webhook/transactions",
+          events: ["transaction.created", "transaction.completed"],
+          active: true
+        }
+      ],
+      oauthApps: [
+        {
+          id: "oauth-1",
+          name: "Mobile App",
+          clientId: "client-id-xxxxx-1",
+          clientSecret: "••••••••••••••••",
+          redirectUris: ["https://example.com/callback"],
+          created: "2023-05-01T10:00:00Z"
+        }
+      ]
+    });
+  },
+
+  createWebhook: (webhookData: any) => {
+    return mockResponse({
+      webhook: {
+        id: `webhook-${Math.floor(Math.random() * 1000)}`,
+        name: webhookData.name || "New Webhook",
+        endpoint: webhookData.endpoint,
+        events: webhookData.events || ["user.created"],
+        active: true,
+        createdAt: new Date().toISOString()
+      }
+    });
+  },
+
+  // Reports APIs
+  getReportData: (reportType: string, timeRange: string) => {
+    // Different mock data based on report type and time range
+    switch(reportType) {
+      case 'token-activity':
+        return mockResponse({
+          data: [
+            { date: "May 1", transactions: 65, volume: 15000, users: 24 },
+            { date: "May 5", transactions: 78, volume: 18500, users: 27 },
+            { date: "May 10", transactions: 90, volume: 20000, users: 32 },
+            { date: "May 15", transactions: 81, volume: 17500, users: 29 },
+            { date: "May 20", transactions: 95, volume: 22000, users: 35 },
+            { date: "May 25", transactions: 110, volume: 25000, users: 40 },
+            { date: "May 30", transactions: 102, volume: 23000, users: 38 },
+          ]
+        });
+      case 'user-activity':
+        return mockResponse({
+          data: [
+            { date: "May 1", active: 42, new: 5 },
+            { date: "May 5", active: 45, new: 3 },
+            { date: "May 10", active: 48, new: 4 },
+            { date: "May 15", active: 51, new: 2 },
+            { date: "May 20", active: 54, new: 6 },
+            { date: "May 25", active: 58, new: 4 },
+            { date: "May 30", active: 62, new: 5 },
+          ]
+        });
+      default:
+        return mockResponse({ data: [] });
+    }
+  },
+
+  exportReportData: (reportType: string, format: string) => {
+    return mockResponse({
+      success: true,
+      downloadUrl: `https://api.example.com/reports/export/${reportType}.${format}`
+    });
   }
 };
 

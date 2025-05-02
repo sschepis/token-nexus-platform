@@ -14,6 +14,8 @@ import Users from "./pages/Users";
 import Settings from "./pages/Settings";
 import AuditLogs from "./pages/AuditLogs";
 import Notifications from "./pages/Notifications";
+import Integrations from "./pages/Integrations";
+import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -35,6 +37,8 @@ const App = () => (
             <Route path="/settings" element={<Settings />} />
             <Route path="/audit-logs" element={<AuditLogs />} />
             <Route path="/notifications" element={<Notifications />} />
+            <Route path="/integrations" element={<Integrations />} />
+            <Route path="/reports" element={<Reports />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

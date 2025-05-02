@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -17,7 +16,9 @@ import {
   File,
   Shield,
   Bell,
-  FileText
+  FileText,
+  Link as LinkIcon,
+  ChartBar
 } from "lucide-react";
 
 const Sidebar = () => {
@@ -44,6 +45,18 @@ const Sidebar = () => {
       icon: <Users size={20} />,
       path: "/users",
       permission: "users:read"
+    },
+    {
+      name: "Integrations",
+      icon: <LinkIcon size={20} />,
+      path: "/integrations",
+      permission: "integrations:read"
+    },
+    {
+      name: "Reports",
+      icon: <ChartBar size={20} />,
+      path: "/reports",
+      permission: "reports:read"
     },
     {
       name: "Audit Logs",
