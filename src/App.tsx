@@ -18,6 +18,8 @@ import Integrations from "./pages/Integrations";
 import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
 import ObjectManager from "./pages/ObjectManager";
+import PageBuilder from "./pages/PageBuilder";
+import ComponentLibrary from "./pages/ComponentLibrary";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +43,8 @@ const App = () => (
             <Route path="/integrations" element={<Integrations />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/object-manager" element={<ObjectManager />} />
+            <Route path="/page-builder" element={<PageBuilder />} />
+            <Route path="/component-library" element={<ComponentLibrary />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
