@@ -180,7 +180,4 @@ const ComponentToolbox: React.FC<ComponentToolboxProps> = ({
   );
 };
 
-// Fix TypeScript error - missing import
-import { Plus } from 'lucide-react';
-
 export default ComponentToolbox;
