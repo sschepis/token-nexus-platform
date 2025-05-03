@@ -23,7 +23,7 @@ const Navbar = ({ openSidebar }: NavbarProps) => {
             {currentOrg?.name || "Organization"}
           </h1>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 md:hidden">
           <ModeToggle />
         </div>
       </div>

@@ -6,7 +6,7 @@ import {
   SheetTrigger 
 } from "@/components/ui/sheet";
 import { Menu } from "lucide-react";
-import { ModeToggle } from "@/components/layout/ModeToggle";
+import { ModeToggle } from "./ModeToggle";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAppSelector } from "@/store/hooks";
 import { Link } from "react-router-dom";
@@ -119,73 +119,88 @@ const Sidebar = ({ isSidebarOpen, closeSidebar }: SidebarProps) => {
     }
   ];
 
-  return (
-    <Sheet open={isSidebarOpen} onOpenChange={closeSidebar}>
-      <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="md:hidden">
-          <Menu className="h-5 w-5" />
-        </Button>
-      </SheetTrigger>
-      <SheetContent className="w-64 flex flex-col gap-4 z-50">
-        <Link to="/dashboard" className="font-bold text-xl">
-          Logo
-        </Link>
+  // For desktop view - direct rendering
+  const SidebarContent = () => (
+    <div className="h-full flex flex-col gap-4 p-4 bg-background border-r">
+      <Link to="/dashboard" className="font-bold text-xl">
+        Logo
+      </Link>
 
-        <div className="flex items-center space-x-2">
-          <Avatar>
-            <AvatarImage src={user?.avatarUrl} />
-            <AvatarFallback>{getInitials()}</AvatarFallback>
-          </Avatar>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="pl-2 w-full justify-start text-sm font-medium leading-none hover:bg-transparent">
-                {userName}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <Link to="/settings/profile">
-                <DropdownMenuItem>
-                  <User className="mr-2 h-4 w-4" />
-                  <span>Profile</span>
-                </DropdownMenuItem>
-              </Link>
-              <Link to="/settings/account">
-                <DropdownMenuItem>
-                  <SettingsIcon className="mr-2 h-4 w-4" />
-                  <span>Settings</span>
-                </DropdownMenuItem>
-              </Link>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout}>
-                <LogOut className="mr-2 h-4 w-4" />
-                <span>Log out</span>
+      <div className="flex items-center space-x-2">
+        <Avatar>
+          <AvatarImage src={user?.avatarUrl} />
+          <AvatarFallback>{getInitials()}</AvatarFallback>
+        </Avatar>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="pl-2 w-full justify-start text-sm font-medium leading-none hover:bg-transparent">
+              {userName}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <Link to="/settings/profile">
+              <DropdownMenuItem>
+                <User className="mr-2 h-4 w-4" />
+                <span>Profile</span>
               </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+            </Link>
+            <Link to="/settings/account">
+              <DropdownMenuItem>
+                <SettingsIcon className="mr-2 h-4 w-4" />
+                <span>Settings</span>
+              </DropdownMenuItem>
+            </Link>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleLogout}>
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>Log out</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
 
-        <div className="flex-1">
-          <ul className="space-y-1">
-            {navItems.map((item) => (
-              <li key={item.name}>
-                <Link
-                  to={item.path}
-                  className="flex items-center space-x-2 rounded-md p-2 hover:bg-secondary"
-                  onClick={closeSidebar}
-                >
-                  {item.icon}
-                  <span>{item.name}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
+      <div className="flex-1">
+        <ul className="space-y-1">
+          {navItems.map((item) => (
+            <li key={item.name}>
+              <Link
+                to={item.path}
+                className="flex items-center space-x-2 rounded-md p-2 hover:bg-secondary"
+              >
+                {item.icon}
+                <span>{item.name}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </div>
 
-        <div className="pb-3 pt-4">
-          <ModeToggle />
-        </div>
-      </SheetContent>
-    </Sheet>
+      <div className="pb-3 pt-4">
+        <ModeToggle />
+      </div>
+    </div>
+  );
+
+  // For mobile - use Sheet component from shadcn/ui
+  return (
+    <>
+      {/* Desktop sidebar */}
+      <div className="hidden md:block h-full">
+        <SidebarContent />
+      </div>
+
+      {/* Mobile sidebar */}
+      <Sheet open={isSidebarOpen} onOpenChange={closeSidebar}>
+        <SheetTrigger asChild>
+          <Button variant="ghost" size="icon" className="md:hidden">
+            <Menu className="h-5 w-5" />
+          </Button>
+        </SheetTrigger>
+        <SheetContent className="w-64 p-0" side="left">
+          <SidebarContent />
+        </SheetContent>
+      </Sheet>
+    </>
   );
 };
 
