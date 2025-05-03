@@ -12,12 +12,8 @@ import {
   Users,
   Settings,
   Database,
-  Code,
-  Calendar,
-  File,
-  Shield,
-  Bell,
   FileText,
+  Bell,
   Link as LinkIcon,
   ChartBar
 } from "lucide-react";
@@ -34,18 +30,6 @@ const Sidebar = () => {
       icon: <LayoutDashboard size={20} />,
       path: "/dashboard",
       permission: "dashboard:read"
-    },
-    {
-      name: "Objects",
-      icon: <Database size={20} />,
-      path: "/objects",
-      permission: "objects:read"
-    },
-    {
-      name: "Object Manager",
-      icon: <Database size={20} />,
-      path: "/object-manager",
-      permission: "objects:read"
     },
     {
       name: "Tokens",
@@ -82,36 +66,6 @@ const Sidebar = () => {
       icon: <Bell size={20} />,
       path: "/notifications",
       permission: "notifications:read"
-    },
-    {
-      name: "Data",
-      icon: <Database size={20} />,
-      path: "/data",
-      permission: "data:read"
-    },
-    {
-      name: "Cloud Functions",
-      icon: <Code size={20} />,
-      path: "/functions",
-      permission: "cloudFunctions:read"
-    },
-    {
-      name: "Scheduled Jobs",
-      icon: <Calendar size={20} />,
-      path: "/jobs",
-      permission: "jobs:read"
-    },
-    {
-      name: "Pages",
-      icon: <File size={20} />,
-      path: "/pages",
-      permission: "pages:read"
-    },
-    {
-      name: "Roles",
-      icon: <Shield size={20} />,
-      path: "/roles",
-      permission: "roles:read"
     },
     {
       name: "Settings",
