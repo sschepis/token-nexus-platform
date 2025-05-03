@@ -13,6 +13,9 @@ export interface PageElementProps {
   [key: string]: any;
   label?: string;
   fieldBinding?: string;
+  locked?: boolean;
+  visible?: boolean;
+  customId?: string;
 }
 
 export interface PageElement {
@@ -22,6 +25,9 @@ export interface PageElement {
   position: PageElementPosition;
   size: PageElementSize;
   children: PageElement[];
+  style?: {
+    [key: string]: string;
+  };
   objectReference?: string;
 }
 

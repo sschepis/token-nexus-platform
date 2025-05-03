@@ -17,10 +17,21 @@ import {
   Eye, 
   Plus, 
   Settings,
-  Move
+  Move,
+  Copy,
+  Trash2,
+  Download,
+  Upload
 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
 import { CustomObject } from "@/types/object-manager";
 import PageCanvas from "@/components/page-builder/PageCanvas";
 import ComponentToolbox from "@/components/page-builder/ComponentToolbox";
@@ -79,6 +90,7 @@ const PageBuilder: React.FC = () => {
       position: { x: 20, y: 20 },
       size: { width: 200, height: elementType === 'container' ? 300 : 40 },
       children: [],
+      style: {},
       objectReference
     };
     
@@ -95,6 +107,28 @@ const PageBuilder: React.FC = () => {
     setSelectedElement(updatedElement);
   };
 
+  const handleDuplicateElement = (element: PageElement) => {
+    const duplicatedElement: PageElement = {
+      ...element,
+      id: `element-${Date.now()}`,
+      position: {
+        x: element.position.x + 20,
+        y: element.position.y + 20
+      }
+    };
+    
+    setPageElements([...pageElements, duplicatedElement]);
+    setSelectedElement(duplicatedElement);
+  };
+
+  const handleDeleteElement = (elementId: string) => {
+    const filteredElements = pageElements.filter(el => el.id !== elementId);
+    setPageElements(filteredElements);
+    if (selectedElement?.id === elementId) {
+      setSelectedElement(null);
+    }
+  };
+
   const handleSavePage = () => {
     // In a real app, this would save to your database
     console.log("Saving page:", { title: pageTitle, elements: pageElements });
@@ -103,6 +137,58 @@ const PageBuilder: React.FC = () => {
 
   const handleSelectElement = (element: PageElement | null) => {
     setSelectedElement(element);
+  };
+
+  const exportPageData = () => {
+    const pageData = {
+      pageTitle,
+      elements: pageElements,
+      createdAt: new Date().toISOString()
+    };
+    
+    const blob = new Blob([JSON.stringify(pageData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${pageTitle.toLowerCase().replace(/\s+/g, '-')}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success("Page exported successfully");
+  };
+  
+  const importPageData = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const importedData = JSON.parse(event.target?.result as string);
+        if (importedData.pageTitle && importedData.elements) {
+          setPageTitle(importedData.pageTitle);
+          setPageElements(importedData.elements);
+          toast.success("Page imported successfully");
+        } else {
+          toast.error("Invalid page data format");
+        }
+      } catch (error) {
+        toast.error("Failed to parse imported file");
+      }
+    };
+    reader.readAsText(file);
+    
+    // Clear the input value so the same file can be imported again if needed
+    e.target.value = '';
+  };
+  
+  const clearPage = () => {
+    if (window.confirm("Are you sure you want to clear all elements from this page?")) {
+      setPageElements([]);
+      setSelectedElement(null);
+      toast.info("Page cleared");
+    }
   };
 
   return (
@@ -123,6 +209,45 @@ const PageBuilder: React.FC = () => {
               <Eye className="mr-2 h-4 w-4" />
               {previewMode ? "Edit" : "Preview"}
             </Button>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <Settings className="mr-2 h-4 w-4" />
+                  Options
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={exportPageData}>
+                  <Download className="mr-2 h-4 w-4" />
+                  <span>Export Page</span>
+                </DropdownMenuItem>
+                
+                <DropdownMenuItem asChild>
+                  <label className="flex items-center cursor-pointer">
+                    <Upload className="mr-2 h-4 w-4" />
+                    <span>Import Page</span>
+                    <input 
+                      type="file" 
+                      accept=".json" 
+                      onChange={importPageData} 
+                      className="hidden" 
+                    />
+                  </label>
+                </DropdownMenuItem>
+                
+                <DropdownMenuSeparator />
+                
+                <DropdownMenuItem 
+                  onClick={clearPage}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  <span>Clear Page</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            
             <Button onClick={handleSavePage}>
               <Save className="mr-2 h-4 w-4" />
               Save Page
@@ -164,6 +289,8 @@ const PageBuilder: React.FC = () => {
                 selectedElement={selectedElement}
                 onSelectElement={handleSelectElement}
                 onUpdateElement={handleUpdateElement}
+                onDuplicateElement={handleDuplicateElement}
+                onDeleteElement={handleDeleteElement}
                 isPreviewMode={previewMode}
               />
             </div>
