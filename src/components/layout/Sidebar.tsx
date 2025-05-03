@@ -119,7 +119,6 @@ const Sidebar = ({ isSidebarOpen, closeSidebar }: SidebarProps) => {
     }
   ];
 
-  // For desktop view - direct rendering
   const SidebarContent = () => (
     <div className="h-full flex flex-col gap-4 p-4 bg-background border-r">
       <Link to="/dashboard" className="font-bold text-xl">
@@ -181,21 +180,17 @@ const Sidebar = ({ isSidebarOpen, closeSidebar }: SidebarProps) => {
     </div>
   );
 
-  // For mobile - use Sheet component from shadcn/ui
   return (
     <>
       {/* Desktop sidebar */}
-      <div className="hidden md:block h-full">
-        <SidebarContent />
+      <div className="hidden md:block md:w-64 md:flex-shrink-0">
+        <div className="h-full border-r">
+          <SidebarContent />
+        </div>
       </div>
 
       {/* Mobile sidebar */}
       <Sheet open={isSidebarOpen} onOpenChange={closeSidebar}>
-        <SheetTrigger asChild>
-          <Button variant="ghost" size="icon" className="md:hidden">
-            <Menu className="h-5 w-5" />
-          </Button>
-        </SheetTrigger>
         <SheetContent className="w-64 p-0" side="left">
           <SidebarContent />
         </SheetContent>
