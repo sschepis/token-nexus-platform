@@ -1,7 +1,8 @@
 
-import React, { ReactNode, useState } from "react";
+import React, { ReactNode, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppSelector } from "@/store/hooks";
+import { useStore } from "@/hooks/useStore";
 import Sidebar from "./Sidebar";
 import Navbar from "./Navbar";
 
@@ -11,15 +12,15 @@ interface AppLayoutProps {
 
 const AppLayout = ({ children }: AppLayoutProps) => {
   const { isAuthenticated } = useAppSelector((state) => state.auth);
+  const { isSidebarOpen, setSidebarOpen } = useStore().app;
   const navigate = useNavigate();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Sidebar handlers
-  const openSidebar = () => setIsSidebarOpen(true);
-  const closeSidebar = () => setIsSidebarOpen(false);
+  const openSidebar = () => setSidebarOpen(true);
+  const closeSidebar = () => setSidebarOpen(false);
 
   // Redirect to login if not authenticated
-  React.useEffect(() => {
+  useEffect(() => {
     if (!isAuthenticated) {
       navigate("/login");
     }

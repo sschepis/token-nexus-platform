@@ -1,12 +1,11 @@
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import { useThemeStore } from '@/store/themeStore';
 
 type Theme = "dark" | "light" | "system";
 
 export function useTheme() {
-  const [theme, setTheme] = useState<Theme>(
-    () => (localStorage.getItem("theme") as Theme) || "system"
-  );
+  const { theme, setTheme } = useThemeStore();
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -18,12 +17,10 @@ export function useTheme() {
         ? "dark"
         : "light";
       root.classList.add(systemTheme);
-      localStorage.setItem("theme", theme);
       return;
     }
     
     root.classList.add(theme);
-    localStorage.setItem("theme", theme);
   }, [theme]);
 
   return { theme, setTheme };
