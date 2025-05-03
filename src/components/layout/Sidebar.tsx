@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -33,6 +34,12 @@ const Sidebar = () => {
       icon: <LayoutDashboard size={20} />,
       path: "/dashboard",
       permission: "dashboard:read"
+    },
+    {
+      name: "Objects",
+      icon: <Database size={20} />,
+      path: "/objects",
+      permission: "objects:read"
     },
     {
       name: "Object Manager",

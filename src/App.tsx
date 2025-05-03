@@ -20,6 +20,7 @@ import NotFound from "./pages/NotFound";
 import ObjectManager from "./pages/ObjectManager";
 import PageBuilder from "./pages/PageBuilder";
 import ComponentLibrary from "./pages/ComponentLibrary";
+import Objects from "./pages/Objects";
 
 const queryClient = new QueryClient();
 
@@ -34,6 +35,7 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/" element={<Dashboard />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/objects" element={<Objects />} />
             <Route path="/tokens" element={<Tokens />} />
             <Route path="/tokens/create" element={<TokenCreate />} />
             <Route path="/users" element={<Users />} />
