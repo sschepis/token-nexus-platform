@@ -287,7 +287,10 @@ const Routes = () => {
           </TabsContent>
 
           <TabsContent value="detail" className="space-y-4">
-            <RouteDetail onBack={() => setActiveTab("all")} />
+            <RouteDetail 
+              route={selectedRoute} 
+              onClose={() => handleSelectRoute(null)}
+            />
           </TabsContent>
         </Tabs>
       </div>

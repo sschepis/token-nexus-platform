@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import AppLayout from "@/components/layout/AppLayout";
@@ -35,16 +36,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { DialogDescription } from "@radix-ui/react-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Code, Function as FunctionIcon, Trash2, Activity } from "lucide-react";
+import { Code, Trash2, Activity } from "lucide-react";
 import { FunctionLanguage, FunctionRuntime } from "@/types/cloud-functions";
 import { Textarea } from "@/components/ui/textarea";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  fetchCloudFunctions,
-  createCloudFunction,
-  selectFunction,
-  setLoading,
-} from "@/store/slices/cloudFunctionSlice";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { StyledCard } from "@/components/ui/styled-card";
@@ -382,7 +377,7 @@ const FunctionTable = ({ functions, handleToggleActive, handleViewFunction, hand
                       onClick={() => handleViewFunction(func.id)}
                       className="mr-2"
                     >
-                      <FunctionIcon className="h-4 w-4 mr-1" />
+                      <Code className="h-4 w-4 mr-1" />
                       View
                     </Button>
                     <Button

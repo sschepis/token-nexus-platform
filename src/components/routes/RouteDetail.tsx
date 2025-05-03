@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Route, HttpMethod, RouteHandler } from "@/types/routes";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Plus, Trash2, Code as FunctionIcon } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Code } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -87,7 +88,11 @@ const RouteDetail: React.FC<RouteDetailProps> = ({ route, onClose }) => {
       },
     };
 
-    dispatch(updateRoute(updatedRoute));
+    dispatch(updateRoute({
+      routeId: route.id,
+      updates: updatedRoute
+    }));
+    
     setIsEditing(false);
     toast.success("Route updated successfully!");
   };
@@ -233,12 +238,12 @@ const RouteDetail: React.FC<RouteDetailProps> = ({ route, onClose }) => {
         {isEditing ? (
           <div className="space-x-2">
             <Button onClick={() => setIsEditing(false)}>Cancel</Button>
-            <Button variant="primary" onClick={handleSave}>
+            <Button onClick={handleSave}>
               Save
             </Button>
           </div>
         ) : (
-          <Button variant="primary" onClick={() => setIsEditing(true)}>
+          <Button onClick={() => setIsEditing(true)}>
             Edit
           </Button>
         )}
