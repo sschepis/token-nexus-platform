@@ -19,7 +19,7 @@ const GrapesEditor: React.FC<GrapesEditorProps> = ({
   initialCss = ''
 }) => {
   const editorRef = useRef<HTMLDivElement>(null);
-  const [editor, setEditor] = useState<any>(null);
+  const [editor, setEditor] = useState<grapesjs.Editor | null>(null);
 
   useEffect(() => {
     if (!editorRef.current) return;
@@ -112,13 +112,13 @@ const GrapesEditor: React.FC<GrapesEditorProps> = ({
 
     // Set commands for responsive design
     grapesjsEditor.Commands.add('set-device-desktop', {
-      run: (editor: any) => editor.setDevice('desktop')
+      run: (editor) => editor.setDevice('desktop')
     });
     grapesjsEditor.Commands.add('set-device-tablet', {
-      run: (editor: any) => editor.setDevice('tablet')
+      run: (editor) => editor.setDevice('tablet')
     });
     grapesjsEditor.Commands.add('set-device-mobile', {
-      run: (editor: any) => editor.setDevice('mobile')
+      run: (editor) => editor.setDevice('mobile')
     });
 
     // Set initial content if provided

@@ -1,8 +1,40 @@
 
 declare module 'grapesjs' {
-  interface GrapesJSEditor {
-    setComponents(component: string | {}): any;
-    setStyle(style: string | {}): any;
+  export interface EditorConfig {
+    container: HTMLElement | string;
+    height?: string | number;
+    width?: string | number;
+    canvas?: {
+      styles?: string[];
+    };
+    fromElement?: boolean;
+    storageManager?: {
+      id?: string;
+      type?: string;
+      autosave?: boolean;
+      autoload?: boolean;
+      stepsBeforeSave?: number;
+    };
+    plugins?: any[];
+    pluginsOpts?: {
+      [key: string]: any;
+    };
+    deviceManager?: {
+      devices?: {
+        id: string;
+        name: string;
+        width: string;
+        widthMedia?: string;
+      }[];
+    };
+    panels?: {
+      defaults?: any[];
+    };
+  }
+
+  export interface Editor {
+    setComponents(component: string | object): void;
+    setStyle(style: string | object): void;
     getHtml(): string;
     getCss(): string;
     Commands: {
@@ -12,12 +44,7 @@ declare module 'grapesjs' {
     destroy(): void;
   }
 
-  interface GrapesJS {
-    init(config: any): GrapesJSEditor;
-  }
-
-  const grapesjs: GrapesJS;
-  export default grapesjs;
+  export function init(config: EditorConfig): Editor;
 }
 
 declare module 'grapesjs-preset-webpage' {
