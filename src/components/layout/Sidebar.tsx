@@ -1,4 +1,3 @@
-
 import React from "react";
 import { 
   Sheet, 
@@ -161,6 +160,11 @@ const Sidebar = ({ isSidebarOpen, closeSidebar }: SidebarProps) => {
       icon: <Database className="h-5 w-5" />
     },
     {
+      name: "Environment Variables",
+      path: "/dev/env",
+      icon: <Wrench className="h-5 w-5" />
+    },
+    {
       name: "Logs Viewer",
       path: "/dev/logs",
       icon: <FileText className="h-5 w-5" />
@@ -169,11 +173,6 @@ const Sidebar = ({ isSidebarOpen, closeSidebar }: SidebarProps) => {
       name: "Performance",
       path: "/dev/performance",
       icon: <Layers className="h-5 w-5" />
-    },
-    {
-      name: "Environment Variables",
-      path: "/dev/env",
-      icon: <Wrench className="h-5 w-5" />
     },
     {
       name: "Auth Tester",

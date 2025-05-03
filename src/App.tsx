@@ -32,6 +32,7 @@ import JSConsole from './pages/JSConsole';
 // Developer Tools
 import ApiTesting from './pages/dev/ApiTesting';
 import DatabaseExplorer from './pages/dev/DatabaseExplorer';
+import EnvManager from './pages/dev/EnvManager';
 
 // Create a client
 const queryClient = new QueryClient();
@@ -66,6 +67,7 @@ const AnimatedRoutes = () => {
         {/* Developer Tool Routes */}
         <Route path="/dev/api-testing" element={<ApiTesting />} />
         <Route path="/dev/database" element={<DatabaseExplorer />} />
+        <Route path="/dev/env" element={<EnvManager />} />
         
         <Route path="*" element={<NotFound />} />
       </RouterRoutes>
