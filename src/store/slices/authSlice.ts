@@ -19,11 +19,12 @@ export interface AuthState {
   error: string | null;
 }
 
+// Including objects:read in the initial permissions
 const initialState: AuthState = {
   user: null,
   token: null,
   orgId: null,
-  permissions: [],
+  permissions: ["dashboard:read", "objects:read", "tokens:read", "users:read", "integrations:read", "reports:read", "audit:read", "notifications:read", "settings:read"],
   isAuthenticated: false,
   isLoading: false,
   error: null,
