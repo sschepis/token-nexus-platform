@@ -1,10 +1,10 @@
 
 declare module 'grapesjs' {
-  namespace grapesjs {
-    function init(config: any): any;
+  const grapesjs: {
+    init(config: any): any;
   }
   
-  export = grapesjs;
+  export default grapesjs;
 }
 
 declare module 'grapesjs-preset-webpage' {
