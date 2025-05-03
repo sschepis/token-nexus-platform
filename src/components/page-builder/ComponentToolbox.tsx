@@ -17,19 +17,21 @@ import {
   Table,
   BarChart4,
   Database,
-  Plus
+  Plus,
+  GripVertical
 } from 'lucide-react';
+import { toast } from '@/components/ui/sonner';
 
 interface ComponentToolboxProps {
   customObjects: CustomObject[];
   isLoading: boolean;
-  onAddElement: (elementType: string, objectReference?: string) => void;
+  onDragStart: (elementType: string, objectReference?: string) => void;
 }
 
 const ComponentToolbox: React.FC<ComponentToolboxProps> = ({ 
   customObjects, 
   isLoading, 
-  onAddElement 
+  onDragStart
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -66,6 +68,14 @@ const ComponentToolbox: React.FC<ComponentToolboxProps> = ({
       comp.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+  const handleDragStart = (e: React.DragEvent, elementType: string, objectReference?: string) => {
+    e.dataTransfer.setData('elementType', elementType);
+    if (objectReference) {
+      e.dataTransfer.setData('objectReference', objectReference);
+    }
+    onDragStart(elementType, objectReference);
+  };
+
   return (
     <div className="h-full flex flex-col">
       <h3 className="font-medium text-lg mb-4">Components</h3>
@@ -89,15 +99,20 @@ const ComponentToolbox: React.FC<ComponentToolboxProps> = ({
           <ScrollArea className="h-[400px]">
             <div className="space-y-2">
               {filteredBasicComponents.map((component) => (
-                <Button
+                <div
                   key={component.type}
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={() => onAddElement(component.type)}
+                  className="w-full flex items-center border border-border rounded-md cursor-grab"
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, component.type)}
                 >
-                  <component.icon className="mr-2 h-4 w-4" />
-                  {component.name}
-                </Button>
+                  <div className="p-2 border-r border-border text-muted-foreground flex items-center">
+                    <GripVertical className="h-4 w-4" />
+                  </div>
+                  <div className="flex items-center p-2 flex-1">
+                    <component.icon className="mr-2 h-4 w-4" />
+                    <span className="flex-1">{component.name}</span>
+                  </div>
+                </div>
               ))}
             </div>
           </ScrollArea>
@@ -107,15 +122,20 @@ const ComponentToolbox: React.FC<ComponentToolboxProps> = ({
           <ScrollArea className="h-[400px]">
             <div className="space-y-2">
               {filteredDataComponents.map((component) => (
-                <Button
+                <div
                   key={component.type}
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={() => onAddElement(component.type)}
+                  className="w-full flex items-center border border-border rounded-md cursor-grab"
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, component.type)}
                 >
-                  <component.icon className="mr-2 h-4 w-4" />
-                  {component.name}
-                </Button>
+                  <div className="p-2 border-r border-border text-muted-foreground flex items-center">
+                    <GripVertical className="h-4 w-4" />
+                  </div>
+                  <div className="flex items-center p-2 flex-1">
+                    <component.icon className="mr-2 h-4 w-4" />
+                    <span className="flex-1">{component.name}</span>
+                  </div>
+                </div>
               ))}
             </div>
           </ScrollArea>
@@ -143,21 +163,22 @@ const ComponentToolbox: React.FC<ComponentToolboxProps> = ({
                         <h4 className="font-medium">{object.label}</h4>
                         <p className="text-xs text-muted-foreground">{object.apiName}</p>
                       </div>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => onAddElement('container', object.apiName)}
+                      <div 
+                        className="cursor-grab flex items-center gap-1 text-xs px-2 py-1 border rounded-md"
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, 'container', object.apiName)}
                       >
-                        <Plus className="h-3 w-3 mr-1" />
-                        Add
-                      </Button>
+                        <GripVertical className="h-3 w-3" />
+                        <span>Drag Container</span>
+                      </div>
                     </div>
                     <div className="space-y-1">
                       {object.fields.slice(0, 3).map((field) => (
                         <div 
                           key={field.id}
-                          className="text-xs flex items-center justify-between py-1 px-2 bg-muted rounded cursor-pointer hover:bg-muted/80"
-                          onClick={() => onAddElement('text', `${object.apiName}.${field.apiName}`)}
+                          className="text-xs flex items-center justify-between py-1 px-2 bg-muted rounded cursor-grab"
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, 'text', `${object.apiName}.${field.apiName}`)}
                         >
                           <span>{field.label}</span>
                           <span className="text-muted-foreground">{field.type}</span>

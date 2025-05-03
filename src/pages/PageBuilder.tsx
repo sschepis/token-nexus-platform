@@ -45,6 +45,8 @@ const PageBuilder: React.FC = () => {
   const [pageElements, setPageElements] = useState<PageElement[]>([]);
   const [previewMode, setPreviewMode] = useState<boolean>(false);
   const { currentOrg } = useAppSelector(state => state.org);
+  const [draggedElementType, setDraggedElementType] = useState<string | null>(null);
+  const [draggedObjectReference, setDraggedObjectReference] = useState<string | undefined>(undefined);
 
   // Get custom objects from database
   const { data: objects = [], isLoading } = useQuery({
@@ -82,12 +84,17 @@ const PageBuilder: React.FC = () => {
     }
   });
 
-  const handleAddElement = (elementType: string, objectReference?: string) => {
+  const handleDragStart = (elementType: string, objectReference?: string) => {
+    setDraggedElementType(elementType);
+    setDraggedObjectReference(objectReference);
+  };
+
+  const handleAddElement = (elementType: string, position: { x: number, y: number }, objectReference?: string) => {
     const newElement: PageElement = {
       id: `element-${Date.now()}`,
       type: elementType,
       props: { label: `New ${elementType}` },
-      position: { x: 20, y: 20 },
+      position,
       size: { width: 200, height: elementType === 'container' ? 300 : 40 },
       children: [],
       style: {},
@@ -198,7 +205,7 @@ const PageBuilder: React.FC = () => {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Visual Page Builder</h1>
             <p className="text-muted-foreground">
-              Create custom pages with data-bound components
+              Drag components onto the canvas to build your page
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -274,7 +281,7 @@ const PageBuilder: React.FC = () => {
               <ComponentToolbox 
                 customObjects={objects} 
                 isLoading={isLoading} 
-                onAddElement={handleAddElement}
+                onDragStart={handleDragStart}
               />
             </div>
           </ResizablePanel>
@@ -291,6 +298,7 @@ const PageBuilder: React.FC = () => {
                 onUpdateElement={handleUpdateElement}
                 onDuplicateElement={handleDuplicateElement}
                 onDeleteElement={handleDeleteElement}
+                onAddElement={handleAddElement}
                 isPreviewMode={previewMode}
               />
             </div>

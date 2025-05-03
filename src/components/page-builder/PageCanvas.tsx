@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { PageElement } from '@/types/page-builder';
 import { Card, CardContent } from '@/components/ui/card';
@@ -20,6 +19,7 @@ interface PageCanvasProps {
   isPreviewMode: boolean;
   onDuplicateElement?: (element: PageElement) => void;
   onDeleteElement?: (elementId: string) => void;
+  onAddElement: (elementType: string, position: { x: number, y: number }, objectReference?: string) => void;
 }
 
 const PageCanvas: React.FC<PageCanvasProps> = ({
@@ -29,10 +29,12 @@ const PageCanvas: React.FC<PageCanvasProps> = ({
   onUpdateElement,
   isPreviewMode,
   onDuplicateElement,
-  onDeleteElement
+  onDeleteElement,
+  onAddElement
 }) => {
   const [dragElement, setDragElement] = useState<PageElement | null>(null);
   const [startPos, setStartPos] = useState({ x: 0, y: 0 });
+  const [isDragOver, setIsDragOver] = useState(false);
 
   const handleMouseDown = (e: React.MouseEvent, element: PageElement) => {
     if (isPreviewMode || element.props.locked) return;
@@ -106,15 +108,53 @@ const PageCanvas: React.FC<PageCanvasProps> = ({
     toast.info('Send backward feature coming soon');
   };
 
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+  
+  const handleDragLeave = () => {
+    setIsDragOver(false);
+  };
+  
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    
+    const elementType = e.dataTransfer.getData('elementType');
+    const objectReference = e.dataTransfer.getData('objectReference') || undefined;
+    
+    if (elementType) {
+      // Get the canvas element's position to calculate relative drop position
+      const canvasRect = e.currentTarget.getBoundingClientRect();
+      const x = e.clientX - canvasRect.left;
+      const y = e.clientY - canvasRect.top;
+      
+      // Add the element at the drop position
+      onAddElement(elementType, { x, y }, objectReference);
+    }
+  };
+
   return (
     <div 
-      className="relative w-full h-full bg-gray-50 dark:bg-gray-900 overflow-auto p-4"
+      className={`relative w-full h-full overflow-auto p-4 ${isDragOver ? 'bg-secondary/20' : 'bg-gray-50 dark:bg-gray-900'}`}
       onClick={handleCanvasClick}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
     >
       <div className="relative min-h-full min-w-full">
+        {isDragOver && !isPreviewMode && (
+          <div className="absolute inset-0 border-2 border-dashed border-primary/50 flex items-center justify-center z-10 pointer-events-none">
+            <div className="bg-background p-2 rounded shadow">
+              Drop component here
+            </div>
+          </div>
+        )}
+        
         {elements.map((element) => (
           <ContextMenu key={element.id}>
             <ContextMenuTrigger>
