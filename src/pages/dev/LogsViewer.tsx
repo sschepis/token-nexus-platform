@@ -127,8 +127,8 @@ const LogsViewer: React.FC = () => {
   const getLevelColor = (level: LogLevel) => {
     switch (level) {
       case "error": return "bg-destructive text-destructive-foreground";
-      case "warn": return "bg-warning text-warning-foreground";
-      case "info": return "bg-info text-info-foreground";
+      case "warn": return "bg-yellow-500 text-yellow-50";
+      case "info": return "bg-blue-500 text-blue-50";
       case "debug": return "bg-muted text-muted-foreground";
       default: return "bg-primary text-primary-foreground";
     }
@@ -209,13 +209,13 @@ const LogsViewer: React.FC = () => {
           </TabsTrigger>
           <TabsTrigger value="warnings">
             Warnings
-            <Badge variant="warning" className="ml-2">
+            <Badge variant="secondary" className="ml-2 bg-yellow-500 text-yellow-50">
               {logs.filter(log => log.level === "warn").length}
             </Badge>
           </TabsTrigger>
           <TabsTrigger value="info">
             Info
-            <Badge variant="secondary" className="ml-2">
+            <Badge variant="secondary" className="ml-2 bg-blue-500 text-blue-50">
               {logs.filter(log => log.level === "info").length}
             </Badge>
           </TabsTrigger>
