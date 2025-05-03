@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import AppLayout from "@/components/layout/AppLayout";
 import { 
@@ -35,7 +34,7 @@ import { DialogDescription } from "@radix-ui/react-dialog";
 import { Label } from "@/components/ui/label";
 import { HttpMethod } from "@/types/routes";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { navigation } from "lucide-react";
+import { Navigation, Plus, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const Routes = () => {
@@ -147,10 +146,11 @@ const Routes = () => {
           <Dialog open={newRouteOpen} onOpenChange={setNewRouteOpen}>
             <DialogTrigger asChild>
               <Button>
-                <navigation className="h-4 w-4 mr-2" />
+                <Navigation className="h-4 w-4 mr-2" />
                 Add Route
               </Button>
             </DialogTrigger>
+            
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Add New Route</DialogTitle>

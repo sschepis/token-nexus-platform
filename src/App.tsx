@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes as RouterRoutes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Provider } from 'react-redux';
 import { store } from './store/store';
@@ -22,7 +22,7 @@ import AuditLogs from './pages/AuditLogs';
 import ObjectManager from './pages/ObjectManager';
 import PageBuilder from './pages/PageBuilder';
 import ComponentLibrary from './pages/ComponentLibrary';
-import Routes from './pages/Routes';
+import RouteManager from './pages/Routes';
 
 // Create a client
 const queryClient = new QueryClient();
@@ -32,7 +32,7 @@ function App() {
     <Provider store={store}>
       <QueryClientProvider client={queryClient}>
         <Router>
-          <Routes>
+          <RouterRoutes>
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
             <Route path="/dashboard" element={<Dashboard />} />
@@ -47,9 +47,9 @@ function App() {
             <Route path="/object-manager" element={<ObjectManager />} />
             <Route path="/page-builder" element={<PageBuilder />} />
             <Route path="/component-library" element={<ComponentLibrary />} />
-            <Route path="/routes" element={<Routes />} />
+            <Route path="/routes" element={<RouteManager />} />
             <Route path="*" element={<NotFound />} />
-          </Routes>
+          </RouterRoutes>
           <Toaster />
         </Router>
       </QueryClientProvider>

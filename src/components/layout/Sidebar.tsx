@@ -34,7 +34,7 @@ import {
   FileText,
   Clock,
   Key,
-  navigation
+  Navigation
 } from "lucide-react";
 
 interface SidebarProps {
@@ -80,7 +80,7 @@ const Sidebar = ({ isSidebarOpen, closeSidebar }: SidebarProps) => {
     {
       name: "Routes",
       path: "/routes",
-      icon: <navigation className="h-5 w-5" />
+      icon: <Navigation className="h-5 w-5" />
     },
     {
       name: "Object Manager",
