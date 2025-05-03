@@ -3,25 +3,17 @@ import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAppSelector } from "@/store/hooks";
 import AppLayout from "@/components/layout/AppLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { 
-  ResizablePanelGroup, 
-  ResizablePanel, 
-  ResizableHandle 
-} from "@/components/ui/resizable";
-import { 
-  LayoutPanelLeft, 
   Save, 
   Eye, 
-  Plus, 
   Settings,
-  Move,
-  Copy,
-  Trash2,
   Download,
-  Upload
+  Upload,
+  Trash2,
+  Layout
 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -33,20 +25,16 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { CustomObject } from "@/types/object-manager";
-import PageCanvas from "@/components/page-builder/PageCanvas";
+import GrapesEditor from "@/components/page-builder/GrapesEditor";
 import ComponentToolbox from "@/components/page-builder/ComponentToolbox";
-import PropertiesPanel from "@/components/page-builder/PropertiesPanel";
-import { PageElement } from "@/types/page-builder";
 
 const PageBuilder: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<string>("new-page");
   const [pageTitle, setPageTitle] = useState<string>("New Page");
-  const [selectedElement, setSelectedElement] = useState<PageElement | null>(null);
-  const [pageElements, setPageElements] = useState<PageElement[]>([]);
-  const [previewMode, setPreviewMode] = useState<boolean>(false);
+  const [editorMode, setEditorMode] = useState<"visual" | "classic">("classic");
+  const [pageHtml, setPageHtml] = useState<string>("");
+  const [pageCss, setPageCss] = useState<string>("");
   const { currentOrg } = useAppSelector(state => state.org);
-  const [draggedElementType, setDraggedElementType] = useState<string | null>(null);
-  const [draggedObjectReference, setDraggedObjectReference] = useState<string | undefined>(undefined);
 
   // Get custom objects from database
   const { data: objects = [], isLoading } = useQuery({
@@ -84,72 +72,23 @@ const PageBuilder: React.FC = () => {
     }
   });
 
-  const handleDragStart = (elementType: string, objectReference?: string) => {
-    setDraggedElementType(elementType);
-    setDraggedObjectReference(objectReference);
-  };
-
-  const handleAddElement = (elementType: string, position: { x: number, y: number }, objectReference?: string) => {
-    const newElement: PageElement = {
-      id: `element-${Date.now()}`,
-      type: elementType,
-      props: { label: `New ${elementType}` },
-      position,
-      size: { width: 200, height: elementType === 'container' ? 300 : 40 },
-      children: [],
-      style: {},
-      objectReference
-    };
-    
-    setPageElements([...pageElements, newElement]);
-    setSelectedElement(newElement);
-    toast.success(`Added ${elementType} to the page`);
-  };
-
-  const handleUpdateElement = (updatedElement: PageElement) => {
-    const updatedElements = pageElements.map(el => 
-      el.id === updatedElement.id ? updatedElement : el
-    );
-    setPageElements(updatedElements);
-    setSelectedElement(updatedElement);
-  };
-
-  const handleDuplicateElement = (element: PageElement) => {
-    const duplicatedElement: PageElement = {
-      ...element,
-      id: `element-${Date.now()}`,
-      position: {
-        x: element.position.x + 20,
-        y: element.position.y + 20
-      }
-    };
-    
-    setPageElements([...pageElements, duplicatedElement]);
-    setSelectedElement(duplicatedElement);
-  };
-
-  const handleDeleteElement = (elementId: string) => {
-    const filteredElements = pageElements.filter(el => el.id !== elementId);
-    setPageElements(filteredElements);
-    if (selectedElement?.id === elementId) {
-      setSelectedElement(null);
-    }
-  };
-
-  const handleSavePage = () => {
+  const handleSave = () => {
     // In a real app, this would save to your database
-    console.log("Saving page:", { title: pageTitle, elements: pageElements });
     toast.success("Page saved successfully");
   };
-
-  const handleSelectElement = (element: PageElement | null) => {
-    setSelectedElement(element);
+  
+  const handleEditorSave = (html: string, css: string) => {
+    setPageHtml(html);
+    setPageCss(css);
+    console.log('Saved HTML:', html);
+    console.log('Saved CSS:', css);
   };
-
+  
   const exportPageData = () => {
     const pageData = {
       pageTitle,
-      elements: pageElements,
+      html: pageHtml,
+      css: pageCss,
       createdAt: new Date().toISOString()
     };
     
@@ -173,9 +112,10 @@ const PageBuilder: React.FC = () => {
     reader.onload = (event) => {
       try {
         const importedData = JSON.parse(event.target?.result as string);
-        if (importedData.pageTitle && importedData.elements) {
+        if (importedData.pageTitle && importedData.html) {
           setPageTitle(importedData.pageTitle);
-          setPageElements(importedData.elements);
+          setPageHtml(importedData.html);
+          setPageCss(importedData.css || '');
           toast.success("Page imported successfully");
         } else {
           toast.error("Invalid page data format");
@@ -192,8 +132,8 @@ const PageBuilder: React.FC = () => {
   
   const clearPage = () => {
     if (window.confirm("Are you sure you want to clear all elements from this page?")) {
-      setPageElements([]);
-      setSelectedElement(null);
+      setPageHtml('');
+      setPageCss('');
       toast.info("Page cleared");
     }
   };
@@ -205,16 +145,24 @@ const PageBuilder: React.FC = () => {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Visual Page Builder</h1>
             <p className="text-muted-foreground">
-              Drag components onto the canvas to build your page
+              Create beautiful pages with our visual editor
             </p>
           </div>
           <div className="flex items-center gap-2">
             <Button 
-              variant="outline"
-              onClick={() => setPreviewMode(!previewMode)}
+              variant={editorMode === "visual" ? "default" : "outline"}
+              onClick={() => setEditorMode("visual")}
             >
               <Eye className="mr-2 h-4 w-4" />
-              {previewMode ? "Edit" : "Preview"}
+              Visual Editor
+            </Button>
+            
+            <Button 
+              variant={editorMode === "classic" ? "default" : "outline"}
+              onClick={() => setEditorMode("classic")}
+            >
+              <Layout className="mr-2 h-4 w-4" />
+              Classic Editor
             </Button>
             
             <DropdownMenu>
@@ -255,7 +203,7 @@ const PageBuilder: React.FC = () => {
               </DropdownMenuContent>
             </DropdownMenu>
             
-            <Button onClick={handleSavePage}>
+            <Button onClick={handleSave}>
               <Save className="mr-2 h-4 w-4" />
               Save Page
             </Button>
@@ -271,52 +219,65 @@ const PageBuilder: React.FC = () => {
           />
         </div>
 
-        <ResizablePanelGroup
-          direction="horizontal"
-          className="min-h-[600px] border rounded-lg"
-        >
-          {/* Component Toolbox Panel */}
-          <ResizablePanel defaultSize={20} minSize={15}>
-            <div className="h-full p-4 border-r">
-              <ComponentToolbox 
-                customObjects={objects} 
-                isLoading={isLoading} 
-                onDragStart={handleDragStart}
-              />
-            </div>
-          </ResizablePanel>
-          
-          <ResizableHandle withHandle />
-          
-          {/* Canvas Panel */}
-          <ResizablePanel defaultSize={60}>
-            <div className="h-full">
-              <PageCanvas 
-                elements={pageElements} 
-                selectedElement={selectedElement}
-                onSelectElement={handleSelectElement}
-                onUpdateElement={handleUpdateElement}
-                onDuplicateElement={handleDuplicateElement}
-                onDeleteElement={handleDeleteElement}
-                onAddElement={handleAddElement}
-                isPreviewMode={previewMode}
-              />
-            </div>
-          </ResizablePanel>
-          
-          <ResizableHandle withHandle />
-          
-          {/* Properties Panel */}
-          <ResizablePanel defaultSize={20} minSize={15}>
-            <div className="h-full p-4 border-l">
-              <PropertiesPanel 
-                element={selectedElement} 
-                onUpdateElement={handleUpdateElement}
-                customObjects={objects}
-              />
-            </div>
-          </ResizablePanel>
-        </ResizablePanelGroup>
+        <Card className="min-h-[600px]">
+          <div className="h-full">
+            {editorMode === "visual" ? (
+              <div className="h-[600px]">
+                <GrapesEditor 
+                  onSave={handleEditorSave} 
+                  initialHtml={pageHtml}
+                  initialCss={pageCss}
+                />
+              </div>
+            ) : (
+              <Tabs defaultValue="canvas" className="h-[600px]">
+                <div className="border-b">
+                  <TabsList className="w-full justify-start">
+                    <TabsTrigger value="canvas">Canvas</TabsTrigger>
+                    <TabsTrigger value="components">Components</TabsTrigger>
+                    <TabsTrigger value="objects">Objects</TabsTrigger>
+                  </TabsList>
+                </div>
+                
+                <TabsContent value="canvas" className="h-full mt-0 border-none p-4">
+                  <div className="text-center text-muted-foreground h-full flex flex-col items-center justify-center">
+                    <div className="max-w-md">
+                      <h3 className="text-lg font-medium mb-2">Classic Editor</h3>
+                      <p className="mb-4">
+                        Use our traditional drag and drop interface to build your page.
+                        Switch to the Visual Editor for a more advanced experience.
+                      </p>
+                      <Button onClick={() => setEditorMode("visual")}>
+                        <Eye className="mr-2 h-4 w-4" />
+                        Switch to Visual Editor
+                      </Button>
+                    </div>
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="components" className="h-full mt-0 border-none p-4">
+                  <ComponentToolbox 
+                    customObjects={[]} 
+                    isLoading={false} 
+                    onDragStart={() => {}}
+                  />
+                </TabsContent>
+                
+                <TabsContent value="objects" className="h-full mt-0 border-none p-4">
+                  <div className="text-center text-muted-foreground h-full flex flex-col items-center justify-center">
+                    <div className="max-w-md">
+                      <h3 className="text-lg font-medium mb-2">Custom Objects</h3>
+                      <p>
+                        Manage your custom objects and their fields to use them in your pages.
+                        Go to the Object Manager section to create and edit objects.
+                      </p>
+                    </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
+            )}
+          </div>
+        </Card>
       </div>
     </AppLayout>
   );
