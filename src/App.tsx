@@ -23,6 +23,7 @@ import ObjectManager from './pages/ObjectManager';
 import PageBuilder from './pages/PageBuilder';
 import ComponentLibrary from './pages/ComponentLibrary';
 import RouteManager from './pages/Routes';
+import CloudFunctions from './pages/CloudFunctions';
 import AppMarketplace from './pages/AppMarketplace';
 
 // Create a client
@@ -49,6 +50,7 @@ function App() {
             <Route path="/page-builder" element={<PageBuilder />} />
             <Route path="/component-library" element={<ComponentLibrary />} />
             <Route path="/routes" element={<RouteManager />} />
+            <Route path="/functions" element={<CloudFunctions />} />
             <Route path="/marketplace" element={<AppMarketplace />} />
             <Route path="*" element={<NotFound />} />
           </RouterRoutes>

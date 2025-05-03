@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Function as FunctionIcon } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -53,6 +53,7 @@ import {
 } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { bindFunctionToRoute } from "@/store/slices/cloudFunctionSlice";
 
 interface RouteDetailProps {
   onBack: () => void;
@@ -62,6 +63,7 @@ const RouteDetail = ({ onBack }: RouteDetailProps) => {
   const dispatch = useAppDispatch();
   const { toast } = useToast();
   const { routes, selectedRouteId } = useAppSelector((state) => state.route);
+  const { functions } = useAppSelector((state) => state.cloudFunction);
   const route = routes.find((r) => r.id === selectedRouteId);
   const [newMethodDialogOpen, setNewMethodDialogOpen] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState<HttpMethod | null>(null);
@@ -69,6 +71,7 @@ const RouteDetail = ({ onBack }: RouteDetailProps) => {
   const [newType, setNewType] = useState<"page" | "function" | "redirect">("page");
   const [newTarget, setNewTarget] = useState("");
   const [newDescription, setNewDescription] = useState("");
+  const [selectedFunctionId, setSelectedFunctionId] = useState<string>("");
 
   const form = useForm({
     defaultValues: {
@@ -110,6 +113,20 @@ const RouteDetail = ({ onBack }: RouteDetailProps) => {
       return;
     }
 
+    let functionId = undefined;
+
+    if (newType === "function" && selectedFunctionId) {
+      functionId = selectedFunctionId;
+      
+      // Bind the function to this route
+      dispatch(
+        bindFunctionToRoute({
+          functionId: selectedFunctionId,
+          routeId: route.id
+        })
+      );
+    }
+
     dispatch(
       updateRouteMethod({
         routeId: route.id,
@@ -118,6 +135,7 @@ const RouteDetail = ({ onBack }: RouteDetailProps) => {
           type: newType,
           target: newTarget,
           description: newDescription,
+          functionId
         },
       })
     );
@@ -132,6 +150,7 @@ const RouteDetail = ({ onBack }: RouteDetailProps) => {
     setNewType("page");
     setNewTarget("");
     setNewDescription("");
+    setSelectedFunctionId("");
   };
 
   const handleDeleteMethod = (method: HttpMethod) => {
@@ -164,6 +183,16 @@ const RouteDetail = ({ onBack }: RouteDetailProps) => {
   };
 
   const handleUpdateMethod = (method: HttpMethod, updates: Partial<RouteHandler>) => {
+    // If changing to function type and setting a function ID, bind the function to this route
+    if (updates.type === "function" && updates.functionId) {
+      dispatch(
+        bindFunctionToRoute({
+          functionId: updates.functionId,
+          routeId: route.id
+        })
+      );
+    }
+
     dispatch(
       updateRouteMethod({
         routeId: route.id,
@@ -336,27 +365,55 @@ const RouteDetail = ({ onBack }: RouteDetailProps) => {
                     </Select>
                   </div>
 
-                  <div className="grid gap-2">
-                    <Label>Target</Label>
-                    <Input
-                      placeholder={
-                        newType === "page"
-                          ? "Dashboard"
-                          : newType === "function"
-                          ? "handleRequest"
-                          : "/redirect-path"
-                      }
-                      value={newTarget}
-                      onChange={(e) => setNewTarget(e.target.value)}
-                    />
-                    <p className="text-sm text-muted-foreground">
-                      {newType === "page"
-                        ? "Component name"
-                        : newType === "function"
-                        ? "Function name"
-                        : "Redirect URL"}
-                    </p>
-                  </div>
+                  {newType === "function" ? (
+                    <div className="grid gap-2">
+                      <Label>Cloud Function</Label>
+                      <Select 
+                        value={selectedFunctionId}
+                        onValueChange={(value) => {
+                          setSelectedFunctionId(value);
+                          const func = functions.find(f => f.id === value);
+                          if (func) {
+                            setNewTarget(func.name);
+                            setNewDescription(func.description || "");
+                          }
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select cloud function" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {functions.map((func) => (
+                            <SelectItem key={func.id} value={func.id}>
+                              {func.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ) : (
+                    <div className="grid gap-2">
+                      <Label>Target</Label>
+                      <Input
+                        placeholder={
+                          newType === "page"
+                            ? "Dashboard"
+                            : newType === "redirect"
+                            ? "/redirect-path"
+                            : "handleRequest"
+                        }
+                        value={newTarget}
+                        onChange={(e) => setNewTarget(e.target.value)}
+                      />
+                      <p className="text-sm text-muted-foreground">
+                        {newType === "page"
+                          ? "Component name"
+                          : newType === "redirect"
+                          ? "Redirect URL"
+                          : "Function name"}
+                      </p>
+                    </div>
+                  )}
 
                   <div className="grid gap-2">
                     <Label>Description</Label>
@@ -384,6 +441,13 @@ const RouteDetail = ({ onBack }: RouteDetailProps) => {
                         {method}
                       </Badge>
                       <span className="text-sm font-medium capitalize">{handler.type}</span>
+                      
+                      {handler.type === "function" && (
+                        <Badge variant="secondary" className="ml-2">
+                          <FunctionIcon className="h-3 w-3 mr-1" />
+                          Cloud Function
+                        </Badge>
+                      )}
                     </div>
                   </AccordionTrigger>
                   <AccordionContent className="px-4 pb-4">
@@ -409,17 +473,45 @@ const RouteDetail = ({ onBack }: RouteDetailProps) => {
                         </Select>
                       </div>
 
-                      <div className="grid gap-2">
-                        <Label>Target</Label>
-                        <Input
-                          value={handler.target}
-                          onChange={(e) =>
-                            handleUpdateMethod(method as HttpMethod, {
-                              target: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
+                      {handler.type === "function" ? (
+                        <div className="grid gap-2">
+                          <Label>Cloud Function</Label>
+                          <Select 
+                            value={handler.functionId || ""}
+                            onValueChange={(value) => {
+                              const func = functions.find(f => f.id === value);
+                              handleUpdateMethod(method as HttpMethod, {
+                                functionId: value,
+                                target: func ? func.name : handler.target,
+                                description: func ? (func.description || "") : handler.description
+                              });
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select cloud function" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {functions.map((func) => (
+                                <SelectItem key={func.id} value={func.id}>
+                                  {func.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      ) : (
+                        <div className="grid gap-2">
+                          <Label>Target</Label>
+                          <Input
+                            value={handler.target}
+                            onChange={(e) =>
+                              handleUpdateMethod(method as HttpMethod, {
+                                target: e.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                      )}
 
                       <div className="grid gap-2">
                         <Label>Description</Label>

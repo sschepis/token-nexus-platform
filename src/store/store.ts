@@ -8,6 +8,7 @@ import auditReducer from './slices/auditSlice';
 import notificationReducer from './slices/notificationSlice';
 import routeReducer from './slices/routeSlice';
 import appReducer from './slices/appSlice';
+import cloudFunctionReducer from './slices/cloudFunctionSlice';
 
 const rootReducer = combineReducers({
   auth: authReducer,
@@ -18,6 +19,7 @@ const rootReducer = combineReducers({
   notification: notificationReducer,
   route: routeReducer,
   app: appReducer,
+  cloudFunction: cloudFunctionReducer,
 });
 
 export const store = configureStore({
