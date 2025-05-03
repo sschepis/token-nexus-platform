@@ -22,6 +22,7 @@ import AuditLogs from './pages/AuditLogs';
 import ObjectManager from './pages/ObjectManager';
 import PageBuilder from './pages/PageBuilder';
 import ComponentLibrary from './pages/ComponentLibrary';
+import Routes from './pages/Routes';
 
 // Create a client
 const queryClient = new QueryClient();
@@ -46,6 +47,7 @@ function App() {
             <Route path="/object-manager" element={<ObjectManager />} />
             <Route path="/page-builder" element={<PageBuilder />} />
             <Route path="/component-library" element={<ComponentLibrary />} />
+            <Route path="/routes" element={<Routes />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <Toaster />

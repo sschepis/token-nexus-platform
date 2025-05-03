@@ -1,4 +1,3 @@
-
 import React from "react";
 import { 
   Sheet, 
@@ -34,7 +33,8 @@ import {
   Bell,
   FileText,
   Clock,
-  Key
+  Key,
+  navigation
 } from "lucide-react";
 
 interface SidebarProps {
@@ -76,6 +76,11 @@ const Sidebar = ({ isSidebarOpen, closeSidebar }: SidebarProps) => {
       name: "Users",
       path: "/users",
       icon: <User className="h-5 w-5" />
+    },
+    {
+      name: "Routes",
+      path: "/routes",
+      icon: <navigation className="h-5 w-5" />
     },
     {
       name: "Object Manager",
