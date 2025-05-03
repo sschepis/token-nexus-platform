@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import AppLayout from "@/components/layout/AppLayout";
 import { 
@@ -32,7 +33,7 @@ import RouteDetail from "@/components/routes/RouteDetail";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DialogDescription } from "@radix-ui/react-dialog";
 import { Label } from "@/components/ui/label";
-import { HttpMethod } from "@/types/routes";
+import { HttpMethod, Route } from "@/types/routes";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Navigation, Plus, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -41,7 +42,7 @@ const Routes = () => {
   const { toast } = useToast();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { routes } = useAppSelector((state) => state.route);
+  const { routes, selectedRouteId } = useAppSelector((state) => state.route);
   const [activeTab, setActiveTab] = useState("all");
   const [newRouteOpen, setNewRouteOpen] = useState(false);
   const [newPath, setNewPath] = useState("");
@@ -49,6 +50,11 @@ const Routes = () => {
   const [newTarget, setNewTarget] = useState("");
   const [newType, setNewType] = useState<"page" | "function" | "redirect">("page");
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Get the selected route from the state
+  const selectedRoute = selectedRouteId 
+    ? routes.find(route => route.id === selectedRouteId) 
+    : null;
 
   // Filter routes based on active tab and search term
   const filteredRoutes = routes.filter((route) => {
@@ -120,6 +126,13 @@ const Routes = () => {
   const handleViewRoute = (routeId: string) => {
     dispatch(setSelectedRoute(routeId));
     setActiveTab("detail");
+  };
+
+  const handleSelectRoute = (routeId: string | null) => {
+    dispatch(setSelectedRoute(routeId));
+    if (routeId === null) {
+      setActiveTab("all");
+    }
   };
 
   const handleDeleteRoute = (routeId: string, path: string) => {
@@ -287,10 +300,12 @@ const Routes = () => {
           </TabsContent>
 
           <TabsContent value="detail" className="space-y-4">
-            <RouteDetail 
-              route={selectedRoute} 
-              onClose={() => handleSelectRoute(null)}
-            />
+            {selectedRoute && (
+              <RouteDetail 
+                route={selectedRoute} 
+                onClose={() => handleSelectRoute(null)}
+              />
+            )}
           </TabsContent>
         </Tabs>
       </div>
@@ -299,7 +314,7 @@ const Routes = () => {
 };
 
 interface RouteTableProps {
-  routes: any[];
+  routes: Route[];
   handleToggleActive: (id: string, active: boolean) => void;
   handleViewRoute: (id: string) => void;
   handleDeleteRoute: (id: string, path: string) => void;
