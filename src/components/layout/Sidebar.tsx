@@ -39,7 +39,11 @@ import {
   Store,
   Terminal,
   Code,
-  Console
+  Search,
+  Bug,
+  FileJson,
+  Layers,
+  Wrench
 } from "lucide-react";
 
 interface SidebarProps {
@@ -48,7 +52,7 @@ interface SidebarProps {
 }
 
 const Sidebar = ({ isSidebarOpen, closeSidebar }: SidebarProps) => {
-  const { user } = useAppSelector(state => state.auth);
+  const { user, developerMode } = useAppSelector(state => state.auth);
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
@@ -108,16 +112,6 @@ const Sidebar = ({ isSidebarOpen, closeSidebar }: SidebarProps) => {
       icon: <FileText className="h-5 w-5" />
     },
     {
-      name: "GraphQL Console",
-      path: "/graphql-console",
-      icon: <Code className="h-5 w-5" />
-    },
-    {
-      name: "JS Console",
-      path: "/js-console",
-      icon: <Terminal className="h-5 w-5" />
-    },
-    {
       name: "Integrations",
       path: "/integrations",
       icon: <LayoutDashboard className="h-5 w-5" />
@@ -141,6 +135,65 @@ const Sidebar = ({ isSidebarOpen, closeSidebar }: SidebarProps) => {
       name: "Tokens",
       path: "/tokens",
       icon: <Key className="h-5 w-5" />
+    }
+  ];
+
+  // Developer tools menu items
+  const devItems = [
+    {
+      name: "GraphQL Explorer",
+      path: "/graphql-console",
+      icon: <Code className="h-5 w-5" />
+    },
+    {
+      name: "JS Console",
+      path: "/js-console",
+      icon: <Terminal className="h-5 w-5" />
+    },
+    {
+      name: "API Testing",
+      path: "/dev/api-testing",
+      icon: <FileJson className="h-5 w-5" />
+    },
+    {
+      name: "Database Explorer",
+      path: "/dev/database",
+      icon: <Database className="h-5 w-5" />
+    },
+    {
+      name: "Logs Viewer",
+      path: "/dev/logs",
+      icon: <FileText className="h-5 w-5" />
+    },
+    {
+      name: "Performance",
+      path: "/dev/performance",
+      icon: <Layers className="h-5 w-5" />
+    },
+    {
+      name: "Environment Variables",
+      path: "/dev/env",
+      icon: <Wrench className="h-5 w-5" />
+    },
+    {
+      name: "Auth Tester",
+      path: "/dev/auth-testing",
+      icon: <Key className="h-5 w-5" />
+    },
+    {
+      name: "Storage Explorer",
+      path: "/dev/storage",
+      icon: <Database className="h-5 w-5" />
+    },
+    {
+      name: "Network Inspector",
+      path: "/dev/network",
+      icon: <Search className="h-5 w-5" />
+    },
+    {
+      name: "Debug Settings",
+      path: "/dev/settings",
+      icon: <Bug className="h-5 w-5" />
     }
   ];
 
@@ -197,6 +250,30 @@ const Sidebar = ({ isSidebarOpen, closeSidebar }: SidebarProps) => {
             </li>
           ))}
         </ul>
+        
+        {/* Developer section - only visible when developer mode is enabled */}
+        {developerMode && (
+          <>
+            <div className="mt-6 mb-2">
+              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                DEVELOPER TOOLS
+              </div>
+            </div>
+            <ul className="space-y-1">
+              {devItems.map((item) => (
+                <li key={item.name}>
+                  <Link
+                    to={item.path}
+                    className="flex items-center space-x-2 rounded-md p-2 hover:bg-secondary"
+                  >
+                    {item.icon}
+                    <span>{item.name}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
       </div>
 
       <div className="pb-3 pt-4">

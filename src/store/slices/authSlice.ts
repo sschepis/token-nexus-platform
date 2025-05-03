@@ -17,6 +17,7 @@ export interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
+  developerMode: boolean;
 }
 
 // Including objects:read in the initial permissions
@@ -28,6 +29,7 @@ const initialState: AuthState = {
   isAuthenticated: false,
   isLoading: false,
   error: null,
+  developerMode: false,
 };
 
 export const authSlice = createSlice({
@@ -57,16 +59,28 @@ export const authSlice = createSlice({
       state.token = null;
       state.orgId = null;
       state.permissions = [];
+      state.developerMode = false;
     },
     updatePermissions: (state, action: PayloadAction<string[]>) => {
       state.permissions = action.payload;
     },
     switchOrg: (state, action: PayloadAction<string>) => {
       state.orgId = action.payload;
+    },
+    toggleDeveloperMode: (state, action: PayloadAction<boolean>) => {
+      state.developerMode = action.payload;
     }
   },
 });
 
-export const { loginStart, loginSuccess, loginFailed, logout, updatePermissions, switchOrg } = authSlice.actions;
+export const { 
+  loginStart, 
+  loginSuccess, 
+  loginFailed, 
+  logout, 
+  updatePermissions, 
+  switchOrg,
+  toggleDeveloperMode 
+} = authSlice.actions;
 
 export default authSlice.reducer;

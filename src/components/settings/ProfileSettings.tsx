@@ -23,6 +23,9 @@ import {
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { toast } from "@/hooks/use-toast";
 import { User } from "@/store/slices/authSlice";
+import { Switch } from "@/components/ui/switch";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { toggleDeveloperMode } from "@/store/slices/authSlice";
 
 interface ProfileSettingsProps {
   user: User;
@@ -30,6 +33,8 @@ interface ProfileSettingsProps {
 
 const ProfileSettings = ({ user }: ProfileSettingsProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const dispatch = useAppDispatch();
+  const { developerMode } = useAppSelector(state => state.auth);
   
   const form = useForm({
     defaultValues: {
@@ -60,6 +65,17 @@ const ProfileSettings = ({ user }: ProfileSettingsProps) => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleToggleDeveloperMode = (checked: boolean) => {
+    dispatch(toggleDeveloperMode(checked));
+    
+    toast({
+      title: `Developer Mode ${checked ? "Enabled" : "Disabled"}`,
+      description: checked 
+        ? "Developer features are now available in the sidebar." 
+        : "Developer features are now hidden.",
+    });
   };
 
   const userInitials = `${user.firstName?.[0] || ""}${user.lastName?.[0] || ""}`;
@@ -133,6 +149,18 @@ const ProfileSettings = ({ user }: ProfileSettingsProps) => {
                 </FormItem>
               )}
             />
+            
+            <div className="flex items-center space-x-2">
+              <Switch 
+                id="developer-mode" 
+                checked={developerMode} 
+                onCheckedChange={handleToggleDeveloperMode}
+              />
+              <Label htmlFor="developer-mode">Developer Mode</Label>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Enable developer mode to access additional tools and features designed for platform development.
+            </p>
           </CardContent>
           <CardFooter className="flex justify-end border-t pt-4">
             <Button type="submit" disabled={isSubmitting}>

@@ -29,6 +29,10 @@ import AppMarketplace from './pages/AppMarketplace';
 import GraphQLConsole from './pages/GraphQLConsole';
 import JSConsole from './pages/JSConsole';
 
+// Developer Tools
+import ApiTesting from './pages/dev/ApiTesting';
+import DatabaseExplorer from './pages/dev/DatabaseExplorer';
+
 // Create a client
 const queryClient = new QueryClient();
 
@@ -58,6 +62,11 @@ const AnimatedRoutes = () => {
         <Route path="/marketplace" element={<AppMarketplace />} />
         <Route path="/graphql-console" element={<GraphQLConsole />} />
         <Route path="/js-console" element={<JSConsole />} />
+        
+        {/* Developer Tool Routes */}
+        <Route path="/dev/api-testing" element={<ApiTesting />} />
+        <Route path="/dev/database" element={<DatabaseExplorer />} />
+        
         <Route path="*" element={<NotFound />} />
       </RouterRoutes>
     </AnimatePresence>
