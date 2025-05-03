@@ -1,9 +1,18 @@
-
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { devtools } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
 import { PageElement, Page, PageElementProps } from '@/types/page-builder';
+
+// Add a new interface for uploaded media files
+export interface UploadedMedia {
+  id: string;
+  name: string;
+  url: string;
+  type: string;
+  size: number;
+  createdAt: string;
+}
 
 interface PageBuilderState {
   pages: Page[];
@@ -11,6 +20,7 @@ interface PageBuilderState {
   selectedElementId: string | null;
   isDragging: boolean;
   clipboard: PageElement | null;
+  uploadedMedia: UploadedMedia[]; // Add this to store uploaded files
   history: {
     past: Page[][];
     future: Page[][];
@@ -41,6 +51,11 @@ interface PageBuilderActions {
   cutElement: (elementId: string) => void;
   pasteElement: () => void;
   
+  // Media actions
+  addMedia: (file: File) => Promise<UploadedMedia>;
+  deleteMedia: (mediaId: string) => void;
+  getMedia: (mediaId: string) => UploadedMedia | undefined;
+  
   // History operations
   undo: () => void;
   redo: () => void;
@@ -53,6 +68,7 @@ const initialState: PageBuilderState = {
   selectedElementId: null,
   isDragging: false,
   clipboard: null,
+  uploadedMedia: [],
   history: {
     past: [],
     future: [],
@@ -397,6 +413,59 @@ export const usePageBuilderStore = create<PageBuilderState & PageBuilderActions>
             state.history.future = [];
           }
         });
+      },
+      
+      // Media actions
+      addMedia: async (file: File) => {
+        // In a real app, this would upload to a server
+        // For now, we'll create a data URL and simulate storage
+        return new Promise<UploadedMedia>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const media: UploadedMedia = {
+              id: uuidv4(),
+              name: file.name,
+              url: reader.result as string,
+              type: file.type,
+              size: file.size,
+              createdAt: new Date().toISOString(),
+            };
+            
+            set((state) => {
+              state.uploadedMedia.push(media);
+            });
+            
+            resolve(media);
+          };
+          reader.readAsDataURL(file);
+        });
+      },
+      
+      deleteMedia: (mediaId: string) => {
+        set((state) => {
+          state.uploadedMedia = state.uploadedMedia.filter((media) => media.id !== mediaId);
+          
+          // Also remove references to this media from all elements
+          state.pages.forEach((page) => {
+            const removeMediaReferences = (elements: PageElement[]) => {
+              elements.forEach((element) => {
+                if (element.props.mediaId === mediaId) {
+                  delete element.props.mediaId;
+                  delete element.props.mediaUrl;
+                }
+                if (element.children?.length) {
+                  removeMediaReferences(element.children);
+                }
+              });
+            };
+            
+            removeMediaReferences(page.elements);
+          });
+        });
+      },
+      
+      getMedia: (mediaId: string) => {
+        return get().uploadedMedia.find((media) => media.id === mediaId);
       },
       
       // History operations
