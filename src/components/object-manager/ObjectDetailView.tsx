@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { PlusCircle, Edit, Trash2 } from "lucide-react";
+import { PlusCircle, Edit, Trash2, Database, Settings } from "lucide-react";
 import FieldModal from "@/components/object-manager/FieldModal";
 import { toast } from "@/components/ui/sonner";
 import ObjectTriggerEditor from "@/components/object-manager/ObjectTriggerEditor";
@@ -26,6 +26,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import ObjectSettings from "@/components/object-manager/ObjectSettings";
 
 interface ObjectDetailViewProps {
   object: CustomObject;
@@ -99,8 +100,18 @@ const ObjectDetailView: React.FC<ObjectDetailViewProps> = ({
       
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList>
-          <TabsTrigger value="fields">Fields</TabsTrigger>
-          <TabsTrigger value="triggers">Triggers</TabsTrigger>
+          <TabsTrigger value="fields" className="flex gap-2 items-center">
+            <Database className="h-4 w-4" />
+            Fields
+          </TabsTrigger>
+          <TabsTrigger value="triggers" className="flex gap-2 items-center">
+            <Edit className="h-4 w-4" />
+            Triggers
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="flex gap-2 items-center">
+            <Settings className="h-4 w-4" />
+            Settings
+          </TabsTrigger>
         </TabsList>
         
         <TabsContent value="fields">
@@ -170,6 +181,10 @@ const ObjectDetailView: React.FC<ObjectDetailViewProps> = ({
         
         <TabsContent value="triggers">
           <ObjectTriggerEditor objectApiName={object.apiName} />
+        </TabsContent>
+        
+        <TabsContent value="settings">
+          <ObjectSettings object={object} onUpdate={onUpdate} />
         </TabsContent>
       </Tabs>
       
