@@ -26,6 +26,8 @@ import ComponentLibrary from './pages/ComponentLibrary';
 import RouteManager from './pages/Routes';
 import CloudFunctions from './pages/CloudFunctions';
 import AppMarketplace from './pages/AppMarketplace';
+import GraphQLConsole from './pages/GraphQLConsole';
+import JSConsole from './pages/JSConsole';
 
 // Create a client
 const queryClient = new QueryClient();
@@ -54,6 +56,8 @@ const AnimatedRoutes = () => {
         <Route path="/routes" element={<RouteManager />} />
         <Route path="/functions" element={<CloudFunctions />} />
         <Route path="/marketplace" element={<AppMarketplace />} />
+        <Route path="/graphql-console" element={<GraphQLConsole />} />
+        <Route path="/js-console" element={<JSConsole />} />
         <Route path="*" element={<NotFound />} />
       </RouterRoutes>
     </AnimatePresence>

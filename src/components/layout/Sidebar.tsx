@@ -36,7 +36,10 @@ import {
   Clock,
   Key,
   Navigation,
-  Store
+  Store,
+  Terminal,
+  Code,
+  Console
 } from "lucide-react";
 
 interface SidebarProps {
@@ -103,6 +106,16 @@ const Sidebar = ({ isSidebarOpen, closeSidebar }: SidebarProps) => {
       name: "Reports",
       path: "/reports",
       icon: <FileText className="h-5 w-5" />
+    },
+    {
+      name: "GraphQL Console",
+      path: "/graphql-console",
+      icon: <Code className="h-5 w-5" />
+    },
+    {
+      name: "JS Console",
+      path: "/js-console",
+      icon: <Terminal className="h-5 w-5" />
     },
     {
       name: "Integrations",
