@@ -1,8 +1,9 @@
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { Route, HttpMethod, RouteHandler } from "@/types/routes";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Plus, Trash2, Function as FunctionIcon } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Code as FunctionIcon } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -12,551 +13,240 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-import { useForm } from "react-hook-form";
-import { useToast } from "@/hooks/use-toast";
-import {
-  updateRoute,
-  deleteRouteMethod,
-  updateRouteMethod,
-} from "@/store/slices/routeSlice";
-import { HttpMethod, RouteHandler } from "@/types/routes";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { DialogDescription } from "@radix-ui/react-dialog";
-import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
-import { bindFunctionToRoute } from "@/store/slices/cloudFunctionSlice";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "sonner";
+import { updateRoute, deleteRoute } from "@/store/slices/routeSlice";
+import { CloudFunction } from "@/types/cloud-functions";
 
 interface RouteDetailProps {
-  onBack: () => void;
+  route: Route;
+  onClose: () => void;
 }
 
-const RouteDetail = ({ onBack }: RouteDetailProps) => {
+const RouteDetail: React.FC<RouteDetailProps> = ({ route, onClose }) => {
   const dispatch = useAppDispatch();
-  const { toast } = useToast();
-  const { routes, selectedRouteId } = useAppSelector((state) => state.route);
-  const { functions } = useAppSelector((state) => state.cloudFunction);
-  const route = routes.find((r) => r.id === selectedRouteId);
-  const [newMethodDialogOpen, setNewMethodDialogOpen] = useState(false);
-  const [selectedMethod, setSelectedMethod] = useState<HttpMethod | null>(null);
-  const [newMethod, setNewMethod] = useState<HttpMethod>("GET");
-  const [newType, setNewType] = useState<"page" | "function" | "redirect">("page");
-  const [newTarget, setNewTarget] = useState("");
-  const [newDescription, setNewDescription] = useState("");
-  const [selectedFunctionId, setSelectedFunctionId] = useState<string>("");
+  const cloudFunctions = useAppSelector(
+    (state) => state.cloudFunction.functions
+  );
+  const [isEditing, setIsEditing] = useState(false);
+  const [path, setPath] = useState(route.path);
+  const [active, setActive] = useState(route.active);
+  const [isProtected, setIsProtected] = useState(route.protected);
+  const [selectedMethod, setSelectedMethod] = useState<HttpMethod>("GET");
+  const [selectedHandlerType, setSelectedHandlerType] = useState<
+    "page" | "function" | "redirect"
+  >("page");
+  const [target, setTarget] = useState("");
+  const [description, setDescription] = useState("");
+  const [functionId, setFunctionId] = useState<string | undefined>(undefined);
 
-  const form = useForm({
-    defaultValues: {
-      path: route?.path || "",
-      active: route?.active || true,
-      protected: route?.protected || true,
-    },
-  });
+  useEffect(() => {
+    setPath(route.path);
+    setActive(route.active);
+    setIsProtected(route.protected);
 
-  if (!route) {
-    return (
-      <div className="flex flex-col items-center justify-center p-8">
-        <p className="text-muted-foreground mb-4">No route selected</p>
-        <Button onClick={onBack}>Back to Routes</Button>
-      </div>
-    );
-  }
+    // Initialize handler state based on existing route configuration
+    if (route.methods && route.methods[selectedMethod]) {
+      const handler = route.methods[selectedMethod] as RouteHandler;
+      setSelectedHandlerType(handler.type);
+      setTarget(handler.target);
+      setDescription(handler.description || "");
+      setFunctionId(handler.functionId);
+    } else {
+      // Reset form if no handler exists for the selected method
+      setSelectedHandlerType("page");
+      setTarget("");
+      setDescription("");
+      setFunctionId(undefined);
+    }
+  }, [route, selectedMethod]);
 
-  const handleUpdateRoute = (data: any) => {
-    dispatch(
-      updateRoute({
-        routeId: route.id,
-        updates: data,
-      })
-    );
-    toast({
-      title: "Route updated",
-      description: "The route has been updated successfully",
-    });
+  const handleSave = () => {
+    const updatedRoute: Partial<Route> = {
+      id: route.id,
+      path: path,
+      active: active,
+      protected: isProtected,
+      methods: {
+        [selectedMethod]: {
+          id: route.methods?.[selectedMethod]?.id || generateId(),
+          type: selectedHandlerType,
+          target: target,
+          description: description,
+          functionId: selectedHandlerType === "function" ? functionId : undefined,
+        } as RouteHandler,
+      },
+    };
+
+    dispatch(updateRoute(updatedRoute));
+    setIsEditing(false);
+    toast.success("Route updated successfully!");
   };
 
-  const handleAddMethod = () => {
-    if (!newMethod || !newTarget) {
-      toast({
-        title: "Missing information",
-        description: "Please provide both a method and a target",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    let functionId = undefined;
-
-    if (newType === "function" && selectedFunctionId) {
-      functionId = selectedFunctionId;
-      
-      // Bind the function to this route
-      dispatch(
-        bindFunctionToRoute({
-          functionId: selectedFunctionId,
-          routeId: route.id
-        })
-      );
-    }
-
-    dispatch(
-      updateRouteMethod({
-        routeId: route.id,
-        method: newMethod,
-        handler: {
-          type: newType,
-          target: newTarget,
-          description: newDescription,
-          functionId
-        },
-      })
-    );
-
-    toast({
-      title: "Method added",
-      description: `Added ${newMethod} method to ${route.path}`,
-    });
-
-    setNewMethodDialogOpen(false);
-    setNewMethod("GET");
-    setNewType("page");
-    setNewTarget("");
-    setNewDescription("");
-    setSelectedFunctionId("");
+  const handleDelete = () => {
+    dispatch(deleteRoute(route.id));
+    toast.success("Route deleted successfully!");
+    onClose();
   };
 
-  const handleDeleteMethod = (method: HttpMethod) => {
-    if (Object.keys(route.methods).length <= 1) {
-      toast({
-        title: "Cannot delete",
-        description: "A route must have at least one method",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (confirm(`Are you sure you want to delete the ${method} method?`)) {
-      dispatch(
-        deleteRouteMethod({
-          routeId: route.id,
-          method,
-        })
-      );
-
-      toast({
-        title: "Method deleted",
-        description: `${method} method has been removed from ${route.path}`,
-      });
-    }
-  };
-
-  const handleSelectMethod = (method: HttpMethod) => {
-    setSelectedMethod(method);
-  };
-
-  const handleUpdateMethod = (method: HttpMethod, updates: Partial<RouteHandler>) => {
-    // If changing to function type and setting a function ID, bind the function to this route
-    if (updates.type === "function" && updates.functionId) {
-      dispatch(
-        bindFunctionToRoute({
-          functionId: updates.functionId,
-          routeId: route.id
-        })
-      );
-    }
-
-    dispatch(
-      updateRouteMethod({
-        routeId: route.id,
-        method,
-        handler: updates,
-      })
-    );
-
-    toast({
-      title: "Method updated",
-      description: `${method} method has been updated`,
-    });
+  const generateId = (): string => {
+    return Math.random().toString(36).substring(2, 15);
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center">
-        <Button variant="ghost" onClick={onBack} className="mr-2">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back
+    <Card className="w-full">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle>
+          {isEditing ? "Edit Route" : "Route"} : {route.path}
+        </CardTitle>
+        <Button variant="ghost" size="sm" asChild>
+          <Link to="/routes">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back
+          </Link>
         </Button>
-        <h2 className="text-2xl font-bold">{route.path}</h2>
-      </div>
-
-      <div className="grid md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Route Settings</CardTitle>
-            <CardDescription>
-              Basic configuration for this route
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Form {...form}>
-              <form
-                onSubmit={form.handleSubmit(handleUpdateRoute)}
-                className="space-y-4"
-              >
-                <FormField
-                  control={form.control}
-                  name="path"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Path</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormDescription>
-                        The URL path for this route
-                      </FormDescription>
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="active"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                        <div className="space-y-0.5">
-                          <FormLabel>Active</FormLabel>
-                          <FormDescription>
-                            Enable or disable this route
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="protected"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                        <div className="space-y-0.5">
-                          <FormLabel>Protected</FormLabel>
-                          <FormDescription>
-                            Require authentication
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <Button type="submit" className="w-full">
-                  Update Route
-                </Button>
-              </form>
-            </Form>
-          </CardContent>
-          <CardFooter className="flex justify-between border-t pt-4 text-xs text-muted-foreground">
-            <div>Created: {new Date(route.createdAt).toLocaleString()}</div>
-            <div>Updated: {new Date(route.updatedAt).toLocaleString()}</div>
-          </CardFooter>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>HTTP Methods</CardTitle>
-              <CardDescription>
-                Configure handlers for different HTTP methods
-              </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Tabs defaultValue="general" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="general">General</TabsTrigger>
+            <TabsTrigger value="handler">Handler</TabsTrigger>
+          </TabsList>
+          <TabsContent value="general" className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="path">Path</Label>
+              <Input
+                id="path"
+                value={path}
+                onChange={(e) => setPath(e.target.value)}
+                disabled={!isEditing}
+              />
             </div>
-            <Dialog open={newMethodDialogOpen} onOpenChange={setNewMethodDialogOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm">
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Method
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Add HTTP Method</DialogTitle>
-                  <DialogDescription>
-                    Add a new HTTP method handler to this route
-                  </DialogDescription>
-                </DialogHeader>
-
-                <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <Label>HTTP Method</Label>
-                    <Select
-                      value={newMethod}
-                      onValueChange={(value) => setNewMethod(value as HttpMethod)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select method" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(["GET", "POST", "PUT", "DELETE", "PATCH"] as HttpMethod[])
-                          .filter((method) => !route.methods[method])
-                          .map((method) => (
-                            <SelectItem key={method} value={method}>
-                              {method}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="grid gap-2">
-                    <Label>Handler Type</Label>
-                    <Select
-                      value={newType}
-                      onValueChange={(value) => setNewType(value as "page" | "function" | "redirect")}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="page">Page</SelectItem>
-                        <SelectItem value="function">Function</SelectItem>
-                        <SelectItem value="redirect">Redirect</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {newType === "function" ? (
-                    <div className="grid gap-2">
-                      <Label>Cloud Function</Label>
-                      <Select 
-                        value={selectedFunctionId}
-                        onValueChange={(value) => {
-                          setSelectedFunctionId(value);
-                          const func = functions.find(f => f.id === value);
-                          if (func) {
-                            setNewTarget(func.name);
-                            setNewDescription(func.description || "");
-                          }
-                        }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select cloud function" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {functions.map((func) => (
-                            <SelectItem key={func.id} value={func.id}>
-                              {func.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  ) : (
-                    <div className="grid gap-2">
-                      <Label>Target</Label>
-                      <Input
-                        placeholder={
-                          newType === "page"
-                            ? "Dashboard"
-                            : newType === "redirect"
-                            ? "/redirect-path"
-                            : "handleRequest"
-                        }
-                        value={newTarget}
-                        onChange={(e) => setNewTarget(e.target.value)}
-                      />
-                      <p className="text-sm text-muted-foreground">
-                        {newType === "page"
-                          ? "Component name"
-                          : newType === "redirect"
-                          ? "Redirect URL"
-                          : "Function name"}
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="grid gap-2">
-                    <Label>Description</Label>
-                    <Textarea
-                      placeholder="Handler description"
-                      value={newDescription}
-                      onChange={(e) => setNewDescription(e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex justify-end">
-                  <Button onClick={handleAddMethod}>Add Method</Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </CardHeader>
-          <CardContent>
-            <Accordion type="single" collapsible className="w-full">
-              {Object.entries(route.methods).map(([method, handler]) => (
-                <AccordionItem key={method} value={method}>
-                  <AccordionTrigger className="hover:bg-muted/50 px-4">
-                    <div className="flex items-center">
-                      <Badge variant="outline" className="mr-2">
-                        {method}
-                      </Badge>
-                      <span className="text-sm font-medium capitalize">{handler.type}</span>
-                      
-                      {handler.type === "function" && (
-                        <Badge variant="secondary" className="ml-2">
-                          <FunctionIcon className="h-3 w-3 mr-1" />
-                          Cloud Function
-                        </Badge>
-                      )}
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="px-4 pb-4">
-                    <div className="space-y-4">
-                      <div className="grid gap-2">
-                        <Label>Handler Type</Label>
-                        <Select
-                          value={handler.type}
-                          onValueChange={(value) =>
-                            handleUpdateMethod(method as HttpMethod, {
-                              type: value as "page" | "function" | "redirect",
-                            })
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="page">Page</SelectItem>
-                            <SelectItem value="function">Function</SelectItem>
-                            <SelectItem value="redirect">Redirect</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {handler.type === "function" ? (
-                        <div className="grid gap-2">
-                          <Label>Cloud Function</Label>
-                          <Select 
-                            value={handler.functionId || ""}
-                            onValueChange={(value) => {
-                              const func = functions.find(f => f.id === value);
-                              handleUpdateMethod(method as HttpMethod, {
-                                functionId: value,
-                                target: func ? func.name : handler.target,
-                                description: func ? (func.description || "") : handler.description
-                              });
-                            }}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select cloud function" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {functions.map((func) => (
-                                <SelectItem key={func.id} value={func.id}>
-                                  {func.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      ) : (
-                        <div className="grid gap-2">
-                          <Label>Target</Label>
-                          <Input
-                            value={handler.target}
-                            onChange={(e) =>
-                              handleUpdateMethod(method as HttpMethod, {
-                                target: e.target.value,
-                              })
-                            }
-                          />
-                        </div>
-                      )}
-
-                      <div className="grid gap-2">
-                        <Label>Description</Label>
-                        <Textarea
-                          value={handler.description || ""}
-                          onChange={(e) =>
-                            handleUpdateMethod(method as HttpMethod, {
-                              description: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        className="w-full"
-                        onClick={() => handleDeleteMethod(method as HttpMethod)}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete Method
-                      </Button>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
-
-            {Object.keys(route.methods).length === 0 && (
-              <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                <p>No methods defined for this route</p>
-                <Button
-                  variant="ghost"
-                  onClick={() => setNewMethodDialogOpen(true)}
-                  className="mt-2"
+            <div className="flex items-center space-x-2">
+              <Label htmlFor="active">Active</Label>
+              <Switch
+                id="active"
+                checked={active}
+                onCheckedChange={(checked) => setActive(checked)}
+                disabled={!isEditing}
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Label htmlFor="protected">Protected</Label>
+              <Switch
+                id="protected"
+                checked={isProtected}
+                onCheckedChange={(checked) => setIsProtected(checked)}
+                disabled={!isEditing}
+              />
+            </div>
+          </TabsContent>
+          <TabsContent value="handler" className="space-y-4">
+            <div className="space-y-2">
+              <Label>Method</Label>
+              <Select
+                value={selectedMethod}
+                onValueChange={(method) => setSelectedMethod(method as HttpMethod)}
+                disabled={!isEditing}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a method" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="GET">GET</SelectItem>
+                  <SelectItem value="POST">POST</SelectItem>
+                  <SelectItem value="PUT">PUT</SelectItem>
+                  <SelectItem value="DELETE">DELETE</SelectItem>
+                  <SelectItem value="PATCH">PATCH</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Handler Type</Label>
+              <Select
+                value={selectedHandlerType}
+                onValueChange={(type) => setSelectedHandlerType(type as "page" | "function" | "redirect")}
+                disabled={!isEditing}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a handler type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="page">Page</SelectItem>
+                  <SelectItem value="function">Function</SelectItem>
+                  <SelectItem value="redirect">Redirect</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {selectedHandlerType === "function" && (
+              <div className="space-y-2">
+                <Label>Function</Label>
+                <Select
+                  value={functionId || ""}
+                  onValueChange={(id) => setFunctionId(id === "" ? undefined : id)}
+                  disabled={!isEditing}
                 >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Method
-                </Button>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a function" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {cloudFunctions.map((func) => (
+                      <SelectItem key={func.id} value={func.id}>
+                        {func.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+            <div className="space-y-2">
+              <Label htmlFor="target">Target</Label>
+              <Input
+                id="target"
+                value={target}
+                onChange={(e) => setTarget(e.target.value)}
+                disabled={!isEditing}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Input
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                disabled={!isEditing}
+              />
+            </div>
+          </TabsContent>
+        </Tabs>
+      </CardContent>
+      <CardFooter className="flex justify-between">
+        {isEditing ? (
+          <div className="space-x-2">
+            <Button onClick={() => setIsEditing(false)}>Cancel</Button>
+            <Button variant="primary" onClick={handleSave}>
+              Save
+            </Button>
+          </div>
+        ) : (
+          <Button variant="primary" onClick={() => setIsEditing(true)}>
+            Edit
+          </Button>
+        )}
+        <Button variant="destructive" onClick={handleDelete}>
+          Delete
+        </Button>
+      </CardFooter>
+    </Card>
   );
 };
 

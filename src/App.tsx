@@ -1,10 +1,11 @@
 
 import React from 'react';
-import { BrowserRouter as Router, Routes as RouterRoutes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes as RouterRoutes, Route, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Provider } from 'react-redux';
 import { store } from './store/store';
 import { Toaster } from './components/ui/sonner';
+import { AnimatePresence } from 'framer-motion';
 
 // Pages
 import Index from './pages/Index';
@@ -29,31 +30,42 @@ import AppMarketplace from './pages/AppMarketplace';
 // Create a client
 const queryClient = new QueryClient();
 
+// AnimatedRoutes component for page transitions
+const AnimatedRoutes = () => {
+  const location = useLocation();
+  
+  return (
+    <AnimatePresence mode="wait">
+      <RouterRoutes location={location} key={location.pathname}>
+        <Route path="/" element={<Index />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/users" element={<Users />} />
+        <Route path="/settings/*" element={<Settings />} />
+        <Route path="/tokens" element={<Tokens />} />
+        <Route path="/tokens/create" element={<TokenCreate />} />
+        <Route path="/reports" element={<Reports />} />
+        <Route path="/integrations" element={<Integrations />} />
+        <Route path="/notifications" element={<Notifications />} />
+        <Route path="/audit-logs" element={<AuditLogs />} />
+        <Route path="/object-manager" element={<ObjectManager />} />
+        <Route path="/page-builder" element={<PageBuilder />} />
+        <Route path="/component-library" element={<ComponentLibrary />} />
+        <Route path="/routes" element={<RouteManager />} />
+        <Route path="/functions" element={<CloudFunctions />} />
+        <Route path="/marketplace" element={<AppMarketplace />} />
+        <Route path="*" element={<NotFound />} />
+      </RouterRoutes>
+    </AnimatePresence>
+  );
+};
+
 function App() {
   return (
     <Provider store={store}>
       <QueryClientProvider client={queryClient}>
         <Router>
-          <RouterRoutes>
-            <Route path="/" element={<Index />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/users" element={<Users />} />
-            <Route path="/settings/*" element={<Settings />} />
-            <Route path="/tokens" element={<Tokens />} />
-            <Route path="/tokens/create" element={<TokenCreate />} />
-            <Route path="/reports" element={<Reports />} />
-            <Route path="/integrations" element={<Integrations />} />
-            <Route path="/notifications" element={<Notifications />} />
-            <Route path="/audit-logs" element={<AuditLogs />} />
-            <Route path="/object-manager" element={<ObjectManager />} />
-            <Route path="/page-builder" element={<PageBuilder />} />
-            <Route path="/component-library" element={<ComponentLibrary />} />
-            <Route path="/routes" element={<RouteManager />} />
-            <Route path="/functions" element={<CloudFunctions />} />
-            <Route path="/marketplace" element={<AppMarketplace />} />
-            <Route path="*" element={<NotFound />} />
-          </RouterRoutes>
+          <AnimatedRoutes />
           <Toaster />
         </Router>
       </QueryClientProvider>

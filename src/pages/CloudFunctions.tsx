@@ -1,10 +1,11 @@
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import AppLayout from "@/components/layout/AppLayout";
 import { 
   Card, 
   CardContent, 
   CardDescription, 
+  CardFooter, 
   CardHeader, 
   CardTitle 
 } from "@/components/ui/card";
@@ -37,6 +38,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Code, Function as FunctionIcon, Trash2, Activity } from "lucide-react";
 import { FunctionLanguage, FunctionRuntime } from "@/types/cloud-functions";
 import { Textarea } from "@/components/ui/textarea";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  fetchCloudFunctions,
+  createCloudFunction,
+  selectFunction,
+  setLoading,
+} from "@/store/slices/cloudFunctionSlice";
+import { Progress } from "@/components/ui/progress";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { StyledCard } from "@/components/ui/styled-card";
+import { toast } from "sonner";
 
 const CloudFunctions = () => {
   const { toast } = useToast();
