@@ -10,10 +10,12 @@ import {
   TableBody, 
   TableCell 
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { PlusCircle, Edit, Trash2 } from "lucide-react";
 import FieldModal from "@/components/object-manager/FieldModal";
 import { toast } from "@/components/ui/sonner";
+import ObjectTriggerEditor from "@/components/object-manager/ObjectTriggerEditor";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,6 +40,7 @@ const ObjectDetailView: React.FC<ObjectDetailViewProps> = ({
   const [selectedField, setSelectedField] = useState<CustomField | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [fieldToDelete, setFieldToDelete] = useState<CustomField | null>(null);
+  const [activeTab, setActiveTab] = useState("fields");
   
   const handleAddField = () => {
     setSelectedField(null);
@@ -92,67 +95,83 @@ const ObjectDetailView: React.FC<ObjectDetailViewProps> = ({
             <p className="mt-2 text-sm text-muted-foreground">{object.description}</p>
           )}
         </div>
-        <Button onClick={handleAddField}>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Add Field
-        </Button>
       </div>
       
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Label</TableHead>
-              <TableHead>API Name</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Required</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {object.fields?.length ? (
-              object.fields.map((field) => (
-                <TableRow key={field.id}>
-                  <TableCell className="font-medium">{field.label}</TableCell>
-                  <TableCell>{field.apiName}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={getFieldTypeBadge(field.type)}>
-                      {field.type}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{field.required ? "Yes" : "No"}</TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="mr-2"
-                      onClick={() => handleEditField(field)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    {field.apiName !== "Name" && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-destructive hover:text-destructive"
-                        onClick={() => handleDeleteField(field)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </TableCell>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList>
+          <TabsTrigger value="fields">Fields</TabsTrigger>
+          <TabsTrigger value="triggers">Triggers</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="fields">
+          <div className="flex justify-end mb-4">
+            <Button onClick={handleAddField}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Add Field
+            </Button>
+          </div>
+          
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Label</TableHead>
+                  <TableHead>API Name</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Required</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center py-8">
-                  No fields defined. Add fields to this object.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+              </TableHeader>
+              <TableBody>
+                {object.fields?.length ? (
+                  object.fields.map((field) => (
+                    <TableRow key={field.id}>
+                      <TableCell className="font-medium">{field.label}</TableCell>
+                      <TableCell>{field.apiName}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={getFieldTypeBadge(field.type)}>
+                          {field.type}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{field.required ? "Yes" : "No"}</TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="mr-2"
+                          onClick={() => handleEditField(field)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        {field.apiName !== "Name" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => handleDeleteField(field)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8">
+                      No fields defined. Add fields to this object.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="triggers">
+          <ObjectTriggerEditor objectApiName={object.apiName} />
+        </TabsContent>
+      </Tabs>
       
       <FieldModal
         isOpen={isFieldModalOpen}
