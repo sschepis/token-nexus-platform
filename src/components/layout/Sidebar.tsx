@@ -1,3 +1,4 @@
+
 import React from "react";
 import { 
   Sheet, 
@@ -29,7 +30,11 @@ import {
   LogOut,
   Database,
   LayoutPanelLeft,
-  Component
+  Component,
+  Bell,
+  FileText,
+  Clock,
+  Key
 } from "lucide-react";
 
 interface SidebarProps {
@@ -47,6 +52,19 @@ const Sidebar = ({ isSidebarOpen, closeSidebar }: SidebarProps) => {
     dispatch(resetOrg());
     navigate('/login');
   };
+
+  // Get the first letter of the first name for the avatar fallback
+  const getInitials = () => {
+    if (user?.firstName) {
+      return user.firstName.charAt(0);
+    }
+    if (user?.email) {
+      return user.email.charAt(0).toUpperCase();
+    }
+    return "U";
+  };
+
+  const userName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : "User";
 
   const navItems = [
     {
@@ -77,27 +95,27 @@ const Sidebar = ({ isSidebarOpen, closeSidebar }: SidebarProps) => {
     {
       name: "Reports",
       path: "/reports",
-      icon: <Home className="h-5 w-5" />
+      icon: <FileText className="h-5 w-5" />
     },
     {
       name: "Integrations",
       path: "/integrations",
-      icon: <Home className="h-5 w-5" />
+      icon: <LayoutDashboard className="h-5 w-5" />
     },
     {
       name: "Notifications",
       path: "/notifications",
-      icon: <Home className="h-5 w-5" />
+      icon: <Bell className="h-5 w-5" />
     },
     {
       name: "Audit Logs",
       path: "/audit-logs",
-      icon: <Home className="h-5 w-5" />
+      icon: <Clock className="h-5 w-5" />
     },
     {
       name: "Tokens",
       path: "/tokens",
-      icon: <Home className="h-5 w-5" />
+      icon: <Key className="h-5 w-5" />
     }
   ];
 
@@ -115,13 +133,13 @@ const Sidebar = ({ isSidebarOpen, closeSidebar }: SidebarProps) => {
 
         <div className="flex items-center space-x-2">
           <Avatar>
-            <AvatarImage src={user?.image} />
-            <AvatarFallback>{user?.name?.charAt(0)}</AvatarFallback>
+            <AvatarImage src={user?.avatarUrl} />
+            <AvatarFallback>{getInitials()}</AvatarFallback>
           </Avatar>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="pl-2 w-full justify-start text-sm font-medium leading-none hover:bg-transparent">
-                {user?.name}
+                {userName}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">

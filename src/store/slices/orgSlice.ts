@@ -59,6 +59,12 @@ export const orgSlice = createSlice({
       if (state.currentOrg) {
         state.currentOrg.logo = action.payload;
       }
+    },
+    resetOrg: (state) => {
+      state.currentOrg = null;
+      state.userOrgs = [];
+      state.isLoading = false;
+      state.error = null;
     }
   },
 });
@@ -69,7 +75,8 @@ export const {
   fetchOrgsFailed,
   setCurrentOrg,
   updateOrgTheme,
-  updateOrgLogo
+  updateOrgLogo,
+  resetOrg
 } = orgSlice.actions;
 
 export default orgSlice.reducer;
