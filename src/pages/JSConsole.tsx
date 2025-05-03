@@ -1,11 +1,10 @@
-
 import React, { useState, useRef, useEffect } from "react";
 import AppLayout from "@/components/layout/AppLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
-import { Console as ConsoleIcon } from "lucide-react";
+import { Terminal as TerminalIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const JSConsole = () => {
@@ -174,7 +173,7 @@ console.log("Doubled numbers:", doubled);`);
                   className="flex-1"
                   disabled={isExecuting}
                 >
-                  <ConsoleIcon className="h-4 w-4 mr-2" />
+                  <TerminalIcon className="h-4 w-4 mr-2" />
                   {isExecuting ? "Executing..." : "Run Code"}
                 </Button>
                 <Button 
