@@ -1,10 +1,10 @@
-
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosError } from 'axios';
 import { store } from '../store/store';
 import { logout } from '../store/slices/authSlice';
 import { toast } from '@/hooks/use-toast';
 import { AuditEvent } from '@/store/slices/auditSlice';
 import { Notification, NotificationPriority } from '@/store/slices/notificationSlice';
+import { App } from '@/types/app-marketplace';
 
 // Mock API base URL - would be replaced with real API endpoint
 const API_BASE_URL = 'https://api.platform.com';
@@ -334,7 +334,134 @@ export const mockApis = {
   markAllNotificationsAsRead: () => {
     return mockResponse({ success: true });
   },
-
+  
+  // App Marketplace APIs
+  getApps: () => {
+    return mockResponse({
+      apps: [
+        {
+          id: 'app-1',
+          name: 'Expense Tracker',
+          description: 'Track and manage company expenses with customizable categories and approval workflows',
+          category: 'finance',
+          icon: 'https://cdn-icons-png.flaticon.com/512/2285/2285551.png',
+          publisher: 'Finance Solutions Inc.',
+          version: '1.2.0',
+          pricing: 'freemium',
+          status: 'not_installed',
+          permissions: ['finance:read', 'finance:write', 'notification:send'],
+          settings: {
+            auto_categorize: true,
+            approval_threshold: 500,
+            notification_preference: 'email'
+          }
+        },
+        {
+          id: 'app-2',
+          name: 'Document Vault',
+          description: 'Securely store and share sensitive documents with role-based access control',
+          category: 'security',
+          icon: 'https://cdn-icons-png.flaticon.com/512/1643/1643264.png',
+          publisher: 'SecureVault Ltd',
+          version: '2.3.1',
+          pricing: 'paid',
+          status: 'not_installed',
+          permissions: ['documents:read', 'documents:write', 'encryption:manage'],
+          settings: {}
+        },
+        {
+          id: 'app-3',
+          name: 'Team Chat',
+          description: 'Real-time messaging and collaboration platform for teams',
+          category: 'communication',
+          icon: 'https://cdn-icons-png.flaticon.com/512/134/134914.png',
+          publisher: 'Comms Tech',
+          version: '3.0.2',
+          pricing: 'free',
+          status: 'installed',
+          installDate: '2023-04-15T10:30:00Z',
+          permissions: ['users:read', 'notification:send'],
+          settings: {
+            show_presence: true,
+            desktop_notifications: true,
+            sound_effects: false
+          }
+        },
+        {
+          id: 'app-4',
+          name: 'Project Timeline',
+          description: 'Visual project management with Gantt charts and resource allocation',
+          category: 'productivity',
+          icon: 'https://cdn-icons-png.flaticon.com/512/2620/2620316.png',
+          publisher: 'ProjectPro Software',
+          version: '1.5.3',
+          pricing: 'paid',
+          status: 'not_installed',
+          permissions: ['projects:read', 'projects:write', 'users:read'],
+          settings: {}
+        },
+        {
+          id: 'app-5',
+          name: 'Data Insights',
+          description: 'Advanced analytics and visualization tools for business intelligence',
+          category: 'analytics',
+          icon: 'https://cdn-icons-png.flaticon.com/512/2756/2756778.png',
+          publisher: 'Data Science Co',
+          version: '2.1.0',
+          pricing: 'freemium',
+          status: 'not_installed',
+          permissions: ['data:read', 'reports:generate'],
+          settings: {}
+        },
+        {
+          id: 'app-6',
+          name: 'Salesforce Connector',
+          description: 'Synchronize contacts and deals with your Salesforce account',
+          category: 'integration',
+          icon: 'https://cdn-icons-png.flaticon.com/512/5968/5968914.png',
+          publisher: 'Cloud Connectors Inc',
+          version: '1.0.4',
+          pricing: 'free',
+          status: 'installed',
+          installDate: '2023-05-20T14:15:00Z',
+          permissions: ['integrations:manage', 'data:read', 'data:write'],
+          settings: {
+            sync_interval: 30,
+            auto_sync: true,
+            conflict_resolution: 'newer_wins'
+          }
+        }
+      ] as App[]
+    });
+  },
+  
+  installApp: ({ appId, permissions }) => {
+    const app = store.getState().app.apps.find(a => a.id === appId);
+    if (!app) {
+      return Promise.reject(new Error('App not found'));
+    }
+    
+    return mockResponse({
+      app: {
+        ...app,
+        status: 'installed',
+        installDate: new Date().toISOString(),
+        permissions: permissions
+      }
+    });
+  },
+  
+  uninstallApp: ({ appId }) => {
+    return mockResponse({ success: true });
+  },
+  
+  updateAppSettings: ({ appId, settings }) => {
+    return mockResponse({ 
+      appId,
+      settings 
+    });
+  },
+  
   // Integration APIs
   getIntegrations: () => {
     return mockResponse({

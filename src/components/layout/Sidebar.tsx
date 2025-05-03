@@ -1,3 +1,4 @@
+
 import React from "react";
 import { 
   Sheet, 
@@ -34,7 +35,8 @@ import {
   FileText,
   Clock,
   Key,
-  Navigation
+  Navigation,
+  Store
 } from "lucide-react";
 
 interface SidebarProps {
@@ -106,6 +108,11 @@ const Sidebar = ({ isSidebarOpen, closeSidebar }: SidebarProps) => {
       name: "Integrations",
       path: "/integrations",
       icon: <LayoutDashboard className="h-5 w-5" />
+    },
+    {
+      name: "Marketplace",
+      path: "/marketplace",
+      icon: <Store className="h-5 w-5" />
     },
     {
       name: "Notifications",

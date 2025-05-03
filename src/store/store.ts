@@ -7,6 +7,7 @@ import userReducer from './slices/userSlice';
 import auditReducer from './slices/auditSlice';
 import notificationReducer from './slices/notificationSlice';
 import routeReducer from './slices/routeSlice';
+import appReducer from './slices/appSlice';
 
 const rootReducer = combineReducers({
   auth: authReducer,
@@ -16,6 +17,7 @@ const rootReducer = combineReducers({
   audit: auditReducer,
   notification: notificationReducer,
   route: routeReducer,
+  app: appReducer,
 });
 
 export const store = configureStore({
