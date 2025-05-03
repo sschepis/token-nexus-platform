@@ -33,6 +33,7 @@ import JSConsole from './pages/JSConsole';
 import ApiTesting from './pages/dev/ApiTesting';
 import DatabaseExplorer from './pages/dev/DatabaseExplorer';
 import EnvManager from './pages/dev/EnvManager';
+import LogsViewer from './pages/dev/LogsViewer';
 
 // Create a client
 const queryClient = new QueryClient();
@@ -68,6 +69,7 @@ const AnimatedRoutes = () => {
         <Route path="/dev/api-testing" element={<ApiTesting />} />
         <Route path="/dev/database" element={<DatabaseExplorer />} />
         <Route path="/dev/env" element={<EnvManager />} />
+        <Route path="/dev/logs" element={<LogsViewer />} />
         
         <Route path="*" element={<NotFound />} />
       </RouterRoutes>
