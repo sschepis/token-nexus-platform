@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Bug, Save, Wrench, Code, FileWarning, Layers, ToggleLeft, Clock, Clipboard, Server, Database, NetworkIcon, Eye } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
@@ -315,7 +314,7 @@ const DebugSettings: React.FC = () => {
                             <div className="flex items-center text-xs text-muted-foreground mt-1">
                               <Code className="h-3 w-3 mr-1" />
                               <code>{setting.key}</code>
-                              <Badge variant="outline" size="sm" className="ml-2">
+                              <Badge variant="outline" className="ml-2 text-xs">
                                 {categoryName}
                               </Badge>
                             </div>
