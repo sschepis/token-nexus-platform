@@ -16,10 +16,11 @@ interface DeploymentStep2Props {
     appBundle: string;
     [key: string]: any;
   };
-  updateFormData: (data: Partial<typeof formData>) => void;
+  updateFormData: (data: Partial<typeof props.formData>) => void;
 }
 
-export const DeploymentStep2: React.FC<DeploymentStep2Props> = ({ formData, updateFormData }) => {
+export const DeploymentStep2: React.FC<DeploymentStep2Props> = (props) => {
+  const { formData, updateFormData } = props;
   const [authMethod, setAuthMethod] = useState<"privateKey" | "wallet">("wallet");
 
   const appBundles = [
