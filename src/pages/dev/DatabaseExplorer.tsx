@@ -129,6 +129,139 @@ const DatabaseExplorer = () => {
     }, 700);
   };
 
+  // Helper functions to render content based on active tab
+  const renderBrowseTabContent = () => {
+    return (
+      <div>
+        {queryResults && queryResults.length > 0 ? (
+          <ScrollArea className="h-[500px]">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  {Object.keys(queryResults[0]).map((key) => (
+                    <TableHead key={key}>{key}</TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {queryResults.map((row, rowIndex) => (
+                  <TableRow key={rowIndex}>
+                    {Object.values(row).map((value, cellIndex) => (
+                      <TableCell key={cellIndex}>
+                        {typeof value === "boolean" 
+                          ? value ? "true" : "false" 
+                          : String(value)}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-[400px]">
+            <p className="text-muted-foreground mb-4">No data available</p>
+            <Button size="sm" onClick={() => handleSelectTable(selectedTable || '')}>
+              Load Data
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderStructureTabContent = () => {
+    return (
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Column</TableHead>
+            <TableHead>Type</TableHead>
+            <TableHead>Nullable</TableHead>
+            <TableHead>Key</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {mockTableDefinition.columns.map((column) => (
+            <TableRow key={column.name}>
+              <TableCell>{column.name}</TableCell>
+              <TableCell>{column.type}</TableCell>
+              <TableCell>{column.nullable ? "YES" : "NO"}</TableCell>
+              <TableCell>
+                {column.isPrimary ? "Primary" : ""}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    );
+  };
+
+  const renderSqlTabContent = () => {
+    return (
+      <div className="space-y-4">
+        <div>
+          <Label htmlFor="query">SQL Query</Label>
+          <Textarea
+            id="query"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="font-mono text-sm"
+            rows={6}
+          />
+        </div>
+        <Button onClick={handleExecuteQuery} disabled={isLoading}>
+          {isLoading ? "Executing..." : "Execute Query"}
+        </Button>
+        
+        {queryResults && (
+          <div className="border rounded-md mt-4">
+            <div className="bg-muted px-4 py-2 font-medium border-b">
+              Results
+            </div>
+            <ScrollArea className="h-[300px]">
+              <Table>
+                {queryResults.length > 0 && (
+                  <>
+                    <TableHeader>
+                      <TableRow>
+                        {Object.keys(queryResults[0]).map((key) => (
+                          <TableHead key={key}>{key}</TableHead>
+                        ))}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {queryResults.map((row, rowIndex) => (
+                        <TableRow key={rowIndex}>
+                          {Object.values(row).map((value, cellIndex) => (
+                            <TableCell key={cellIndex}>
+                              {typeof value === "boolean" 
+                                ? value ? "true" : "false" 
+                                : String(value)}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </>
+                )}
+                {queryResults.length === 0 && (
+                  <TableBody>
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-8">
+                        No results found
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                )}
+              </Table>
+            </ScrollArea>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <AppLayout>
       <div className="space-y-6">
@@ -188,255 +321,22 @@ const DatabaseExplorer = () => {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <Tabs value={activeTab} onValueChange={setActiveTab} className="hidden">
-                    <TabsContent value="browse" className="mt-0">
-                      {queryResults && queryResults.length > 0 ? (
-                        <ScrollArea className="h-[500px]">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                {Object.keys(queryResults[0]).map((key) => (
-                                  <TableHead key={key}>{key}</TableHead>
-                                ))}
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {queryResults.map((row, rowIndex) => (
-                                <TableRow key={rowIndex}>
-                                  {Object.values(row).map((value, cellIndex) => (
-                                    <TableCell key={cellIndex}>
-                                      {typeof value === "boolean" 
-                                        ? value ? "true" : "false" 
-                                        : String(value)}
-                                    </TableCell>
-                                  ))}
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </ScrollArea>
-                      ) : (
-                        <div className="flex flex-col items-center justify-center h-[400px]">
-                          <p className="text-muted-foreground mb-4">No data available</p>
-                          <Button size="sm" onClick={() => handleSelectTable(selectedTable)}>
-                            Load Data
-                          </Button>
-                        </div>
-                      )}
+                  <Tabs value={activeTab} className="hidden">
+                    <TabsContent value="browse">
+                      {renderBrowseTabContent()}
                     </TabsContent>
-                    
-                    <TabsContent value="structure" className="mt-0">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Column</TableHead>
-                            <TableHead>Type</TableHead>
-                            <TableHead>Nullable</TableHead>
-                            <TableHead>Key</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {mockTableDefinition.columns.map((column) => (
-                            <TableRow key={column.name}>
-                              <TableCell>{column.name}</TableCell>
-                              <TableCell>{column.type}</TableCell>
-                              <TableCell>{column.nullable ? "YES" : "NO"}</TableCell>
-                              <TableCell>
-                                {column.isPrimary ? "Primary" : ""}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
+                    <TabsContent value="structure">
+                      {renderStructureTabContent()}
                     </TabsContent>
-                    
-                    <TabsContent value="sql" className="mt-0 space-y-4">
-                      <div>
-                        <Label htmlFor="query">SQL Query</Label>
-                        <Textarea
-                          id="query"
-                          value={query}
-                          onChange={(e) => setQuery(e.target.value)}
-                          className="font-mono text-sm"
-                          rows={6}
-                        />
-                      </div>
-                      <Button onClick={handleExecuteQuery} disabled={isLoading}>
-                        {isLoading ? "Executing..." : "Execute Query"}
-                      </Button>
-                      
-                      {queryResults && (
-                        <div className="border rounded-md mt-4">
-                          <div className="bg-muted px-4 py-2 font-medium border-b">
-                            Results
-                          </div>
-                          <ScrollArea className="h-[300px]">
-                            <Table>
-                              {queryResults.length > 0 && (
-                                <>
-                                  <TableHeader>
-                                    <TableRow>
-                                      {Object.keys(queryResults[0]).map((key) => (
-                                        <TableHead key={key}>{key}</TableHead>
-                                      ))}
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {queryResults.map((row, rowIndex) => (
-                                      <TableRow key={rowIndex}>
-                                        {Object.values(row).map((value, cellIndex) => (
-                                          <TableCell key={cellIndex}>
-                                            {typeof value === "boolean" 
-                                              ? value ? "true" : "false" 
-                                              : String(value)}
-                                          </TableCell>
-                                        ))}
-                                      </TableRow>
-                                    ))}
-                                  </TableBody>
-                                </>
-                              )}
-                              {queryResults.length === 0 && (
-                                <TableBody>
-                                  <TableRow>
-                                    <TableCell colSpan={5} className="text-center py-8">
-                                      No results found
-                                    </TableCell>
-                                  </TableRow>
-                                </TableBody>
-                              )}
-                            </Table>
-                          </ScrollArea>
-                        </div>
-                      )}
+                    <TabsContent value="sql">
+                      {renderSqlTabContent()}
                     </TabsContent>
                   </Tabs>
                   
-                  {activeTab === "browse" && (
-                    <div>
-                      {queryResults && queryResults.length > 0 ? (
-                        <ScrollArea className="h-[500px]">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                {Object.keys(queryResults[0]).map((key) => (
-                                  <TableHead key={key}>{key}</TableHead>
-                                ))}
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {queryResults.map((row, rowIndex) => (
-                                <TableRow key={rowIndex}>
-                                  {Object.values(row).map((value, cellIndex) => (
-                                    <TableCell key={cellIndex}>
-                                      {typeof value === "boolean" 
-                                        ? value ? "true" : "false" 
-                                        : String(value)}
-                                    </TableCell>
-                                  ))}
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </ScrollArea>
-                      ) : (
-                        <div className="flex flex-col items-center justify-center h-[400px]">
-                          <p className="text-muted-foreground mb-4">No data available</p>
-                          <Button size="sm" onClick={() => handleSelectTable(selectedTable)}>
-                            Load Data
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  
-                  {activeTab === "structure" && (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Column</TableHead>
-                          <TableHead>Type</TableHead>
-                          <TableHead>Nullable</TableHead>
-                          <TableHead>Key</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {mockTableDefinition.columns.map((column) => (
-                          <TableRow key={column.name}>
-                            <TableCell>{column.name}</TableCell>
-                            <TableCell>{column.type}</TableCell>
-                            <TableCell>{column.nullable ? "YES" : "NO"}</TableCell>
-                            <TableCell>
-                              {column.isPrimary ? "Primary" : ""}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                  
-                  {activeTab === "sql" && (
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="query">SQL Query</Label>
-                        <Textarea
-                          id="query"
-                          value={query}
-                          onChange={(e) => setQuery(e.target.value)}
-                          className="font-mono text-sm"
-                          rows={6}
-                        />
-                      </div>
-                      <Button onClick={handleExecuteQuery} disabled={isLoading}>
-                        {isLoading ? "Executing..." : "Execute Query"}
-                      </Button>
-                      
-                      {queryResults && (
-                        <div className="border rounded-md mt-4">
-                          <div className="bg-muted px-4 py-2 font-medium border-b">
-                            Results
-                          </div>
-                          <ScrollArea className="h-[300px]">
-                            <Table>
-                              {queryResults.length > 0 && (
-                                <>
-                                  <TableHeader>
-                                    <TableRow>
-                                      {Object.keys(queryResults[0]).map((key) => (
-                                        <TableHead key={key}>{key}</TableHead>
-                                      ))}
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {queryResults.map((row, rowIndex) => (
-                                      <TableRow key={rowIndex}>
-                                        {Object.values(row).map((value, cellIndex) => (
-                                          <TableCell key={cellIndex}>
-                                            {typeof value === "boolean" 
-                                              ? value ? "true" : "false" 
-                                              : String(value)}
-                                          </TableCell>
-                                        ))}
-                                      </TableRow>
-                                    ))}
-                                  </TableBody>
-                                </>
-                              )}
-                              {queryResults.length === 0 && (
-                                <TableBody>
-                                  <TableRow>
-                                    <TableCell colSpan={5} className="text-center py-8">
-                                      No results found
-                                    </TableCell>
-                                  </TableRow>
-                                </TableBody>
-                              )}
-                            </Table>
-                          </ScrollArea>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  {/* Display active tab content based on state */}
+                  {activeTab === "browse" && renderBrowseTabContent()}
+                  {activeTab === "structure" && renderStructureTabContent()}
+                  {activeTab === "sql" && renderSqlTabContent()}
                 </CardContent>
               </Card>
             )}
