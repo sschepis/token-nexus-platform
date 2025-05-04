@@ -16,7 +16,13 @@ interface DeploymentStep2Props {
     appBundle: string;
     [key: string]: any;
   };
-  updateFormData: (data: Partial<typeof props.formData>) => void;
+  updateFormData: (data: Partial<{
+    chain: string;
+    network: string;
+    factoryContract: string;
+    appBundle: string;
+    [key: string]: any;
+  }>) => void;
 }
 
 export const DeploymentStep2: React.FC<DeploymentStep2Props> = (props) => {
