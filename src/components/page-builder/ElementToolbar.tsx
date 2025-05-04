@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Lock, Unlock, Copy, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageElement } from '@/types/page-builder';
-import { buttonVariants } from '@/components/ui/animated-container';
 
 interface ElementToolbarProps {
   element: PageElement;
@@ -16,6 +15,7 @@ interface ElementToolbarProps {
   onSendBackward: (element: PageElement) => void;
 }
 
+// Animation variants
 const toolbarVariants = {
   hidden: { opacity: 0, y: -10, scale: 0.95 },
   visible: { 
@@ -40,6 +40,16 @@ const itemVariants = {
   hidden: { opacity: 0, y: -5 },
   visible: { opacity: 1, y: 0 },
   exit: { opacity: 0, y: -5 }
+};
+
+// Button animation variants defined directly with proper types
+const buttonHoverAnimation = { 
+  scale: 1.05,
+  transition: { duration: 0.2 }
+};
+
+const buttonTapAnimation = { 
+  scale: 0.95 
 };
 
 // Create a motion button component that combines Button with motion capabilities
@@ -68,8 +78,8 @@ const ElementToolbar: React.FC<ElementToolbarProps> = ({
           className="h-7 w-7"
           onClick={() => onLockToggle(element)}
           title={element.props.locked ? "Unlock" : "Lock"}
-          whileHover={buttonVariants.hover}
-          whileTap={buttonVariants.tap}
+          whileHover={buttonHoverAnimation}
+          whileTap={buttonTapAnimation}
         >
           {element.props.locked ? 
             <Lock className="h-4 w-4" /> : 
@@ -85,8 +95,8 @@ const ElementToolbar: React.FC<ElementToolbarProps> = ({
           className="h-7 w-7"
           onClick={() => onDuplicate(element)}
           title="Duplicate"
-          whileHover={buttonVariants.hover}
-          whileTap={buttonVariants.tap}
+          whileHover={buttonHoverAnimation}
+          whileTap={buttonTapAnimation}
         >
           <Copy className="h-4 w-4" />
         </MotionButton>
@@ -99,8 +109,8 @@ const ElementToolbar: React.FC<ElementToolbarProps> = ({
           className="h-7 w-7"
           onClick={() => onBringForward(element)}
           title="Bring Forward"
-          whileHover={buttonVariants.hover}
-          whileTap={buttonVariants.tap}
+          whileHover={buttonHoverAnimation}
+          whileTap={buttonTapAnimation}
         >
           <ArrowUp className="h-4 w-4" />
         </MotionButton>
@@ -113,8 +123,8 @@ const ElementToolbar: React.FC<ElementToolbarProps> = ({
           className="h-7 w-7"
           onClick={() => onSendBackward(element)}
           title="Send Backward"
-          whileHover={buttonVariants.hover}
-          whileTap={buttonVariants.tap}
+          whileHover={buttonHoverAnimation}
+          whileTap={buttonTapAnimation}
         >
           <ArrowDown className="h-4 w-4" />
         </MotionButton>
@@ -127,8 +137,11 @@ const ElementToolbar: React.FC<ElementToolbarProps> = ({
           className="h-7 w-7 text-destructive hover:text-destructive"
           onClick={() => onDelete(element.id)}
           title="Delete"
-          whileHover={{ ...buttonVariants.hover, color: "var(--destructive)" }}
-          whileTap={buttonVariants.tap}
+          whileHover={{ 
+            ...buttonHoverAnimation, 
+            color: "var(--destructive)" 
+          }}
+          whileTap={buttonTapAnimation}
         >
           <Trash2 className="h-4 w-4" />
         </MotionButton>
