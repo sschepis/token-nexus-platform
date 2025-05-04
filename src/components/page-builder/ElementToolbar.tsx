@@ -42,6 +42,9 @@ const itemVariants = {
   exit: { opacity: 0, y: -5 }
 };
 
+// Create a motion button component that combines Button with motion capabilities
+const MotionButton = motion(Button);
+
 const ElementToolbar: React.FC<ElementToolbarProps> = ({
   element,
   onLockToggle,
@@ -59,7 +62,7 @@ const ElementToolbar: React.FC<ElementToolbarProps> = ({
       className="absolute -top-10 left-0 bg-background border shadow-md rounded-md flex items-center p-1 z-50"
     >
       <motion.div variants={itemVariants}>
-        <Button 
+        <MotionButton 
           variant="ghost" 
           size="icon" 
           className="h-7 w-7"
@@ -72,11 +75,11 @@ const ElementToolbar: React.FC<ElementToolbarProps> = ({
             <Lock className="h-4 w-4" /> : 
             <Unlock className="h-4 w-4" />
           }
-        </Button>
+        </MotionButton>
       </motion.div>
       
       <motion.div variants={itemVariants}>
-        <Button 
+        <MotionButton 
           variant="ghost" 
           size="icon" 
           className="h-7 w-7"
@@ -86,11 +89,11 @@ const ElementToolbar: React.FC<ElementToolbarProps> = ({
           whileTap={buttonVariants.tap}
         >
           <Copy className="h-4 w-4" />
-        </Button>
+        </MotionButton>
       </motion.div>
       
       <motion.div variants={itemVariants}>
-        <Button 
+        <MotionButton 
           variant="ghost" 
           size="icon" 
           className="h-7 w-7"
@@ -100,11 +103,11 @@ const ElementToolbar: React.FC<ElementToolbarProps> = ({
           whileTap={buttonVariants.tap}
         >
           <ArrowUp className="h-4 w-4" />
-        </Button>
+        </MotionButton>
       </motion.div>
       
       <motion.div variants={itemVariants}>
-        <Button 
+        <MotionButton 
           variant="ghost" 
           size="icon" 
           className="h-7 w-7"
@@ -114,11 +117,11 @@ const ElementToolbar: React.FC<ElementToolbarProps> = ({
           whileTap={buttonVariants.tap}
         >
           <ArrowDown className="h-4 w-4" />
-        </Button>
+        </MotionButton>
       </motion.div>
       
       <motion.div variants={itemVariants}>
-        <Button 
+        <MotionButton 
           variant="ghost" 
           size="icon" 
           className="h-7 w-7 text-destructive hover:text-destructive"
@@ -128,7 +131,7 @@ const ElementToolbar: React.FC<ElementToolbarProps> = ({
           whileTap={buttonVariants.tap}
         >
           <Trash2 className="h-4 w-4" />
-        </Button>
+        </MotionButton>
       </motion.div>
     </motion.div>
   );
