@@ -20,12 +20,12 @@ export interface AuthState {
   developerMode: boolean;
 }
 
-// Including objects:read in the initial permissions
+// Including system:admin in the initial permissions
 const initialState: AuthState = {
   user: null,
   token: null,
   orgId: null,
-  permissions: ["dashboard:read", "objects:read", "tokens:read", "users:read", "integrations:read", "reports:read", "audit:read", "notifications:read", "settings:read"],
+  permissions: ["dashboard:read", "objects:read", "tokens:read", "users:read", "integrations:read", "reports:read", "audit:read", "notifications:read", "settings:read", "system:admin"],
   isAuthenticated: false,
   isLoading: false,
   error: null,

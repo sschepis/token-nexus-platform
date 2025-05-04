@@ -29,6 +29,7 @@ import CloudFunctions from './pages/CloudFunctions';
 import AppMarketplace from './pages/AppMarketplace';
 import GraphQLConsole from './pages/GraphQLConsole';
 import JSConsole from './pages/JSConsole';
+import SystemAdmin from './pages/SystemAdmin'; // New import
 
 // Developer Tools
 import ApiTesting from './pages/dev/ApiTesting';
@@ -70,6 +71,7 @@ const AnimatedRoutes = () => {
         <Route path="/marketplace" element={<PageTransition><AppMarketplace /></PageTransition>} />
         <Route path="/graphql-console" element={<PageTransition><GraphQLConsole /></PageTransition>} />
         <Route path="/js-console" element={<PageTransition><JSConsole /></PageTransition>} />
+        <Route path="/system-admin/*" element={<PageTransition><SystemAdmin /></PageTransition>} /> {/* New route */}
         
         {/* Developer Tool Routes */}
         <Route path="/dev/api-testing" element={<PageTransition><ApiTesting /></PageTransition>} />

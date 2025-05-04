@@ -42,7 +42,8 @@ import {
   Bug,
   FileJson,
   Layers,
-  Wrench
+  Wrench,
+  Shield
 } from "lucide-react";
 
 interface SidebarProps {
@@ -51,9 +52,12 @@ interface SidebarProps {
 }
 
 const Sidebar = ({ isSidebarOpen, closeSidebar }: SidebarProps) => {
-  const { user, developerMode } = useAppSelector(state => state.auth);
+  const { user, developerMode, permissions } = useAppSelector(state => state.auth);
   const navigate = useNavigate();
   const dispatch = useDispatch();
+
+  // Check if user has system admin permissions
+  const hasSystemAdminAccess = permissions.includes("system:admin");
 
   const handleLogout = () => {
     dispatch(logout());
@@ -136,6 +140,15 @@ const Sidebar = ({ isSidebarOpen, closeSidebar }: SidebarProps) => {
       icon: <Key className="h-5 w-5" />
     }
   ];
+
+  // Add System Admin item if user has permission
+  if (hasSystemAdminAccess) {
+    navItems.push({
+      name: "System Admin",
+      path: "/system-admin",
+      icon: <Shield className="h-5 w-5" />
+    });
+  }
 
   // Developer tools menu items
   const devItems = [
