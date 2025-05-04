@@ -6,6 +6,7 @@ import { Provider } from 'react-redux';
 import { store } from './store/store';
 import { Toaster } from './components/ui/sonner';
 import { AnimatePresence } from 'framer-motion';
+import { PageTransition } from './components/ui/animated-container';
 
 // Pages
 import Index from './pages/Index';
@@ -43,45 +44,45 @@ import DebugSettings from './pages/dev/DebugSettings';
 // Create a client
 const queryClient = new QueryClient();
 
-// AnimatedRoutes component for page transitions
+// AnimatedRoutes component for page transitions with enhanced animation
 const AnimatedRoutes = () => {
   const location = useLocation();
   
   return (
-    <AnimatePresence mode="wait">
+    <AnimatePresence mode="wait" initial={false}>
       <RouterRoutes location={location} key={location.pathname}>
-        <Route path="/" element={<Index />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/users" element={<Users />} />
-        <Route path="/settings/*" element={<Settings />} />
-        <Route path="/tokens" element={<Tokens />} />
-        <Route path="/tokens/create" element={<TokenCreate />} />
-        <Route path="/reports" element={<Reports />} />
-        <Route path="/integrations" element={<Integrations />} />
-        <Route path="/notifications" element={<Notifications />} />
-        <Route path="/audit-logs" element={<AuditLogs />} />
-        <Route path="/object-manager" element={<ObjectManager />} />
-        <Route path="/page-builder" element={<PageBuilder />} />
-        <Route path="/component-library" element={<ComponentLibrary />} />
-        <Route path="/routes" element={<RouteManager />} />
-        <Route path="/functions" element={<CloudFunctions />} />
-        <Route path="/marketplace" element={<AppMarketplace />} />
-        <Route path="/graphql-console" element={<GraphQLConsole />} />
-        <Route path="/js-console" element={<JSConsole />} />
+        <Route path="/" element={<PageTransition><Index /></PageTransition>} />
+        <Route path="/login" element={<PageTransition><Login /></PageTransition>} />
+        <Route path="/dashboard" element={<PageTransition><Dashboard /></PageTransition>} />
+        <Route path="/users" element={<PageTransition><Users /></PageTransition>} />
+        <Route path="/settings/*" element={<PageTransition><Settings /></PageTransition>} />
+        <Route path="/tokens" element={<PageTransition><Tokens /></PageTransition>} />
+        <Route path="/tokens/create" element={<PageTransition><TokenCreate /></PageTransition>} />
+        <Route path="/reports" element={<PageTransition><Reports /></PageTransition>} />
+        <Route path="/integrations" element={<PageTransition><Integrations /></PageTransition>} />
+        <Route path="/notifications" element={<PageTransition><Notifications /></PageTransition>} />
+        <Route path="/audit-logs" element={<PageTransition><AuditLogs /></PageTransition>} />
+        <Route path="/object-manager" element={<PageTransition><ObjectManager /></PageTransition>} />
+        <Route path="/page-builder" element={<PageTransition><PageBuilder /></PageTransition>} />
+        <Route path="/component-library" element={<PageTransition><ComponentLibrary /></PageTransition>} />
+        <Route path="/routes" element={<PageTransition><RouteManager /></PageTransition>} />
+        <Route path="/functions" element={<PageTransition><CloudFunctions /></PageTransition>} />
+        <Route path="/marketplace" element={<PageTransition><AppMarketplace /></PageTransition>} />
+        <Route path="/graphql-console" element={<PageTransition><GraphQLConsole /></PageTransition>} />
+        <Route path="/js-console" element={<PageTransition><JSConsole /></PageTransition>} />
         
         {/* Developer Tool Routes */}
-        <Route path="/dev/api-testing" element={<ApiTesting />} />
-        <Route path="/dev/database" element={<DatabaseExplorer />} />
-        <Route path="/dev/env" element={<EnvManager />} />
-        <Route path="/dev/logs" element={<LogsViewer />} />
-        <Route path="/dev/performance" element={<PerformanceMonitor />} />
-        <Route path="/dev/auth-testing" element={<AuthTester />} />
-        <Route path="/dev/storage" element={<StorageExplorer />} />
-        <Route path="/dev/network" element={<NetworkInspector />} />
-        <Route path="/dev/settings" element={<DebugSettings />} />
+        <Route path="/dev/api-testing" element={<PageTransition><ApiTesting /></PageTransition>} />
+        <Route path="/dev/database" element={<PageTransition><DatabaseExplorer /></PageTransition>} />
+        <Route path="/dev/env" element={<PageTransition><EnvManager /></PageTransition>} />
+        <Route path="/dev/logs" element={<PageTransition><LogsViewer /></PageTransition>} />
+        <Route path="/dev/performance" element={<PageTransition><PerformanceMonitor /></PageTransition>} />
+        <Route path="/dev/auth-testing" element={<PageTransition><AuthTester /></PageTransition>} />
+        <Route path="/dev/storage" element={<PageTransition><StorageExplorer /></PageTransition>} />
+        <Route path="/dev/network" element={<PageTransition><NetworkInspector /></PageTransition>} />
+        <Route path="/dev/settings" element={<PageTransition><DebugSettings /></PageTransition>} />
         
-        <Route path="*" element={<NotFound />} />
+        <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
       </RouterRoutes>
     </AnimatePresence>
   );

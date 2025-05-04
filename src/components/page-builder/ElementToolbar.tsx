@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Lock, Unlock, Copy, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageElement } from '@/types/page-builder';
+import { buttonVariants } from '@/components/ui/animated-container';
 
 interface ElementToolbarProps {
   element: PageElement;
@@ -14,6 +15,32 @@ interface ElementToolbarProps {
   onBringForward: (element: PageElement) => void;
   onSendBackward: (element: PageElement) => void;
 }
+
+const toolbarVariants = {
+  hidden: { opacity: 0, y: -10, scale: 0.95 },
+  visible: { 
+    opacity: 1, 
+    y: 0, 
+    scale: 1,
+    transition: { 
+      type: "spring",
+      stiffness: 260,
+      damping: 20,
+      staggerChildren: 0.05
+    }
+  },
+  exit: { 
+    opacity: 0, 
+    y: -10,
+    transition: { duration: 0.2 } 
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: -5 },
+  visible: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -5 }
+};
 
 const ElementToolbar: React.FC<ElementToolbarProps> = ({
   element,
@@ -25,63 +52,84 @@ const ElementToolbar: React.FC<ElementToolbarProps> = ({
 }) => {
   return (
     <motion.div 
-      initial={{ opacity: 0, y: -10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2 }}
+      initial="hidden"
+      animate="visible"
+      exit="exit"
+      variants={toolbarVariants}
       className="absolute -top-10 left-0 bg-background border shadow-md rounded-md flex items-center p-1 z-50"
     >
-      <Button 
-        variant="ghost" 
-        size="icon" 
-        className="h-7 w-7"
-        onClick={() => onLockToggle(element)}
-        title={element.props.locked ? "Unlock" : "Lock"}
-      >
-        {element.props.locked ? 
-          <Lock className="h-4 w-4" /> : 
-          <Unlock className="h-4 w-4" />
-        }
-      </Button>
+      <motion.div variants={itemVariants}>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="h-7 w-7"
+          onClick={() => onLockToggle(element)}
+          title={element.props.locked ? "Unlock" : "Lock"}
+          whileHover={buttonVariants.hover}
+          whileTap={buttonVariants.tap}
+        >
+          {element.props.locked ? 
+            <Lock className="h-4 w-4" /> : 
+            <Unlock className="h-4 w-4" />
+          }
+        </Button>
+      </motion.div>
       
-      <Button 
-        variant="ghost" 
-        size="icon" 
-        className="h-7 w-7"
-        onClick={() => onDuplicate(element)}
-        title="Duplicate"
-      >
-        <Copy className="h-4 w-4" />
-      </Button>
+      <motion.div variants={itemVariants}>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="h-7 w-7"
+          onClick={() => onDuplicate(element)}
+          title="Duplicate"
+          whileHover={buttonVariants.hover}
+          whileTap={buttonVariants.tap}
+        >
+          <Copy className="h-4 w-4" />
+        </Button>
+      </motion.div>
       
-      <Button 
-        variant="ghost" 
-        size="icon" 
-        className="h-7 w-7"
-        onClick={() => onBringForward(element)}
-        title="Bring Forward"
-      >
-        <ArrowUp className="h-4 w-4" />
-      </Button>
+      <motion.div variants={itemVariants}>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="h-7 w-7"
+          onClick={() => onBringForward(element)}
+          title="Bring Forward"
+          whileHover={buttonVariants.hover}
+          whileTap={buttonVariants.tap}
+        >
+          <ArrowUp className="h-4 w-4" />
+        </Button>
+      </motion.div>
       
-      <Button 
-        variant="ghost" 
-        size="icon" 
-        className="h-7 w-7"
-        onClick={() => onSendBackward(element)}
-        title="Send Backward"
-      >
-        <ArrowDown className="h-4 w-4" />
-      </Button>
+      <motion.div variants={itemVariants}>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="h-7 w-7"
+          onClick={() => onSendBackward(element)}
+          title="Send Backward"
+          whileHover={buttonVariants.hover}
+          whileTap={buttonVariants.tap}
+        >
+          <ArrowDown className="h-4 w-4" />
+        </Button>
+      </motion.div>
       
-      <Button 
-        variant="ghost" 
-        size="icon" 
-        className="h-7 w-7 text-destructive hover:text-destructive"
-        onClick={() => onDelete(element.id)}
-        title="Delete"
-      >
-        <Trash2 className="h-4 w-4" />
-      </Button>
+      <motion.div variants={itemVariants}>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="h-7 w-7 text-destructive hover:text-destructive"
+          onClick={() => onDelete(element.id)}
+          title="Delete"
+          whileHover={{ ...buttonVariants.hover, color: "var(--destructive)" }}
+          whileTap={buttonVariants.tap}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </motion.div>
     </motion.div>
   );
 };
