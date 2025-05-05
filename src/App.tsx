@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { BrowserRouter as Router, Routes as RouterRoutes, Route, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -28,7 +29,8 @@ import CloudFunctions from './pages/CloudFunctions';
 import AppMarketplace from './pages/AppMarketplace';
 import GraphQLConsole from './pages/GraphQLConsole';
 import JSConsole from './pages/JSConsole';
-import SystemAdmin from './pages/SystemAdmin'; // Keep this import
+import SystemAdmin from './pages/SystemAdmin';
+import ProjectIntegrations from './pages/system-admin/ProjectIntegrations';
 
 // Developer Tools
 import ApiTesting from './pages/dev/ApiTesting';
@@ -71,7 +73,7 @@ const AnimatedRoutes = () => {
         <Route path="/marketplace" element={<PageTransition><AppMarketplace /></PageTransition>} />
         <Route path="/graphql-console" element={<PageTransition><GraphQLConsole /></PageTransition>} />
         <Route path="/js-console" element={<PageTransition><JSConsole /></PageTransition>} />
-        <Route path="/system-admin/*" element={<PageTransition><SystemAdmin /></PageTransition>} /> {/* Correct route */}
+        <Route path="/system-admin/*" element={<PageTransition><SystemAdmin /></PageTransition>} />
 
         {/* Developer Tool Routes */}
         <Route path="/dev/api-testing" element={<PageTransition><ApiTesting /></PageTransition>} />

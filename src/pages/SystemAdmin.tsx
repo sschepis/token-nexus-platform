@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { useAppSelector } from "@/store/hooks";
@@ -7,6 +8,7 @@ import { ContractDeployWizard } from "@/components/system-admin/ContractDeployWi
 import { ChainConfigurator } from "@/components/system-admin/ChainConfigurator";
 import { AppBundleManager } from "@/components/system-admin/AppBundleManager";
 import { DeploymentDashboard } from "@/components/system-admin/DeploymentDashboard";
+import ProjectIntegrations from "./system-admin/ProjectIntegrations";
 
 const SystemAdmin = () => {
   const navigate = useNavigate();
@@ -24,7 +26,6 @@ const SystemAdmin = () => {
 
   const currentTab = location.pathname.split('/system-admin/')[1]?.split('/')[0] || "deploy";
 
-
   const handleTabChange = (value: string) => {
     navigate(`/system-admin/${value}`);
   };
@@ -40,11 +41,12 @@ const SystemAdmin = () => {
         </div>
 
         <Tabs value={currentTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="grid grid-cols-4 w-full max-w-2xl">
+          <TabsList className="grid grid-cols-5 w-full max-w-3xl">
             <TabsTrigger value="deploy">Contract Deployment</TabsTrigger>
             <TabsTrigger value="chains">Chain Configuration</TabsTrigger>
             <TabsTrigger value="bundles">App Bundles</TabsTrigger>
             <TabsTrigger value="status">Deployment Status</TabsTrigger>
+            <TabsTrigger value="integrations">Project Integrations</TabsTrigger>
           </TabsList>
         </Tabs>
 
@@ -57,6 +59,7 @@ const SystemAdmin = () => {
             <Route path="/chains" element={<ChainConfigurator />} />
             <Route path="/bundles" element={<AppBundleManager />} />
             <Route path="/status" element={<DeploymentDashboard />} />
+            <Route path="/integrations" element={<ProjectIntegrations />} />
           </Routes>
         </div>
       </div>
