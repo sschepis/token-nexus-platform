@@ -1,33 +1,23 @@
-
-import React from "react";
-import { Menu } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { ModeToggle } from "./ModeToggle";
-import { useAppSelector } from "@/store/hooks";
+import React from 'react';
+import { useStore } from "@/hooks/useStore";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 
 interface NavbarProps {
-  openSidebar: () => void;
+  openSidebar?: () => void;
 }
 
 const Navbar = ({ openSidebar }: NavbarProps) => {
-  const { currentOrg } = useAppSelector(state => state.org);
-
   return (
-    <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur">
-      <div className="flex h-16 items-center px-4 md:px-6">
-        <Button variant="ghost" size="icon" className="md:hidden mr-2" onClick={openSidebar}>
-          <Menu className="h-5 w-5" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-xl font-semibold">
-            {currentOrg?.name || "Organization"}
-          </h1>
+    <div className="border-b border-gray-200 dark:border-gray-800 bg-background p-2 px-4">
+      <div className="flex h-16 items-center justify-between">
+        <div className="flex items-center">
+          <SidebarTrigger className="md:hidden" />
         </div>
-        <div className="flex items-center gap-4 md:hidden">
-          <ModeToggle />
+        <div className="flex items-center gap-2">
+          {/* Other navbar items */}
         </div>
       </div>
-    </header>
+    </div>
   );
 };
 

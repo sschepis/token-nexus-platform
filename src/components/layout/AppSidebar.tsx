@@ -1,10 +1,5 @@
+
 import React from "react";
-import { 
-  Sheet, 
-  SheetContent, 
-  SheetTrigger 
-} from "@/components/ui/sheet";
-import { Menu } from "lucide-react";
 import { ModeToggle } from "./ModeToggle";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAppSelector } from "@/store/hooks";
@@ -43,24 +38,26 @@ import {
   FileJson,
   Layers,
   Wrench,
-  Cog, // Add Cog directly
   Shield
 } from "lucide-react";
 
-interface SidebarProps {
-  isSidebarOpen: boolean;
-  closeSidebar: () => void;
-}
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton
+} from "@/components/ui/sidebar";
 
-// Define a type for navigation items
-interface NavItem {
-  name: string;
-  path: string;
-  icon: React.ReactNode;
-  role?: string; // Optional role for RBAC
-}
-
-const Sidebar = ({ isSidebarOpen, closeSidebar }: SidebarProps) => {
+export function AppSidebar() {
   const { user, developerMode, permissions } = useAppSelector(state => state.auth);
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -87,7 +84,7 @@ const Sidebar = ({ isSidebarOpen, closeSidebar }: SidebarProps) => {
 
   const userName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : "User";
 
-  const navItems: NavItem[] = [ // Apply NavItem type
+  const navItems = [
     {
       name: "Dashboard",
       path: "/dashboard",
@@ -147,13 +144,6 @@ const Sidebar = ({ isSidebarOpen, closeSidebar }: SidebarProps) => {
       name: "Tokens",
       path: "/tokens",
       icon: <Key className="h-5 w-5" />
-    },
-    // Add System Admin link - conditionally rendered later
-    {
-      name: "System Admin",
-      path: "/system-admin",
-      icon: <Cog className="h-5 w-5" />, // Use Cog directly
-      role: "system_admin" // Keep role for future RBAC
     }
   ];
 
@@ -167,7 +157,7 @@ const Sidebar = ({ isSidebarOpen, closeSidebar }: SidebarProps) => {
   }
 
   // Developer tools menu items
-  const devItems: NavItem[] = [ // Apply NavItem type
+  const devItems = [
     {
       name: "GraphQL Explorer",
       path: "/graphql-console",
@@ -225,111 +215,90 @@ const Sidebar = ({ isSidebarOpen, closeSidebar }: SidebarProps) => {
     }
   ];
 
-  const SidebarContent = () => (
-    <div className="h-full flex flex-col gap-4 p-4 bg-background border-r">
-      <Link to="/dashboard" className="font-bold text-xl">
-        Logo
-      </Link>
-
-      <div className="flex items-center space-x-2">
-        <Avatar>
-          <AvatarImage src={user?.avatarUrl} />
-          <AvatarFallback>{getInitials()}</AvatarFallback>
-        </Avatar>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="pl-2 w-full justify-start text-sm font-medium leading-none hover:bg-transparent">
-              {userName}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <Link to="/settings/profile">
-              <DropdownMenuItem>
-                <User className="mr-2 h-4 w-4" />
-                <span>Profile</span>
-              </DropdownMenuItem>
-            </Link>
-            <Link to="/settings/account">
-              <DropdownMenuItem>
-                <SettingsIcon className="mr-2 h-4 w-4" />
-                <span>Settings</span>
-              </DropdownMenuItem>
-            </Link>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleLogout}>
-              <LogOut className="mr-2 h-4 w-4" />
-              <span>Log out</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
-      <div className="flex-1">
-        <ul className="space-y-1">
-          {navItems.map((item) => (
-            // TODO: Implement RBAC here. Check if user exists and user.role === item.role
-            // For now, render all items.
-            <li key={item.name}>
-              <Link
-                to={item.path}
-                className="flex items-center space-x-2 rounded-md p-2 hover:bg-secondary"
-                // TODO: Add active state highlighting if needed
-              >
-                {item.icon}
-                <span>{item.name}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-        
-        {/* Developer section - only visible when developer mode is enabled */}
-        {developerMode && (
-          <>
-            <div className="mt-6 mb-2">
-              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-                DEVELOPER TOOLS
-              </div>
-            </div>
-            <ul className="space-y-1">
-              {devItems.map((item) => (
-                <li key={item.name}>
-                  <Link
-                    to={item.path}
-                    className="flex items-center space-x-2 rounded-md p-2 hover:bg-secondary"
-                  >
-                    {item.icon}
-                    <span>{item.name}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
-      </div>
-
-      <div className="pb-3 pt-4">
-        <ModeToggle />
-      </div>
-    </div>
-  );
-
   return (
-    <>
-      {/* Desktop sidebar */}
-      <div className="hidden md:block md:w-64 md:flex-shrink-0">
-        <div className="h-full border-r">
-          <SidebarContent />
+    <Sidebar>
+      <SidebarHeader className="p-4">
+        <Link to="/dashboard" className="font-bold text-xl">
+          Logo
+        </Link>
+
+        <div className="flex items-center space-x-2 mt-4">
+          <Avatar>
+            <AvatarImage src={user?.avatarUrl} />
+            <AvatarFallback>{getInitials()}</AvatarFallback>
+          </Avatar>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="pl-2 w-full justify-start text-sm font-medium leading-none hover:bg-transparent">
+                {userName}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <Link to="/settings/profile">
+                <DropdownMenuItem>
+                  <User className="mr-2 h-4 w-4" />
+                  <span>Profile</span>
+                </DropdownMenuItem>
+              </Link>
+              <Link to="/settings/account">
+                <DropdownMenuItem>
+                  <SettingsIcon className="mr-2 h-4 w-4" />
+                  <span>Settings</span>
+                </DropdownMenuItem>
+              </Link>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleLogout}>
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Log out</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-      </div>
+      </SidebarHeader>
 
-      {/* Mobile sidebar */}
-      <Sheet open={isSidebarOpen} onOpenChange={closeSidebar}>
-        <SheetContent className="w-64 p-0" side="left">
-          <SidebarContent />
-        </SheetContent>
-      </Sheet>
-    </>
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {navItems.map((item) => (
+                <SidebarMenuItem key={item.name}>
+                  <SidebarMenuButton asChild tooltip={item.name}>
+                    <Link to={item.path}>
+                      {item.icon}
+                      <span>{item.name}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        
+        {developerMode && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Developer Tools</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {devItems.map((item) => (
+                  <SidebarMenuItem key={item.name}>
+                    <SidebarMenuButton asChild tooltip={item.name}>
+                      <Link to={item.path}>
+                        {item.icon}
+                        <span>{item.name}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+      </SidebarContent>
+
+      <SidebarFooter className="p-4">
+        <ModeToggle />
+      </SidebarFooter>
+    </Sidebar>
   );
-};
-
-export default Sidebar;
+}
