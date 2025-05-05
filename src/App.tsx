@@ -29,6 +29,13 @@ import AppMarketplace from './pages/AppMarketplace';
 import GraphQLConsole from './pages/GraphQLConsole';
 import JSConsole from './pages/JSConsole';
 
+// System Admin Pages
+import SystemAdmin from './pages/SystemAdmin';
+import ContractDeployment from './pages/system-admin/ContractDeployment';
+import ChainConfiguration from './pages/system-admin/ChainConfiguration';
+import AppBundles from './pages/system-admin/AppBundles';
+
+
 // Developer Tools
 import ApiTesting from './pages/dev/ApiTesting';
 import DatabaseExplorer from './pages/dev/DatabaseExplorer';
@@ -69,7 +76,13 @@ const AnimatedRoutes = () => {
         <Route path="/marketplace" element={<AppMarketplace />} />
         <Route path="/graphql-console" element={<GraphQLConsole />} />
         <Route path="/js-console" element={<JSConsole />} />
-        
+
+        {/* System Admin Routes */}
+        <Route path="/system-admin" element={<SystemAdmin />} />
+        <Route path="/system-admin/deploy" element={<ContractDeployment />} />
+        <Route path="/system-admin/chains" element={<ChainConfiguration />} />
+        <Route path="/system-admin/bundles" element={<AppBundles />} />
+
         {/* Developer Tool Routes */}
         <Route path="/dev/api-testing" element={<ApiTesting />} />
         <Route path="/dev/database" element={<DatabaseExplorer />} />

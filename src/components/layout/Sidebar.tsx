@@ -42,12 +42,21 @@ import {
   Bug,
   FileJson,
   Layers,
-  Wrench
+  Wrench,
+  Cog // Add Cog directly
 } from "lucide-react";
 
 interface SidebarProps {
   isSidebarOpen: boolean;
   closeSidebar: () => void;
+}
+
+// Define a type for navigation items
+interface NavItem {
+  name: string;
+  path: string;
+  icon: React.ReactNode;
+  role?: string; // Optional role for RBAC
 }
 
 const Sidebar = ({ isSidebarOpen, closeSidebar }: SidebarProps) => {
@@ -74,7 +83,7 @@ const Sidebar = ({ isSidebarOpen, closeSidebar }: SidebarProps) => {
 
   const userName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : "User";
 
-  const navItems = [
+  const navItems: NavItem[] = [ // Apply NavItem type
     {
       name: "Dashboard",
       path: "/dashboard",
@@ -134,11 +143,18 @@ const Sidebar = ({ isSidebarOpen, closeSidebar }: SidebarProps) => {
       name: "Tokens",
       path: "/tokens",
       icon: <Key className="h-5 w-5" />
+    },
+    // Add System Admin link - conditionally rendered later
+    {
+      name: "System Admin",
+      path: "/system-admin",
+      icon: <Cog className="h-5 w-5" />, // Use Cog directly
+      role: "system_admin" // Keep role for future RBAC
     }
   ];
 
   // Developer tools menu items
-  const devItems = [
+  const devItems: NavItem[] = [ // Apply NavItem type
     {
       name: "GraphQL Explorer",
       path: "/graphql-console",
@@ -238,10 +254,13 @@ const Sidebar = ({ isSidebarOpen, closeSidebar }: SidebarProps) => {
       <div className="flex-1">
         <ul className="space-y-1">
           {navItems.map((item) => (
+            // TODO: Implement RBAC here. Check if user exists and user.role === item.role
+            // For now, render all items.
             <li key={item.name}>
               <Link
                 to={item.path}
                 className="flex items-center space-x-2 rounded-md p-2 hover:bg-secondary"
+                // TODO: Add active state highlighting if needed
               >
                 {item.icon}
                 <span>{item.name}</span>
