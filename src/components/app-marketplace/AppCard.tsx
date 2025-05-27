@@ -7,21 +7,25 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { App } from '@/types/app-marketplace';
 
 interface AppCardProps {
-  app: App;
-  onInstall: (appId: string) => void;
-  onUninstall: (appId: string) => void;
-  onViewSettings: (appId: string) => void;
+  app: App; // App here is actually AppDefinitionForMarketplace from our types
+  isInstalled: boolean;
+  orgAppInstallationId?: string;
+  onInstall: (appDefinitionId: string, latestPublishedVersionId: string) => void;
+  onUninstall: (orgAppInstallationId: string) => void;
+  onViewSettings: (appId: string) => void; // appId here refers to appDefinitionId
   isInstalling?: boolean;
 }
 
 const AppCard: React.FC<AppCardProps> = ({
   app,
+  isInstalled,
+  orgAppInstallationId,
   onInstall,
   onUninstall,
   onViewSettings,
   isInstalling = false,
 }) => {
-  const isInstalled = app.status === 'installed';
+  // const isInstalled = app.status === 'installed'; // Now using prop
 
   return (
     <Card className="w-full overflow-hidden">
@@ -79,18 +83,27 @@ const AppCard: React.FC<AppCardProps> = ({
               <Button size="sm" variant="outline" onClick={() => onViewSettings(app.id)}>
                 Settings
               </Button>
-              <Button 
-                size="sm" 
-                variant="destructive" 
-                onClick={() => onUninstall(app.id)}
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => {
+                  if (orgAppInstallationId) {
+                    onUninstall(orgAppInstallationId);
+                  } else {
+                    console.error("Cannot uninstall: orgAppInstallationId is missing.");
+                    // Optionally show a toast error
+                  }
+                }}
               >
                 Uninstall
               </Button>
             </>
           ) : (
-            <Button 
-              size="sm" 
-              onClick={() => onInstall(app.id)} 
+            <Button
+              size="sm"
+              // Assuming app.version holds the ID of the latest published AppVersion object
+              // This is a simplification. A more robust way would be to ensure this ID is correctly fetched and passed.
+              onClick={() => onInstall(app.id, app.version)}
               disabled={isInstalling}
             >
               {isInstalling ? 'Installing...' : 'Install'}

@@ -1,4 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosError } from 'axios';
+import Parse from 'parse'; // Import Parse SDK
 import { store } from '../store/store';
 import { logout } from '../store/slices/authSlice';
 import { toast } from '@/hooks/use-toast';
@@ -90,6 +92,27 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+// Actual API methods using Parse SDK or Axios
+export const apiService = {
+  login: async (credentials: { email: string; password: string }): Promise<{ user: any; token: string; orgId: string; permissions: string[]; isAdmin?: boolean }> => {
+    try {
+      // Call the custom Parse Cloud function
+      const result = await Parse.Cloud.run('customUserLogin', {
+        username: credentials.email, // Parse uses 'username' for email by default
+        password: credentials.password
+      });
+      // The cloud function should return data in the format expected by loginSuccess action
+      // including the isAdmin flag.
+      // Example expected structure from cloud function:
+      // { user: { id, email, firstName, lastName, avatarUrl }, token, orgId, permissions, isAdmin }
+      return result as { user: any; token: string; orgId: string; permissions: string[]; isAdmin?: boolean };
+    } catch (error: any) {
+      console.error("Error calling customUserLogin cloud function:", error);
+      throw new Error(error.message || 'Login failed via cloud function');
+    }
+  },
+  // ... other actual api methods can go here
+};
 
 // For mocking API responses in development
 const mockResponse = (data: any, delay = 500): Promise<any> => {
@@ -103,32 +126,33 @@ const mockResponse = (data: any, delay = 500): Promise<any> => {
 // Example mock API methods
 export const mockApis = {
   // Auth APIs
-  login: (credentials: { email: string; password: string }) => {
-    // Mock login response
-    return mockResponse({
-      user: {
-        id: 'user-123',
-        email: credentials.email,
-        firstName: 'John',
-        lastName: 'Doe',
-        avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
-      },
-      token: 'mock-jwt-token',
-      orgId: 'org-123',
-      permissions: [
-        'dashboard:read', 
-        'tokens:read', 
-        'tokens:write', 
-        'users:read', 
-        'audit:read', 
-        'notifications:read', 
-        'settings:read',
-        'integrations:read',
-        'integrations:write',
-        'reports:read'
-      ],
-    });
-  },
+  // login: (credentials: { email: string; password: string }) => {
+  //   // Mock login response
+  //   return mockResponse({
+  //     user: {
+  //       id: 'user-123',
+  //       email: credentials.email,
+  //       firstName: 'John',
+  //       lastName: 'Doe',
+  //       avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
+  //     },
+  //     token: 'mock-jwt-token',
+  //     orgId: 'org-123',
+  //     permissions: [
+  //       'dashboard:read',
+  //       'tokens:read',
+  //       'tokens:write',
+  //       'users:read',
+  //       'audit:read',
+  //       'notifications:read',
+  //       'settings:read',
+  //       'integrations:read',
+  //       'integrations:write',
+  //       'reports:read',
+  //       'system:admin' // Added system:admin permission for mock user
+  //     ],
+  //   });
+  // },
   
   getUserOrgs: () => {
     return mockResponse({

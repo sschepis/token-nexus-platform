@@ -1,0 +1,16 @@
+[
+  {
+    "id": "sepolia",
+    "name": "Sepolia Testnet",
+    "chainId": 11155111,
+    "rpcUrl": "https://rpc.sepolia.org",
+    "blockExplorerUrl": "https://sepolia.etherscan.io"
+  },
+  {
+    "id": "mainnet",
+    "name": "Ethereum Mainnet",
+    "chainId": 1,
+    "rpcUrl": "https://mainnet.infura.io/v3/YOUR_INFURA_PROJECT_ID",
+    "blockExplorerUrl": "https://etherscan.io"
+  }
+]

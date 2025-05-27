@@ -1,0 +1,46 @@
+{
+  "address": "0x8d10857B6d2bEA12d67A888F3E995ea142Db701E",
+  "abi": [],
+  "transactionHash": "0xaafbeb40ea1281000dd900ea4e16405dae842345a86d09fb3d8642f44868f64e",
+  "receipt": {
+    "to": null,
+    "from": "0x9508f0Da19eC1C52D9C52611e4433159492bb93b",
+    "contractAddress": "0x8d10857B6d2bEA12d67A888F3E995ea142Db701E",
+    "transactionIndex": 49,
+    "gasUsed": "72227",
+    "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "blockHash": "0x325cb62251fdf8e5f0e52bcc5b121293c89afcd6274d9fec053306ae7fb3f07b",
+    "transactionHash": "0xaafbeb40ea1281000dd900ea4e16405dae842345a86d09fb3d8642f44868f64e",
+    "logs": [],
+    "blockNumber": 26013634,
+    "cumulativeGasUsed": "19802143",
+    "status": 1,
+    "byzantium": true
+  },
+  "args": [],
+  "numDeployments": 1,
+  "solcInputHash": "f3692121488f56f72e7047b22b2520f2",
+  "metadata": "{\"compiler\":{\"version\":\"0.8.28+commit.7893614a\"},\"language\":\"Solidity\",\"output\":{\"abi\":[],\"devdoc\":{\"details\":\"Provides a set of functions to operate with Base64 strings.\",\"kind\":\"dev\",\"methods\":{},\"stateVariables\":{\"_TABLE\":{\"details\":\"Base64 Encoding/Decoding Table See sections 4 and 5 of https://datatracker.ietf.org/doc/html/rfc4648\"}},\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"@openzeppelin/contracts/utils/Base64.sol\":\"Base64\"},\"evmVersion\":\"paris\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\",\"useLiteralContent\":true},\"optimizer\":{\"enabled\":true,\"runs\":11},\"remappings\":[]},\"sources\":{\"@openzeppelin/contracts/utils/Base64.sol\":{\"content\":\"// SPDX-License-Identifier: MIT\\n// OpenZeppelin Contracts (last updated v5.1.0) (utils/Base64.sol)\\n\\npragma solidity ^0.8.20;\\n\\n/**\\n * @dev Provides a set of functions to operate with Base64 strings.\\n */\\nlibrary Base64 {\\n    /**\\n     * @dev Base64 Encoding/Decoding Table\\n     * See sections 4 and 5 of https://datatracker.ietf.org/doc/html/rfc4648\\n     */\\n    string internal constant _TABLE = \\\"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/\\\";\\n    string internal constant _TABLE_URL = \\\"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_\\\";\\n\\n    /**\\n     * @dev Converts a `bytes` to its Bytes64 `string` representation.\\n     */\\n    function encode(bytes memory data) internal pure returns (string memory) {\\n        return _encode(data, _TABLE, true);\\n    }\\n\\n    /**\\n     * @dev Converts a `bytes` to its Bytes64Url `string` representation.\\n     * Output is not padded with `=` as specified in https://www.rfc-editor.org/rfc/rfc4648[rfc4648].\\n     */\\n    function encodeURL(bytes memory data) internal pure returns (string memory) {\\n        return _encode(data, _TABLE_URL, false);\\n    }\\n\\n    /**\\n     * @dev Internal table-agnostic conversion\\n     */\\n    function _encode(bytes memory data, string memory table, bool withPadding) private pure returns (string memory) {\\n        /**\\n         * Inspired by Brecht Devos (Brechtpd) implementation - MIT licence\\n         * https://github.com/Brechtpd/base64/blob/e78d9fd951e7b0977ddca77d92dc85183770daf4/base64.sol\\n         */\\n        if (data.length == 0) return \\\"\\\";\\n\\n        // If padding is enabled, the final length should be `bytes` data length divided by 3 rounded up and then\\n        // multiplied by 4 so that it leaves room for padding the last chunk\\n        // - `data.length + 2`  -> Prepare for division rounding up\\n        // - `/ 3`              -> Number of 3-bytes chunks (rounded up)\\n        // - `4 *`              -> 4 characters for each chunk\\n        // This is equivalent to: 4 * Math.ceil(data.length / 3)\\n        //\\n        // If padding is disabled, the final length should be `bytes` data length multiplied by 4/3 rounded up as\\n        // opposed to when padding is required to fill the last chunk.\\n        // - `4 * data.length`  -> 4 characters for each chunk\\n        // - ` + 2`             -> Prepare for division rounding up\\n        // - `/ 3`              -> Number of 3-bytes chunks (rounded up)\\n        // This is equivalent to: Math.ceil((4 * data.length) / 3)\\n        uint256 resultLength = withPadding ? 4 * ((data.length + 2) / 3) : (4 * data.length + 2) / 3;\\n\\n        string memory result = new string(resultLength);\\n\\n        assembly (\\\"memory-safe\\\") {\\n            // Prepare the lookup table (skip the first \\\"length\\\" byte)\\n            let tablePtr := add(table, 1)\\n\\n            // Prepare result pointer, jump over length\\n            let resultPtr := add(result, 0x20)\\n            let dataPtr := data\\n            let endPtr := add(data, mload(data))\\n\\n            // In some cases, the last iteration will read bytes after the end of the data. We cache the value, and\\n            // set it to zero to make sure no dirty bytes are read in that section.\\n            let afterPtr := add(endPtr, 0x20)\\n            let afterCache := mload(afterPtr)\\n            mstore(afterPtr, 0x00)\\n\\n            // Run over the input, 3 bytes at a time\\n            for {\\n\\n            } lt(dataPtr, endPtr) {\\n\\n            } {\\n                // Advance 3 bytes\\n                dataPtr := add(dataPtr, 3)\\n                let input := mload(dataPtr)\\n\\n                // To write each character, shift the 3 byte (24 bits) chunk\\n                // 4 times in blocks of 6 bits for each character (18, 12, 6, 0)\\n                // and apply logical AND with 0x3F to bitmask the least significant 6 bits.\\n                // Use this as an index into the lookup table, mload an entire word\\n                // so the desired character is in the least significant byte, and\\n                // mstore8 this least significant byte into the result and continue.\\n\\n                mstore8(resultPtr, mload(add(tablePtr, and(shr(18, input), 0x3F))))\\n                resultPtr := add(resultPtr, 1) // Advance\\n\\n                mstore8(resultPtr, mload(add(tablePtr, and(shr(12, input), 0x3F))))\\n                resultPtr := add(resultPtr, 1) // Advance\\n\\n                mstore8(resultPtr, mload(add(tablePtr, and(shr(6, input), 0x3F))))\\n                resultPtr := add(resultPtr, 1) // Advance\\n\\n                mstore8(resultPtr, mload(add(tablePtr, and(input, 0x3F))))\\n                resultPtr := add(resultPtr, 1) // Advance\\n            }\\n\\n            // Reset the value that was cached\\n            mstore(afterPtr, afterCache)\\n\\n            if withPadding {\\n                // When data `bytes` is not exactly 3 bytes long\\n                // it is padded with `=` characters at the end\\n                switch mod(mload(data), 3)\\n                case 1 {\\n                    mstore8(sub(resultPtr, 1), 0x3d)\\n                    mstore8(sub(resultPtr, 2), 0x3d)\\n                }\\n                case 2 {\\n                    mstore8(sub(resultPtr, 1), 0x3d)\\n                }\\n            }\\n        }\\n\\n        return result;\\n    }\\n}\\n\",\"keccak256\":\"0xbee2b819e1b4bf569ffc1b1b9d560b4abd6a589575f3093edaab9244de18a0c2\",\"license\":\"MIT\"}},\"version\":1}",
+  "bytecode": "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea2646970667358221220ce12cf4f5f6c91546b5cf9fdf4cba0c2702f80a4fc11966cfa1f220c7daaee5a64736f6c634300081c0033",
+  "deployedBytecode": "0x73000000000000000000000000000000000000000030146080604052600080fdfea2646970667358221220ce12cf4f5f6c91546b5cf9fdf4cba0c2702f80a4fc11966cfa1f220c7daaee5a64736f6c634300081c0033",
+  "devdoc": {
+    "details": "Provides a set of functions to operate with Base64 strings.",
+    "kind": "dev",
+    "methods": {},
+    "stateVariables": {
+      "_TABLE": {
+        "details": "Base64 Encoding/Decoding Table See sections 4 and 5 of https://datatracker.ietf.org/doc/html/rfc4648"
+      }
+    },
+    "version": 1
+  },
+  "userdoc": {
+    "kind": "user",
+    "methods": {},
+    "version": 1
+  },
+  "storageLayout": {
+    "storage": [],
+    "types": null
+  }
+}

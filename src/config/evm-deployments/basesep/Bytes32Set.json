@@ -1,0 +1,93 @@
+{
+  "address": "0xB01Cf1Baf9ABFa5309AE3ff649B31ae87A80AE62",
+  "abi": [],
+  "transactionHash": "0x28d72f9523e753a89e32ff1a5c6dc3123052c35dfe441bfec760527c7bc55354",
+  "receipt": {
+    "to": null,
+    "from": "0x9508f0Da19eC1C52D9C52611e4433159492bb93b",
+    "contractAddress": "0xB01Cf1Baf9ABFa5309AE3ff649B31ae87A80AE62",
+    "transactionIndex": 48,
+    "gasUsed": "254115",
+    "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "blockHash": "0x39525de5ffa061a305394f072eb7306b0678be734827802af0ea92589e85c927",
+    "transactionHash": "0x28d72f9523e753a89e32ff1a5c6dc3123052c35dfe441bfec760527c7bc55354",
+    "logs": [],
+    "blockNumber": 26013637,
+    "cumulativeGasUsed": "4592153",
+    "status": 1,
+    "byzantium": true
+  },
+  "args": [],
+  "numDeployments": 1,
+  "solcInputHash": "f3692121488f56f72e7047b22b2520f2",
+  "metadata": "{\"compiler\":{\"version\":\"0.8.28+commit.7893614a\"},\"language\":\"Solidity\",\"output\":{\"abi\":[],\"devdoc\":{\"details\":\"Sets are unordered. Delete operations reorder keys. All operations have a fixed gas cost at any scale, O(1). author: Rob Hitchens\",\"kind\":\"dev\",\"methods\":{\"count(Bytes32Set.Set storage)\":{\"params\":{\"self\":\"storage pointer to a Set.\"}},\"exists(Bytes32Set.Set storage,bytes32)\":{\"params\":{\"key\":\"value to check.\",\"self\":\"storage pointer to a Set.\"},\"returns\":{\"_0\":\"bool true: Set member, false: not a Set member.\"}},\"insert(Bytes32Set.Set storage,bytes32)\":{\"details\":\"duplicate keys are not permitted.\",\"params\":{\"key\":\"value to insert.\",\"self\":\"storage pointer to a Set.\"}},\"keyAtIndex(Bytes32Set.Set storage,uint256)\":{\"params\":{\"index\":\"row to enumerate. Must be < count() - 1.\",\"self\":\"storage pointer to a Set.\"}},\"remove(Bytes32Set.Set storage,bytes32)\":{\"details\":\"key to remove must exist.\",\"params\":{\"key\":\"value to remove.\",\"self\":\"storage pointer to a Set.\"}}},\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"count(Bytes32Set.Set storage)\":{\"notice\":\"count the keys.\"},\"exists(Bytes32Set.Set storage,bytes32)\":{\"notice\":\"check if a key is in the Set.\"},\"insert(Bytes32Set.Set storage,bytes32)\":{\"notice\":\"insert a key.\"},\"keyAtIndex(Bytes32Set.Set storage,uint256)\":{\"notice\":\"fetch a key by row (enumerate).\"},\"remove(Bytes32Set.Set storage,bytes32)\":{\"notice\":\"remove a key.\"}},\"notice\":\"Key sets with enumeration and delete. Uses mappings for random and existence checks and dynamic arrays for enumeration. Key uniqueness is enforced.\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/libraries/Bytes32Set.sol\":\"Bytes32Set\"},\"evmVersion\":\"paris\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\",\"useLiteralContent\":true},\"optimizer\":{\"enabled\":true,\"runs\":11},\"remappings\":[]},\"sources\":{\"contracts/libraries/Bytes32Set.sol\":{\"content\":\"// SPDX-License-Identifier: MIT\\n\\npragma solidity >=0.8.0;\\n\\n/**\\n * @notice Key sets with enumeration and delete. Uses mappings for random\\n * and existence checks and dynamic arrays for enumeration. Key uniqueness is enforced.\\n * @dev Sets are unordered. Delete operations reorder keys. All operations have a\\n * fixed gas cost at any scale, O(1).\\n * author: Rob Hitchens\\n */\\n\\nlibrary Bytes32Set {\\n    struct Set {\\n        mapping(bytes32 => uint256) keyPointers;\\n        bytes32[] keyList;\\n    }\\n\\n    /**\\n     * @notice insert a key.\\n     * @dev duplicate keys are not permitted.\\n     * @param self storage pointer to a Set.\\n     * @param key value to insert.\\n     */\\n    function insert(Set storage self, bytes32 key) public {\\n        require(\\n            !exists(self, key),\\n            \\\"key already exists in the set.\\\"\\n        );\\n        self.keyList.push(key);\\n        self.keyPointers[key] = self.keyList.length - 1;\\n    }\\n\\n    /**\\n     * @notice remove a key.\\n     * @dev key to remove must exist.\\n     * @param self storage pointer to a Set.\\n     * @param key value to remove.\\n     */\\n    function remove(Set storage self, bytes32 key) public {\\n        // TODO: I commented this out do get a test to pass - need to figure out what is up here\\n        // require(\\n        //     exists(self, key),\\n        //     \\\"Bytes32Set: key does not exist in the set.\\\"\\n        // );\\n        if (!exists(self, key)) return;\\n        uint256 last = count(self) - 1;\\n        uint256 rowToReplace = self.keyPointers[key];\\n        if (rowToReplace != last) {\\n            bytes32 keyToMove = self.keyList[last];\\n            self.keyPointers[keyToMove] = rowToReplace;\\n            self.keyList[rowToReplace] = keyToMove;\\n        }\\n        delete self.keyPointers[key];\\n        delete self.keyList[self.keyList.length - 1];\\n    }\\n\\n    /**\\n     * @notice count the keys.\\n     * @param self storage pointer to a Set.\\n     */\\n    function count(Set storage self) public view returns (uint256) {\\n        return self.keyList.length;\\n    }\\n\\n    /**\\n     * @notice check if a key is in the Set.\\n     * @param self storage pointer to a Set.\\n     * @param key value to check.\\n     * @return bool true: Set member, false: not a Set member.\\n     */\\n    function exists(Set storage self, bytes32 key)\\n        public\\n        view\\n        returns (bool)\\n    {\\n        if (self.keyList.length == 0) return false;\\n        return self.keyList[self.keyPointers[key]] == key;\\n    }\\n\\n    /**\\n     * @notice fetch a key by row (enumerate).\\n     * @param self storage pointer to a Set.\\n     * @param index row to enumerate. Must be < count() - 1.\\n     */\\n    function keyAtIndex(Set storage self, uint256 index)\\n        public\\n        view\\n        returns (bytes32)\\n    {\\n        return self.keyList[index];\\n    }\\n}\\n\",\"keccak256\":\"0x25c482167b0148a81b64d5a05d464bd62ed5b085b8541921ca6d9de8f407c060\",\"license\":\"MIT\"}},\"version\":1}",
+  "bytecode": "0x6103a2610039600b82828239805160001a607314602c57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600436106100615760003560e01c8063460f25b7146100665780634c55b7ae1461008c578063888d4ed0146100a15780639b3cbfbe146100c3578063dd50f64e146100e6575b600080fd5b6100796100743660046102fa565b610106565b6040519081526020015b60405180910390f35b61007961009a36600461031c565b6001015490565b8180156100ad57600080fd5b506100c16100bc3660046102fa565b610131565b005b6100d66100d13660046102fa565b610219565b6040519015158152602001610083565b8180156100f257600080fd5b506100c16101013660046102fa565b610269565b600082600101828154811061011d5761011d610335565b906000526020600020015490505b92915050565b61013b8282610219565b610143575050565b60006001610152846001015490565b61015c919061034b565b6000838152602085905260409020549091508082146101d757600084600101838154811061018c5761018c610335565b906000526020600020015490508185600001600083815260200190815260200160002081905550808560010183815481106101c9576101c9610335565b600091825260209091200155505b6000838152602085905260408120556001808501805490916101f89161034b565b8154811061020857610208610335565b600091825260208220015550505050565b6001820154600090810361022f5750600061012b565b600082815260208490526040902054600184018054849290811061025557610255610335565b906000526020600020015414905092915050565b6102738282610219565b156102c45760405162461bcd60e51b815260206004820152601e60248201527f6b657920616c72656164792065786973747320696e20746865207365742e0000604482015260640160405180910390fd5b60018083018054808301825560008281526020902001839055546102e8919061034b565b60009182526020929092526040902055565b6000806040838503121561030d57600080fd5b50508035926020909101359150565b60006020828403121561032e57600080fd5b5035919050565b634e487b7160e01b600052603260045260246000fd5b8181038181111561012b57634e487b7160e01b600052601160045260246000fdfea2646970667358221220ad3f5d9a9ee5ff1be3595381309ef054a514e205cf203edbdb30a74a00acf28964736f6c634300081c0033",
+  "deployedBytecode": "0x73000000000000000000000000000000000000000030146080604052600436106100615760003560e01c8063460f25b7146100665780634c55b7ae1461008c578063888d4ed0146100a15780639b3cbfbe146100c3578063dd50f64e146100e6575b600080fd5b6100796100743660046102fa565b610106565b6040519081526020015b60405180910390f35b61007961009a36600461031c565b6001015490565b8180156100ad57600080fd5b506100c16100bc3660046102fa565b610131565b005b6100d66100d13660046102fa565b610219565b6040519015158152602001610083565b8180156100f257600080fd5b506100c16101013660046102fa565b610269565b600082600101828154811061011d5761011d610335565b906000526020600020015490505b92915050565b61013b8282610219565b610143575050565b60006001610152846001015490565b61015c919061034b565b6000838152602085905260409020549091508082146101d757600084600101838154811061018c5761018c610335565b906000526020600020015490508185600001600083815260200190815260200160002081905550808560010183815481106101c9576101c9610335565b600091825260209091200155505b6000838152602085905260408120556001808501805490916101f89161034b565b8154811061020857610208610335565b600091825260208220015550505050565b6001820154600090810361022f5750600061012b565b600082815260208490526040902054600184018054849290811061025557610255610335565b906000526020600020015414905092915050565b6102738282610219565b156102c45760405162461bcd60e51b815260206004820152601e60248201527f6b657920616c72656164792065786973747320696e20746865207365742e0000604482015260640160405180910390fd5b60018083018054808301825560008281526020902001839055546102e8919061034b565b60009182526020929092526040902055565b6000806040838503121561030d57600080fd5b50508035926020909101359150565b60006020828403121561032e57600080fd5b5035919050565b634e487b7160e01b600052603260045260246000fd5b8181038181111561012b57634e487b7160e01b600052601160045260246000fdfea2646970667358221220ad3f5d9a9ee5ff1be3595381309ef054a514e205cf203edbdb30a74a00acf28964736f6c634300081c0033",
+  "devdoc": {
+    "details": "Sets are unordered. Delete operations reorder keys. All operations have a fixed gas cost at any scale, O(1). author: Rob Hitchens",
+    "kind": "dev",
+    "methods": {
+      "count(Bytes32Set.Set storage)": {
+        "params": {
+          "self": "storage pointer to a Set."
+        }
+      },
+      "exists(Bytes32Set.Set storage,bytes32)": {
+        "params": {
+          "key": "value to check.",
+          "self": "storage pointer to a Set."
+        },
+        "returns": {
+          "_0": "bool true: Set member, false: not a Set member."
+        }
+      },
+      "insert(Bytes32Set.Set storage,bytes32)": {
+        "details": "duplicate keys are not permitted.",
+        "params": {
+          "key": "value to insert.",
+          "self": "storage pointer to a Set."
+        }
+      },
+      "keyAtIndex(Bytes32Set.Set storage,uint256)": {
+        "params": {
+          "index": "row to enumerate. Must be < count() - 1.",
+          "self": "storage pointer to a Set."
+        }
+      },
+      "remove(Bytes32Set.Set storage,bytes32)": {
+        "details": "key to remove must exist.",
+        "params": {
+          "key": "value to remove.",
+          "self": "storage pointer to a Set."
+        }
+      }
+    },
+    "version": 1
+  },
+  "userdoc": {
+    "kind": "user",
+    "methods": {
+      "count(Bytes32Set.Set storage)": {
+        "notice": "count the keys."
+      },
+      "exists(Bytes32Set.Set storage,bytes32)": {
+        "notice": "check if a key is in the Set."
+      },
+      "insert(Bytes32Set.Set storage,bytes32)": {
+        "notice": "insert a key."
+      },
+      "keyAtIndex(Bytes32Set.Set storage,uint256)": {
+        "notice": "fetch a key by row (enumerate)."
+      },
+      "remove(Bytes32Set.Set storage,bytes32)": {
+        "notice": "remove a key."
+      }
+    },
+    "notice": "Key sets with enumeration and delete. Uses mappings for random and existence checks and dynamic arrays for enumeration. Key uniqueness is enforced.",
+    "version": 1
+  },
+  "storageLayout": {
+    "storage": [],
+    "types": null
+  }
+}

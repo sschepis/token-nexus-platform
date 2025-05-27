@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { uninstallApp, updateAppSettings } from '@/store/slices/appSlice';
+import { uninstallOrgApp, updateAppSettings } from '@/store/slices/appSlice'; // Corrected import
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -29,12 +29,13 @@ interface AppSettingsProps {
 
 const AppSettings: React.FC<AppSettingsProps> = ({ appId, onBack }) => {
   const dispatch = useAppDispatch();
-  const { apps } = useAppSelector((state) => state.app);
-  const app = apps.find((a) => a.id === appId);
+  const { apps, installedOrgApps } = useAppSelector((state) => state.app); // Also get installedOrgApps
+  const currentOrg = useAppSelector((state) => state.org.currentOrg); // Get current org for context
+  const app = apps.find((a) => a.id === appId); // This is the AppDefinition
   
   const [showUninstallDialog, setShowUninstallDialog] = useState(false);
-  const [settings, setSettings] = useState<Record<string, any>>(app?.settings || {});
-
+  const [settings, setSettings] = useState<Record<string, unknown>>(app?.settings || {}); // Changed any to unknown
+ 
   if (!app) {
     return (
       <div className="flex flex-col items-center justify-center h-64">
@@ -47,11 +48,22 @@ const AppSettings: React.FC<AppSettingsProps> = ({ appId, onBack }) => {
   }
 
   const handleUninstall = () => {
-    dispatch(uninstallApp({ appId }));
-    onBack();
-  };
+    // Find the specific installation of this app for the current organization
+    const installation = installedOrgApps.find(
+      (inst) => inst.appDefinition?.objectId === appId && inst.organization?.objectId === currentOrg?.id
+    );
 
-  const handleSettingChange = (key: string, value: any) => {
+    if (installation && installation.objectId) {
+      dispatch(uninstallOrgApp({ orgAppInstallationId: installation.objectId }));
+      onBack(); // Navigate back after dispatching
+    } else {
+      console.error("Could not find installation ID for app:", appId, "and org:", currentOrg?.id);
+      // Show a toast or error message to the user
+      // toast.error("Failed to initiate uninstall: Installation not found.");
+    }
+  };
+ 
+  const handleSettingChange = (key: string, value: unknown) => { // Changed any to unknown
     setSettings({
       ...settings,
       [key]: value,
@@ -61,8 +73,8 @@ const AppSettings: React.FC<AppSettingsProps> = ({ appId, onBack }) => {
   const saveSettings = () => {
     dispatch(updateAppSettings({ appId, settings }));
   };
-
-  const renderSettingField = (key: string, value: any) => {
+ 
+  const renderSettingField = (key: string, value: unknown) => { // Changed any to unknown
     if (typeof value === 'boolean') {
       return (
         <div className="flex items-center space-x-2" key={key}>

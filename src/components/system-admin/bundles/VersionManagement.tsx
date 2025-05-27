@@ -1,183 +1,243 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React, { useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Download, Trash2, MoreHorizontal, Check, X } from "lucide-react";
+import {
+    Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle
+} from "@/components/ui/dialog";
+import {
+    Card, CardContent, CardDescription, CardHeader, CardTitle
+} from "@/components/ui/card"; // Added Card imports
+import { MoreHorizontal, Check, X, Edit, Eye, Loader2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { toast } from "sonner";
+import { toast } from "@/hooks/use-toast";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { AppDefinitionForMarketplace, AppVersionForMarketplace } from "@/types/app-marketplace"; // Use types from central location
+import { useAppDispatch } from "@/store/hooks";
+import {
+    approveAppVersionAdmin,
+    rejectAppVersionAdmin,
+    publishAppVersionAdmin,
+    RejectAppVersionAdminParams
+} from "@/store/slices/appSlice";
 
-interface Bundle {
-  id: string;
-  type: string;
-  version: string;
-  description: string;
-  createdAt: string;
-  isActive: boolean;
-  fileSize: string;
+
+interface VersionManagementProps {
+  appDefinition?: AppDefinitionForMarketplace | null;
+  versions?: AppVersionForMarketplace[];
+  isLoading?: boolean; // To indicate if versions are being loaded by parent
+  // onRefreshVersions: (appDefinitionId: string) => void; // Callback to tell parent to refresh
 }
 
-export const VersionManagement = () => {
-  const [bundles, setBundles] = useState<Bundle[]>([
-    {
-      id: "bundle-1",
-      type: "standard",
-      version: "1.2.0",
-      description: "Standard app bundle with basic features",
-      createdAt: "2023-05-20",
-      isActive: true,
-      fileSize: "15.4 MB"
-    },
-    {
-      id: "bundle-2",
-      type: "professional",
-      version: "1.1.5",
-      description: "Professional app bundle with advanced analytics",
-      createdAt: "2023-05-12",
-      isActive: true,
-      fileSize: "22.8 MB"
-    },
-    {
-      id: "bundle-3",
-      type: "enterprise",
-      version: "1.0.8",
-      description: "Enterprise bundle with multi-chain support",
-      createdAt: "2023-04-28",
-      isActive: false,
-      fileSize: "34.2 MB"
-    }
-  ]);
+export const VersionManagement: React.FC<VersionManagementProps> = ({
+  appDefinition = null,
+  versions = [],
+  isLoading: isLoadingVersionsProp = false, // Renamed to avoid conflict with local isLoading
+  // onRefreshVersions
+}) => {
+  const dispatch = useAppDispatch();
+  const [isSubmittingAction, setIsSubmittingAction] = useState(false); // Local loading for dialog actions
   
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [bundleToDelete, setBundleToDelete] = useState<Bundle | null>(null);
+  // Dialog states for actions
+  const [showActionDialog, setShowActionDialog] = useState(false);
+  const [selectedVersionForAction, setSelectedVersionForAction] = useState<AppVersionForMarketplace | null>(null);
+  const [actionType, setActionType] = useState<'approve' | 'reject' | 'publish' | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
   
-  const handleDeleteRequest = (bundle: Bundle) => {
-    setBundleToDelete(bundle);
-    setShowDeleteDialog(true);
+  const openActionDialog = (version: AppVersionForMarketplace, type: 'approve' | 'reject' | 'publish') => {
+    setSelectedVersionForAction(version);
+    setActionType(type);
+    setRejectionReason("");
+    setShowActionDialog(true);
   };
-  
-  const handleDownload = (bundleId: string) => {
-    toast.success(`Bundle ${bundleId} download started`);
-  };
-  
-  const handleToggleActive = (bundleId: string) => {
-    setBundles(bundles.map(bundle => {
-      if (bundle.id === bundleId) {
-        const newStatus = !bundle.isActive;
-        toast.success(`Bundle ${bundle.version} ${newStatus ? "activated" : "deactivated"}`);
-        return { ...bundle, isActive: newStatus };
+
+  const confirmAction = async () => {
+    if (!selectedVersionForAction || !actionType || !appDefinition?.id) return;
+
+    setIsSubmittingAction(true);
+    const versionId = selectedVersionForAction.id; // Use 'id' from AppVersionForMarketplace
+    let actionPromise;
+
+    try {
+      switch (actionType) {
+        case 'approve':
+          actionPromise = dispatch(approveAppVersionAdmin(versionId)).unwrap();
+          break;
+        case 'reject': { // Added block scope
+          if (!rejectionReason.trim()) {
+            toast({
+              title: "Error",
+              description: "Rejection reason cannot be empty.",
+              variant: "destructive",
+            });
+            setIsSubmittingAction(false);
+            return;
+          }
+          const rejectParams: RejectAppVersionAdminParams = { versionId, reason: rejectionReason };
+          actionPromise = dispatch(rejectAppVersionAdmin(rejectParams)).unwrap();
+          break;
+        }
+        case 'publish':
+          actionPromise = dispatch(publishAppVersionAdmin(versionId)).unwrap();
+          break;
+        default:
+          setIsSubmittingAction(false);
+          return;
       }
-      return bundle;
-    }));
-  };
-  
-  const confirmDelete = () => {
-    if (bundleToDelete) {
-      setBundles(bundles.filter(bundle => bundle.id !== bundleToDelete.id));
-      toast.success(`Bundle ${bundleToDelete.version} deleted successfully`);
-      setShowDeleteDialog(false);
-      setBundleToDelete(null);
+      
+      await actionPromise;
+      // Success toasts are handled by the thunks
+      setShowActionDialog(false);
+      setSelectedVersionForAction(null);
+      // Parent (AppBundles.tsx) will re-fetch versions because thunks dispatch fetchAppVersionsAdmin
+      // if (onRefreshVersions && appDefinition?.id) {
+      //   onRefreshVersions(appDefinition.id);
+      // }
+
+    } catch (error: any) {
+      // Error toasts are handled by the thunks
+      console.error(`Error performing action ${actionType}:`, error);
+    } finally {
+      setIsSubmittingAction(false);
     }
   };
+
+  if (!appDefinition) {
+    // This component might not be rendered if appDefinition is null by parent,
+    // but as a safeguard or if parent logic changes:
+    return (
+        <Card>
+            <CardHeader><CardTitle>Version Management</CardTitle></CardHeader>
+            <CardContent><p>No application definition selected.</p></CardContent>
+        </Card>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="bg-gray-50 p-4 rounded-md">
-        <p className="text-sm text-gray-600">
-          Manage your uploaded app bundles. Active bundles can be used for deployments.
-        </p>
-      </div>
+    <Card className="sticky top-20">
+      <CardHeader>
+        <CardTitle>Versions for: {appDefinition.name}</CardTitle>
+        <CardDescription>Manage submitted versions for this application.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoadingVersionsProp ? (
+            <div className="flex items-center justify-center h-32">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                <p className="ml-2">Loading versions...</p>
+            </div>
+        ) : versions.length === 0 ? (
+          <p>No versions found for this application.</p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Version</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Submitted</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {versions.map(version => (
+                <TableRow key={version.id}> {/* Use id from AppVersionForMarketplace */}
+                  <TableCell>{version.versionString}</TableCell>
+                  <TableCell>
+                    <Badge variant={
+                      version.status === 'published' ? 'success' :
+                      version.status === 'approved' ? 'default' :
+                      version.status === 'pending_review' ? 'secondary' :
+                      version.status === 'rejected' ? 'destructive' : 'outline'
+                    }>
+                      {version.status.replace("_", " ")}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{version.createdAt ? new Date(version.createdAt).toLocaleDateString() : 'N/A'}</TableCell>
+                  <TableCell className="text-right">
+                    {/* Action buttons based on version status */}
+                    {version.status === 'pending_review' && (
+                      <>
+                        <Button size="sm" variant="outline" className="mr-1" onClick={() => openActionDialog(version, 'approve')}>Approve</Button>
+                        <Button size="sm" variant="destructive" onClick={() => openActionDialog(version, 'reject')}>Reject</Button>
+                      </>
+                    )}
+                    {version.status === 'approved' && (
+                      <Button size="sm" variant="default" onClick={() => openActionDialog(version, 'publish')}>Publish</Button>
+                    )}
+                     {version.status === 'rejected' && (
+                      <Button size="sm" variant="outline" onClick={() => openActionDialog(version, 'approve')}>Re-Approve</Button>
+                    )}
+                    {/* TODO: Add View Details / Download Bundle options */}
+                     <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="ml-1 w-7 h-7">
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => toast({
+                              title: "Info",
+                              description: `Viewing details for v${version.versionString}`,
+                            })}>
+                                <Eye className="mr-2 h-4 w-4" /> View Details
+                            </DropdownMenuItem>
+                            {/* Add download bundle if bundleUrl exists */}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Bundle Type</TableHead>
-            <TableHead>Version</TableHead>
-            <TableHead>Description</TableHead>
-            <TableHead>Size</TableHead>
-            <TableHead>Uploaded</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="w-[100px]">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {bundles.map(bundle => (
-            <TableRow key={bundle.id}>
-              <TableCell>
-                <Badge variant={bundle.type === "enterprise" ? "destructive" : bundle.type === "professional" ? "default" : "secondary"}>
-                  {bundle.type.charAt(0).toUpperCase() + bundle.type.slice(1)}
-                </Badge>
-              </TableCell>
-              <TableCell className="font-medium">{bundle.version}</TableCell>
-              <TableCell>{bundle.description}</TableCell>
-              <TableCell>{bundle.fileSize}</TableCell>
-              <TableCell>{bundle.createdAt}</TableCell>
-              <TableCell>
-                <Badge variant={bundle.isActive ? "success" : "outline"}>
-                  {bundle.isActive ? "Active" : "Inactive"}
-                </Badge>
-              </TableCell>
-              <TableCell>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => handleDownload(bundle.id)}>
-                      <Download className="h-4 w-4 mr-2" />
-                      Download
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleToggleActive(bundle.id)}>
-                      {bundle.isActive ? (
-                        <>
-                          <X className="h-4 w-4 mr-2" />
-                          Deactivate
-                        </>
-                      ) : (
-                        <>
-                          <Check className="h-4 w-4 mr-2" />
-                          Activate
-                        </>
-                      )}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem 
-                      className="text-destructive"
-                      onClick={() => handleDeleteRequest(bundle)}
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-
-      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+      <Dialog open={showActionDialog} onOpenChange={setShowActionDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Bundle</DialogTitle>
+            <DialogTitle>
+              {actionType === 'approve' && 'Approve App Version'}
+              {actionType === 'reject' && 'Reject App Version'}
+              {actionType === 'publish' && 'Publish App Version'}
+            </DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete the {bundleToDelete?.type} bundle version {bundleToDelete?.version}?
-              This action cannot be undone.
+              {actionType === 'approve' && `Are you sure you want to approve version ${selectedVersionForAction?.versionString} of ${appDefinition?.name}?`}
+              {actionType === 'reject' && `Please provide a reason for rejecting version ${selectedVersionForAction?.versionString} of ${appDefinition?.name}.`}
+              {actionType === 'publish' && `Are you sure you want to publish version ${selectedVersionForAction?.versionString} of ${appDefinition?.name}? This will make it available in the marketplace.`}
             </DialogDescription>
           </DialogHeader>
+          {actionType === 'reject' && (
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="rejectionReason" className="text-right">
+                  Reason
+                </Label>
+                <Textarea
+                  id="rejectionReason"
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  className="col-span-3"
+                  placeholder="Detailed reason for rejection"
+                />
+              </div>
+            </div>
+          )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={confirmDelete}>
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete Bundle
+            <Button variant="outline" onClick={() => setShowActionDialog(false)}>Cancel</Button>
+            <Button
+              onClick={confirmAction}
+              variant={actionType === 'reject' ? 'destructive' : 'default'}
+              disabled={isSubmittingAction}
+            >
+              {isSubmittingAction ? 'Processing...' :
+               actionType === 'approve' ? 'Approve' :
+               actionType === 'reject' ? 'Reject Version' : 'Publish'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </Card> // Added missing closing Card tag
   );
 };

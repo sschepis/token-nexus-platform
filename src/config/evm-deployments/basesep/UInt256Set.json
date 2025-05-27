@@ -1,0 +1,93 @@
+{
+  "address": "0x908B9bE15117446dE01d076Ecb75D9210E182D97",
+  "abi": [],
+  "transactionHash": "0x08332871528fbbac438b5041ebf74d3a41484f36c1e5891fc729de7f409be629",
+  "receipt": {
+    "to": null,
+    "from": "0x9508f0Da19eC1C52D9C52611e4433159492bb93b",
+    "contractAddress": "0x908B9bE15117446dE01d076Ecb75D9210E182D97",
+    "transactionIndex": 10,
+    "gasUsed": "258257",
+    "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "blockHash": "0xbab0571f0d56a5e060aeb2dc8077ef30e1616161ee39bf2cccb3098bd49143a6",
+    "transactionHash": "0x08332871528fbbac438b5041ebf74d3a41484f36c1e5891fc729de7f409be629",
+    "logs": [],
+    "blockNumber": 26013684,
+    "cumulativeGasUsed": "675618",
+    "status": 1,
+    "byzantium": true
+  },
+  "args": [],
+  "numDeployments": 1,
+  "solcInputHash": "f3692121488f56f72e7047b22b2520f2",
+  "metadata": "{\"compiler\":{\"version\":\"0.8.28+commit.7893614a\"},\"language\":\"Solidity\",\"output\":{\"abi\":[],\"devdoc\":{\"details\":\"Sets are unordered. Delete operations reorder keys. All operations have a fixed gas cost at any scale, O(1). author: Rob Hitchens\",\"kind\":\"dev\",\"methods\":{\"count(UInt256Set.Set storage)\":{\"params\":{\"self\":\"storage pointer to a Set.\"}},\"exists(UInt256Set.Set storage,uint256)\":{\"params\":{\"key\":\"value to check.\",\"self\":\"storage pointer to a Set.\"},\"returns\":{\"_0\":\"bool true: Set member, false: not a Set member.\"}},\"insert(UInt256Set.Set storage,uint256)\":{\"details\":\"duplicate keys are not permitted.\",\"params\":{\"key\":\"value to insert.\",\"self\":\"storage pointer to a Set.\"}},\"keyAtIndex(UInt256Set.Set storage,uint256)\":{\"params\":{\"index\":\"row to enumerate. Must be < count() - 1.\",\"self\":\"storage pointer to a Set.\"}},\"remove(UInt256Set.Set storage,uint256)\":{\"details\":\"key to remove must exist.\",\"params\":{\"key\":\"value to remove.\",\"self\":\"storage pointer to a Set.\"}}},\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"count(UInt256Set.Set storage)\":{\"notice\":\"count the keys.\"},\"exists(UInt256Set.Set storage,uint256)\":{\"notice\":\"check if a key is in the Set.\"},\"insert(UInt256Set.Set storage,uint256)\":{\"notice\":\"insert a key.\"},\"keyAtIndex(UInt256Set.Set storage,uint256)\":{\"notice\":\"fetch a key by row (enumerate).\"},\"remove(UInt256Set.Set storage,uint256)\":{\"notice\":\"remove a key.\"}},\"notice\":\"Key sets with enumeration and delete. Uses mappings for random and existence checks and dynamic arrays for enumeration. Key uniqueness is enforced.\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/libraries/UInt256Set.sol\":\"UInt256Set\"},\"evmVersion\":\"paris\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\",\"useLiteralContent\":true},\"optimizer\":{\"enabled\":true,\"runs\":11},\"remappings\":[]},\"sources\":{\"contracts/libraries/UInt256Set.sol\":{\"content\":\"// SPDX-License-Identifier: MIT\\n\\npragma solidity >=0.8.0;\\n\\n/**\\n * @notice Key sets with enumeration and delete. Uses mappings for random\\n * and existence checks and dynamic arrays for enumeration. Key uniqueness is enforced.\\n * @dev Sets are unordered. Delete operations reorder keys. All operations have a\\n * fixed gas cost at any scale, O(1).\\n * author: Rob Hitchens\\n */\\n\\nlibrary UInt256Set {\\n    struct Set {\\n        mapping(uint256 => uint256) keyPointers;\\n        uint256[] keyList;\\n    }\\n\\n    /**\\n     * @notice insert a key.\\n     * @dev duplicate keys are not permitted.\\n     * @param self storage pointer to a Set.\\n     * @param key value to insert.\\n     */\\n    function insert(Set storage self, uint256 key) public {\\n        require(\\n            !exists(self, key),\\n            \\\"UInt256Set: key already exists in the set.\\\"\\n        );\\n        self.keyList.push(key);\\n        self.keyPointers[key] = self.keyList.length - 1;\\n    }\\n\\n    /**\\n     * @notice remove a key.\\n     * @dev key to remove must exist.\\n     * @param self storage pointer to a Set.\\n     * @param key value to remove.\\n     */\\n    function remove(Set storage self, uint256 key) public {\\n        // TODO: I commented this out do get a test to pass - need to figure out what is up here\\n        // require(\\n        //     exists(self, key),\\n        //     \\\"UInt256Set: key does not exist in the set.\\\"\\n        // );\\n        if (!exists(self, key)) return;\\n        uint256 last = count(self) - 1;\\n        uint256 rowToReplace = self.keyPointers[key];\\n        if (rowToReplace != last) {\\n            uint256 keyToMove = self.keyList[last];\\n            self.keyPointers[keyToMove] = rowToReplace;\\n            self.keyList[rowToReplace] = keyToMove;\\n        }\\n        delete self.keyPointers[key];\\n        delete self.keyList[self.keyList.length - 1];\\n    }\\n\\n    /**\\n     * @notice count the keys.\\n     * @param self storage pointer to a Set.\\n     */\\n    function count(Set storage self) public view returns (uint256) {\\n        return (self.keyList.length);\\n    }\\n\\n    /**\\n     * @notice check if a key is in the Set.\\n     * @param self storage pointer to a Set.\\n     * @param key value to check.\\n     * @return bool true: Set member, false: not a Set member.\\n     */\\n    function exists(Set storage self, uint256 key)\\n        public\\n        view\\n        returns (bool)\\n    {\\n        if (self.keyList.length == 0) return false;\\n        return self.keyList[self.keyPointers[key]] == key;\\n    }\\n\\n    /**\\n     * @notice fetch a key by row (enumerate).\\n     * @param self storage pointer to a Set.\\n     * @param index row to enumerate. Must be < count() - 1.\\n     */\\n    function keyAtIndex(Set storage self, uint256 index)\\n        public\\n        view\\n        returns (uint256)\\n    {\\n        return self.keyList[index];\\n    }\\n}\\n\",\"keccak256\":\"0x31d27b2c71ad5bb53daf91e37e2b56fc89341f0d2015a87efd609e12b93d32c8\",\"license\":\"MIT\"}},\"version\":1}",
+  "bytecode": "0x6103b5610039600b82828239805160001a607314602c57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600436106100615760003560e01c806313431abe1461006657806334a122fb146100885780636fe51744146100b05780639ca409ed146100d3578063deb56daf146100f3575b600080fd5b81801561007257600080fd5b5061008661008136600461030d565b610106565b005b61009d61009636600461032f565b6001015490565b6040519081526020015b60405180910390f35b6100c36100be36600461030d565b6101aa565b60405190151581526020016100a7565b8180156100df57600080fd5b506100866100ee36600461030d565b6101fb565b61009d61010136600461030d565b6102e3565b61011082826101aa565b156101745760405162461bcd60e51b815260206004820152602a60248201527f55496e743235365365743a206b657920616c726561647920657869737473206960448201526937103a34329039b2ba1760b11b606482015260840160405180910390fd5b60018083018054808301825560008281526020902001839055546101989190610348565b60009182526020929092526040902055565b600182015460009081036101c0575060006101f5565b60008281526020849052604090205460018401805484929081106101e6576101e6610369565b90600052602060002001541490505b92915050565b61020582826101aa565b61020d575050565b6000600161021c846001015490565b6102269190610348565b6000838152602085905260409020549091508082146102a157600084600101838154811061025657610256610369565b9060005260206000200154905081856000016000838152602001908152602001600020819055508085600101838154811061029357610293610369565b600091825260209091200155505b6000838152602085905260408120556001808501805490916102c291610348565b815481106102d2576102d2610369565b600091825260208220015550505050565b60008260010182815481106102fa576102fa610369565b9060005260206000200154905092915050565b6000806040838503121561032057600080fd5b50508035926020909101359150565b60006020828403121561034157600080fd5b5035919050565b818103818111156101f557634e487b7160e01b600052601160045260246000fd5b634e487b7160e01b600052603260045260246000fdfea2646970667358221220dd450a43f22a8c9130ad58951556888050a87cf6f5a4e16bc1be25f7d2d8580f64736f6c634300081c0033",
+  "deployedBytecode": "0x73000000000000000000000000000000000000000030146080604052600436106100615760003560e01c806313431abe1461006657806334a122fb146100885780636fe51744146100b05780639ca409ed146100d3578063deb56daf146100f3575b600080fd5b81801561007257600080fd5b5061008661008136600461030d565b610106565b005b61009d61009636600461032f565b6001015490565b6040519081526020015b60405180910390f35b6100c36100be36600461030d565b6101aa565b60405190151581526020016100a7565b8180156100df57600080fd5b506100866100ee36600461030d565b6101fb565b61009d61010136600461030d565b6102e3565b61011082826101aa565b156101745760405162461bcd60e51b815260206004820152602a60248201527f55496e743235365365743a206b657920616c726561647920657869737473206960448201526937103a34329039b2ba1760b11b606482015260840160405180910390fd5b60018083018054808301825560008281526020902001839055546101989190610348565b60009182526020929092526040902055565b600182015460009081036101c0575060006101f5565b60008281526020849052604090205460018401805484929081106101e6576101e6610369565b90600052602060002001541490505b92915050565b61020582826101aa565b61020d575050565b6000600161021c846001015490565b6102269190610348565b6000838152602085905260409020549091508082146102a157600084600101838154811061025657610256610369565b9060005260206000200154905081856000016000838152602001908152602001600020819055508085600101838154811061029357610293610369565b600091825260209091200155505b6000838152602085905260408120556001808501805490916102c291610348565b815481106102d2576102d2610369565b600091825260208220015550505050565b60008260010182815481106102fa576102fa610369565b9060005260206000200154905092915050565b6000806040838503121561032057600080fd5b50508035926020909101359150565b60006020828403121561034157600080fd5b5035919050565b818103818111156101f557634e487b7160e01b600052601160045260246000fd5b634e487b7160e01b600052603260045260246000fdfea2646970667358221220dd450a43f22a8c9130ad58951556888050a87cf6f5a4e16bc1be25f7d2d8580f64736f6c634300081c0033",
+  "devdoc": {
+    "details": "Sets are unordered. Delete operations reorder keys. All operations have a fixed gas cost at any scale, O(1). author: Rob Hitchens",
+    "kind": "dev",
+    "methods": {
+      "count(UInt256Set.Set storage)": {
+        "params": {
+          "self": "storage pointer to a Set."
+        }
+      },
+      "exists(UInt256Set.Set storage,uint256)": {
+        "params": {
+          "key": "value to check.",
+          "self": "storage pointer to a Set."
+        },
+        "returns": {
+          "_0": "bool true: Set member, false: not a Set member."
+        }
+      },
+      "insert(UInt256Set.Set storage,uint256)": {
+        "details": "duplicate keys are not permitted.",
+        "params": {
+          "key": "value to insert.",
+          "self": "storage pointer to a Set."
+        }
+      },
+      "keyAtIndex(UInt256Set.Set storage,uint256)": {
+        "params": {
+          "index": "row to enumerate. Must be < count() - 1.",
+          "self": "storage pointer to a Set."
+        }
+      },
+      "remove(UInt256Set.Set storage,uint256)": {
+        "details": "key to remove must exist.",
+        "params": {
+          "key": "value to remove.",
+          "self": "storage pointer to a Set."
+        }
+      }
+    },
+    "version": 1
+  },
+  "userdoc": {
+    "kind": "user",
+    "methods": {
+      "count(UInt256Set.Set storage)": {
+        "notice": "count the keys."
+      },
+      "exists(UInt256Set.Set storage,uint256)": {
+        "notice": "check if a key is in the Set."
+      },
+      "insert(UInt256Set.Set storage,uint256)": {
+        "notice": "insert a key."
+      },
+      "keyAtIndex(UInt256Set.Set storage,uint256)": {
+        "notice": "fetch a key by row (enumerate)."
+      },
+      "remove(UInt256Set.Set storage,uint256)": {
+        "notice": "remove a key."
+      }
+    },
+    "notice": "Key sets with enumeration and delete. Uses mappings for random and existence checks and dynamic arrays for enumeration. Key uniqueness is enforced.",
+    "version": 1
+  },
+  "storageLayout": {
+    "storage": [],
+    "types": null
+  }
+}

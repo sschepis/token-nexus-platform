@@ -7,7 +7,7 @@ import { Eye, ExternalLink, RotateCw, AlertTriangle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
-import { toast } from "sonner";
+import { toast } from "@/hooks/use-toast";
 
 type DeploymentStatus = 'pending' | 'processing' | 'successful' | 'failed';
 
@@ -64,7 +64,10 @@ export const DeploymentStatus = () => {
   const handleRetry = (deploymentId: string) => {
     setDeployments(deployments.map(deployment => {
       if (deployment.id === deploymentId) {
-        toast.success(`Retrying deployment ${deploymentId}`);
+        toast({
+          title: "Success",
+          description: `Retrying deployment ${deploymentId}`,
+        });
         return { ...deployment, status: 'processing' as DeploymentStatus, progress: 10 };
       }
       return deployment;

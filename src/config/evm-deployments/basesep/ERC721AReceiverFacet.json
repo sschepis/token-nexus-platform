@@ -1,0 +1,103 @@
+{
+  "address": "0x62F5aFc93aA257e7D48df1E8623c5a625E97aD52",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bytes",
+          "name": "",
+          "type": "bytes"
+        }
+      ],
+      "name": "onERC721Received",
+      "outputs": [
+        {
+          "internalType": "bytes4",
+          "name": "",
+          "type": "bytes4"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    }
+  ],
+  "transactionHash": "0xbe6621f756b4465b2dca018fb25d04d24994d5d92b1da65a84906719cfd75a87",
+  "receipt": {
+    "to": null,
+    "from": "0x9508f0Da19eC1C52D9C52611e4433159492bb93b",
+    "contractAddress": "0x62F5aFc93aA257e7D48df1E8623c5a625E97aD52",
+    "transactionIndex": 54,
+    "gasUsed": "127761",
+    "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "blockHash": "0xdf5ec3dba5e4260d4a59a36b189e318ce3156526b3a11459eb623f648a99e308",
+    "transactionHash": "0xbe6621f756b4465b2dca018fb25d04d24994d5d92b1da65a84906719cfd75a87",
+    "logs": [],
+    "blockNumber": 26013698,
+    "cumulativeGasUsed": "5302001",
+    "status": 1,
+    "byzantium": true
+  },
+  "args": [],
+  "numDeployments": 1,
+  "solcInputHash": "f3692121488f56f72e7047b22b2520f2",
+  "metadata": "{\"compiler\":{\"version\":\"0.8.28+commit.7893614a\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"name\":\"onERC721Received\",\"outputs\":[{\"internalType\":\"bytes4\",\"name\":\"\",\"type\":\"bytes4\"}],\"stateMutability\":\"pure\",\"type\":\"function\"}],\"devdoc\":{\"details\":\"Enables the diamond to receiver erc1155 tokens. This contract also requires  supportsInterface to support ERC721. This is implemenented in the DiamondInit contract.\",\"kind\":\"dev\",\"methods\":{},\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"onERC721Received(address,address,uint256,bytes)\":{\"notice\":\"on erc1155 received - return this function selector to allow transfer of tokens\"}},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/tokens/ERC721/ERC721AReceiverFacet.sol\":\"ERC721AReceiverFacet\"},\"evmVersion\":\"paris\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\",\"useLiteralContent\":true},\"optimizer\":{\"enabled\":true,\"runs\":11},\"remappings\":[]},\"sources\":{\"contracts/tokens/ERC721/ERC721AReceiverFacet.sol\":{\"content\":\"// SPDX-License-Identifier: MIT\\n// OpenZeppelin Contracts v4.4.1 (token/ERC1155/utils/ERC1155Receiver.sol)\\npragma solidity ^0.8.6;\\n\\n\\n/**\\n * @dev Enables the diamond to receiver erc1155 tokens. This contract also requires \\n * supportsInterface to support ERC721. This is implemenented in the DiamondInit contract.\\n */\\ncontract ERC721AReceiverFacet {\\n\\n    /// @notice on erc1155 received - return this function selector to allow transfer of tokens\\n    function onERC721Received(\\n        address,\\n        address,\\n        uint256,\\n        bytes calldata\\n    ) external pure returns (bytes4) {\\n        return this.onERC721Received.selector;\\n    }\\n    \\n}\\n\",\"keccak256\":\"0xb3a673385369ce6d4965e7a92cea61f0375e26dd72f2f19575dea582b1408b33\",\"license\":\"MIT\"}},\"version\":1}",
+  "bytecode": "0x6080604052348015600f57600080fd5b506101598061001f6000396000f3fe608060405234801561001057600080fd5b506004361061002b5760003560e01c8063150b7a0214610030575b600080fd5b61004f61003e366004610088565b630a85bd0160e11b95945050505050565b6040516001600160e01b0319909116815260200160405180910390f35b80356001600160a01b038116811461008357600080fd5b919050565b6000806000806000608086880312156100a057600080fd5b6100a98661006c565b94506100b76020870161006c565b93506040860135925060608601356001600160401b038111156100d957600080fd5b8601601f810188136100ea57600080fd5b80356001600160401b0381111561010057600080fd5b88602082840101111561011257600080fd5b95989497509295505050602001919056fea2646970667358221220ebb482f86e53da5615097db7c3222da8035a43b992e3458afdd45d80f737b2c864736f6c634300081c0033",
+  "deployedBytecode": "0x608060405234801561001057600080fd5b506004361061002b5760003560e01c8063150b7a0214610030575b600080fd5b61004f61003e366004610088565b630a85bd0160e11b95945050505050565b6040516001600160e01b0319909116815260200160405180910390f35b80356001600160a01b038116811461008357600080fd5b919050565b6000806000806000608086880312156100a057600080fd5b6100a98661006c565b94506100b76020870161006c565b93506040860135925060608601356001600160401b038111156100d957600080fd5b8601601f810188136100ea57600080fd5b80356001600160401b0381111561010057600080fd5b88602082840101111561011257600080fd5b95989497509295505050602001919056fea2646970667358221220ebb482f86e53da5615097db7c3222da8035a43b992e3458afdd45d80f737b2c864736f6c634300081c0033",
+  "libraries": {
+    "AddressSet": "0x8aB21bf41B908d9CBee3E78e97033E3916840cA8",
+    "AttributeLib": "0x9d0749b64bEDB024B1AaF596c84029E67635D43c",
+    "Base64": "0x8d10857B6d2bEA12d67A888F3E995ea142Db701E",
+    "Bytes32Set": "0xB01Cf1Baf9ABFa5309AE3ff649B31ae87A80AE62",
+    "CarbonCreditLib": "0x44520E8dA039d4D7D460f5DBF6C1eC347De53A7C",
+    "DiamondFactoryLib": "0x50353159348c63A448eDAfC6d5ef81CF9C1cdE9a",
+    "DiamondLib": "0x2Be86045394c8096b3b9d9449A08Cc74afEd5717",
+    "ERC721AEnumerationLib": "0x6a9A6D75AECEfB8dC969D5Ef5ea3EcF57e29706d",
+    "ERC721ALib": "0x8F980CBDb943c2794FdA47D82d81a71d31A815DE",
+    "Identity": "0x4C6fE457018d32B9aEc2aA99F655b5aCD7d0D658",
+    "IdentityFactory": "0x5c970fD1E772548Be3Dc3de62381Fd8b2b3fAb96",
+    "IdentitySystemStorage": "0x05d7966Acfa90f529e3844B1d1b7702dBde7789c",
+    "LibDiamond": "0x30Fb10d923CfFC1151B8CFe683A937F414854570",
+    "MerkleProver": "0x6361c8F2C7Fb1498C15C5e90Ed477ee8cEeC9f5f",
+    "MetadataLib": "0xEA17bE869d528F2c3e4F7cae231ebE4BE42BeB75",
+    "MultiSaleLib": "0x3b12B21202DaC69552E7b1f9D4D3E31085c7a378",
+    "Strings": "0x26375f3210F1F8C90f53c663AC44F3d4a86b12A6",
+    "StringsLib": "0x928c0A50586514D291087403befe3540E3631ECd",
+    "SVGTemplatesLib": "0xFD3DfE346d5d5c8C90313036BC1b1E3De29FCb33",
+    "UInt256Set": "0x908B9bE15117446dE01d076Ecb75D9210E182D97",
+    "VariablePriceLib": "0x92E3cBf7226518CF757c48446067de1485CCCcBb"
+  },
+  "devdoc": {
+    "details": "Enables the diamond to receiver erc1155 tokens. This contract also requires  supportsInterface to support ERC721. This is implemenented in the DiamondInit contract.",
+    "kind": "dev",
+    "methods": {},
+    "version": 1
+  },
+  "userdoc": {
+    "kind": "user",
+    "methods": {
+      "onERC721Received(address,address,uint256,bytes)": {
+        "notice": "on erc1155 received - return this function selector to allow transfer of tokens"
+      }
+    },
+    "version": 1
+  },
+  "storageLayout": {
+    "storage": [],
+    "types": null
+  }
+}

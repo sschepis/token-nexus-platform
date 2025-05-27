@@ -20,7 +20,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { logout } from "@/store/slices/authSlice";
-import { resetOrg } from "@/store/slices/orgSlice";
+import { resetOrgState } from "@/store/slices/orgSlice"; // Corrected import
 import {
   Home,
   LayoutDashboard,
@@ -44,9 +44,10 @@ import {
   Layers,
   Wrench,
   Cog, // Add Cog directly
-  Shield
+  Shield,
+  MessageSquare // Added for AI Assistant
 } from "lucide-react";
-
+ 
 interface SidebarProps {
   isSidebarOpen: boolean;
   closeSidebar: () => void;
@@ -64,13 +65,19 @@ const Sidebar = ({ isSidebarOpen, closeSidebar }: SidebarProps) => {
   const { user, developerMode, permissions } = useAppSelector(state => state.auth);
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const [mounted, setMounted] = React.useState(false);
+
+  // Fix hydration mismatch by ensuring server and client render the same initially
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Check if user has system admin permissions
-  const hasSystemAdminAccess = permissions.includes("system:admin");
+  const hasSystemAdminAccess = mounted && permissions.includes("system:admin");
 
   const handleLogout = () => {
     dispatch(logout());
-    dispatch(resetOrg());
+    dispatch(resetOrgState()); // Corrected usage
     navigate('/login');
   };
 
@@ -85,7 +92,7 @@ const Sidebar = ({ isSidebarOpen, closeSidebar }: SidebarProps) => {
     return "U";
   };
 
-  const userName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : "User";
+  const userName = mounted && user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || "User" : "User";
 
   const navItems: NavItem[] = [ // Apply NavItem type
     {
@@ -147,15 +154,20 @@ const Sidebar = ({ isSidebarOpen, closeSidebar }: SidebarProps) => {
       name: "Tokens",
       path: "/tokens",
       icon: <Key className="h-5 w-5" />
-    },
-    // Add System Admin link - conditionally rendered later
-    {
-      name: "System Admin",
-      path: "/system-admin",
-      icon: <Cog className="h-5 w-5" />, // Use Cog directly
-      role: "system_admin" // Keep role for future RBAC
-    }
-  ];
+        },
+        {
+          name: "AI Assistant",
+          path: "/ai-assistant",
+          icon: <MessageSquare className="h-5 w-5" />
+        },
+        // Add System Admin link - conditionally rendered later
+        {
+          name: "System Admin",
+          path: "/system-admin",
+          icon: <Cog className="h-5 w-5" />, // Use Cog directly
+          role: "system_admin" // Keep role for future RBAC
+        }
+      ];
 
   // Add System Admin item if user has permission
   if (hasSystemAdminAccess) {
@@ -234,12 +246,12 @@ const Sidebar = ({ isSidebarOpen, closeSidebar }: SidebarProps) => {
       <div className="flex items-center space-x-2">
         <Avatar>
           <AvatarImage src={user?.avatarUrl} />
-          <AvatarFallback>{getInitials()}</AvatarFallback>
+          <AvatarFallback>{mounted ? getInitials() : "U"}</AvatarFallback>
         </Avatar>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="pl-2 w-full justify-start text-sm font-medium leading-none hover:bg-transparent">
-              {userName}
+              {mounted ? userName : "User"}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">

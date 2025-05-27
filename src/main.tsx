@@ -1,5 +1,3 @@
-import { createRoot } from 'react-dom/client'
-import App from './App.tsx'
-import './index.css'
-
-createRoot(document.getElementById("root")!).render(<App />);
+// This file has been disabled - using Next.js only
+// The React SPA setup has been removed to prevent conflicts with Next.js
+console.log('React SPA entry point disabled - using Next.js only');

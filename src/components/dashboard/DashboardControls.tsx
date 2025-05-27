@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Grid, Save } from 'lucide-react';
+import { PlusCircle, Grid, Save, Loader2 } from 'lucide-react';
 import { useDashboardStore } from '@/store/dashboardStore';
 import { 
   DropdownMenu,
@@ -16,12 +16,14 @@ interface DashboardControlsProps {
   isEditing: boolean;
   toggleEditing: () => void;
   openWidgetCatalog: () => void;
+  isSaving?: boolean;
 }
 
 export const DashboardControls: React.FC<DashboardControlsProps> = ({
   isEditing,
   toggleEditing,
-  openWidgetCatalog
+  openWidgetCatalog,
+  isSaving = false
 }) => {
   const { resetDashboard, widgets } = useDashboardStore();
 
@@ -31,11 +33,16 @@ export const DashboardControls: React.FC<DashboardControlsProps> = ({
         variant={isEditing ? "default" : "outline"}
         onClick={toggleEditing}
         className="flex items-center"
+        disabled={isSaving}
       >
         {isEditing ? (
           <>
-            <Save className="mr-2 h-4 w-4" />
-            Save Layout
+            {isSaving ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="mr-2 h-4 w-4" />
+            )}
+            {isSaving ? 'Saving...' : 'Save Layout'}
           </>
         ) : (
           <>

@@ -7,6 +7,7 @@ export interface User {
   firstName: string;
   lastName: string;
   avatarUrl?: string;
+  isAdmin?: boolean; // Added isAdmin property
 }
 
 export interface AuthState {
@@ -25,7 +26,7 @@ const initialState: AuthState = {
   user: null,
   token: null,
   orgId: null,
-  permissions: ["dashboard:read", "objects:read", "tokens:read", "users:read", "integrations:read", "reports:read", "audit:read", "notifications:read", "settings:read", "system:admin"],
+  permissions: ["dashboard:read", "objects:read", "tokens:read", "users:read", "integrations:read", "reports:read", "audit:read", "notifications:read", "settings:read"], // Removed "system:admin"
   isAuthenticated: false,
   isLoading: false,
   error: null,
@@ -40,10 +41,10 @@ export const authSlice = createSlice({
       state.isLoading = true;
       state.error = null;
     },
-    loginSuccess: (state, action: PayloadAction<{ user: User; token: string; orgId: string; permissions: string[] }>) => {
+    loginSuccess: (state, action: PayloadAction<{ user: User; token: string; orgId: string; permissions: string[]; isAdmin?: boolean }>) => {
       state.isAuthenticated = true;
       state.isLoading = false;
-      state.user = action.payload.user;
+      state.user = { ...action.payload.user, isAdmin: action.payload.isAdmin || false }; // Set isAdmin, default to false
       state.token = action.payload.token;
       state.orgId = action.payload.orgId;
       state.permissions = action.payload.permissions;
@@ -60,6 +61,8 @@ export const authSlice = createSlice({
       state.orgId = null;
       state.permissions = [];
       state.developerMode = false;
+      state.error = null;
+      state.isLoading = false;
     },
     updatePermissions: (state, action: PayloadAction<string[]>) => {
       state.permissions = action.payload;

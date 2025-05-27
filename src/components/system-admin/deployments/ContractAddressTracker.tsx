@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Copy, ExternalLink, Search, Check } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/hooks/use-toast";
 
 interface ContractAddress {
   id: string;
@@ -59,7 +59,10 @@ export const ContractAddressTracker = () => {
   
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    toast.success("Address copied to clipboard");
+    toast({
+      title: "Success",
+      description: "Address copied to clipboard",
+    });
   };
   
   const getChainExplorerUrl = (chain: string, network: string, address: string): string => {

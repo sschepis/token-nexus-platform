@@ -1,5 +1,7 @@
 
 import { configureStore, combineReducers } from '@reduxjs/toolkit';
+import { persistStore, persistReducer } from 'redux-persist';
+import storage from 'redux-persist/lib/storage';
 import authReducer from './slices/authSlice';
 import orgReducer from './slices/orgSlice';
 import tokenReducer from './slices/tokenSlice';
@@ -10,9 +12,23 @@ import routeReducer from './slices/routeSlice';
 import appReducer from './slices/appSlice';
 import cloudFunctionReducer from './slices/cloudFunctionSlice';
 
+// Persist configuration for auth state
+const authPersistConfig = {
+  key: 'auth',
+  storage,
+  whitelist: ['user', 'token', 'orgId', 'permissions', 'isAuthenticated', 'developerMode']
+};
+
+// Persist configuration for org state
+const orgPersistConfig = {
+  key: 'org',
+  storage,
+  whitelist: ['orgs', 'currentOrg']
+};
+
 const rootReducer = combineReducers({
-  auth: authReducer,
-  org: orgReducer,
+  auth: persistReducer(authPersistConfig, authReducer),
+  org: persistReducer(orgPersistConfig, orgReducer),
   token: tokenReducer,
   user: userReducer,
   audit: auditReducer,
@@ -26,9 +42,13 @@ export const store = configureStore({
   reducer: rootReducer,
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
-      serializableCheck: false,
+      serializableCheck: {
+        ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE'],
+      },
     }),
 });
+
+export const persistor = persistStore(store);
 
 export type RootState = ReturnType<typeof rootReducer>;
 export type AppDispatch = typeof store.dispatch;

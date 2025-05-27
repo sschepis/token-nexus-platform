@@ -1,0 +1,82 @@
+{
+  "address": "0x92E3cBf7226518CF757c48446067de1485CCCcBb",
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "eventContract",
+          "type": "address"
+        },
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "price",
+              "type": "uint256"
+            },
+            {
+              "internalType": "enum PriceModifier",
+              "name": "priceModifier",
+              "type": "uint8"
+            },
+            {
+              "internalType": "uint256",
+              "name": "priceModifierFactor",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "maxPrice",
+              "type": "uint256"
+            }
+          ],
+          "indexed": false,
+          "internalType": "struct VariablePriceContract",
+          "name": "price",
+          "type": "tuple"
+        }
+      ],
+      "name": "VariablePriceChanged",
+      "type": "event"
+    }
+  ],
+  "transactionHash": "0x6154d9e5b3e899a031f863d370822e38a66d406dadff8886518b19b25e0840e7",
+  "receipt": {
+    "to": null,
+    "from": "0x9508f0Da19eC1C52D9C52611e4433159492bb93b",
+    "contractAddress": "0x92E3cBf7226518CF757c48446067de1485CCCcBb",
+    "transactionIndex": 7,
+    "gasUsed": "72227",
+    "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "blockHash": "0x4667519b15e2ba739d2fb48e12e5ca093cec38cd22df7e4d2946189a75c484ca",
+    "transactionHash": "0x6154d9e5b3e899a031f863d370822e38a66d406dadff8886518b19b25e0840e7",
+    "logs": [],
+    "blockNumber": 26013687,
+    "cumulativeGasUsed": "382474",
+    "status": 1,
+    "byzantium": true
+  },
+  "args": [],
+  "numDeployments": 1,
+  "solcInputHash": "f3692121488f56f72e7047b22b2520f2",
+  "metadata": "{\"compiler\":{\"version\":\"0.8.28+commit.7893614a\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"eventContract\",\"type\":\"address\"},{\"components\":[{\"internalType\":\"uint256\",\"name\":\"price\",\"type\":\"uint256\"},{\"internalType\":\"enum PriceModifier\",\"name\":\"priceModifier\",\"type\":\"uint8\"},{\"internalType\":\"uint256\",\"name\":\"priceModifierFactor\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"maxPrice\",\"type\":\"uint256\"}],\"indexed\":false,\"internalType\":\"struct VariablePriceContract\",\"name\":\"price\",\"type\":\"tuple\"}],\"name\":\"VariablePriceChanged\",\"type\":\"event\"}],\"devdoc\":{\"kind\":\"dev\",\"methods\":{},\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/libraries/VariablePriceLib.sol\":\"VariablePriceLib\"},\"evmVersion\":\"paris\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\",\"useLiteralContent\":true},\"optimizer\":{\"enabled\":true,\"runs\":11},\"remappings\":[]},\"sources\":{\"contracts/interfaces/IVariablePrice.sol\":{\"content\":\"// SPDX-License-Identifier: MIT\\npragma solidity >=0.8.0;\\n\\n\\n/// @notice DIctates how the price of the token is increased post every sale\\nenum PriceModifier {\\n    None,\\n    Fixed,\\n    Exponential,\\n    InverseLog\\n}\\n\\nstruct VariablePriceContract {\\n    // the price of the token\\n    uint256 price;\\n        // how the price is modified\\n    PriceModifier priceModifier;\\n    // only used if priceModifier is EXPONENTIAL or INVERSELOG or FIXED\\n    uint256 priceModifierFactor;\\n    // max price for the token\\n    uint256 maxPrice;\\n}\\n\\nstruct VariablePriceStorage {\\n    // the price of the token\\n    VariablePriceContract variablePrices;\\n}\\n\\n/// @notice common struct definitions for tokens\\ninterface IVariablePrice {\\n    /// @notice get the increased price of the token\\n    function getIncreasedPrice() external view returns (uint256);\\n\\n    /// @notice get the increased price of the token\\n    function getTokenPrice() external view returns (VariablePriceContract memory);\\n}\\n\",\"keccak256\":\"0x2adc5e468273b7c73536ee642f8be345fb3a1f9f713b3370d7d283a0d28d2b7d\",\"license\":\"MIT\"},\"contracts/libraries/VariablePriceLib.sol\":{\"content\":\"//SPDX-License-Identifier: MIT\\npragma solidity ^0.8.0;\\n\\nimport \\\"../interfaces/IVariablePrice.sol\\\";\\n\\nlibrary VariablePriceLib {\\n    event VariablePriceChanged(\\n        address eventContract,\\n        VariablePriceContract price\\n    );\\n\\n    bytes32 internal constant DIAMOND_STORAGE_POSITION =\\n        keccak256(\\\"diamond.nextblock.bitgem.app.VariablePriceStorage.storage\\\");\\n\\n    /// @notice get the storage for variable pricing\\n    /// @return ds the storage\\n    function variablePriceStorage()\\n        internal\\n        pure\\n        returns (VariablePriceStorage storage ds) {\\n\\n        bytes32 position = DIAMOND_STORAGE_POSITION;\\n        assembly {\\n            ds.slot := position\\n        }\\n    }\\n\\n    /// @notice update the variable price contract\\n    /// @param self the variable price contract\\n    function _updatePrice(VariablePriceContract storage self)\\n        internal\\n        returns (uint256 _price, uint256 updatedPrice) {\\n\\n        _price = self.price;\\n        _increaseClaimPrice(self);\\n        updatedPrice = self.price;\\n    }\\n\\n    /// @notice get the current price of the claim\\n    /// @return _price the current price of the claim\\n    function _currentPrice(VariablePriceContract storage self)\\n        internal\\n        view\\n        returns (uint256 _price) {\\n\\n        _price = self.price;\\n    }\\n\\n    function _setPrice(VariablePriceContract storage self, uint256 _price)\\n        internal\\n        returns (uint256 _newPrice) {\\n\\n        self.price = _price;\\n        _newPrice = self.price;\\n    }\\n    \\n    /// @notice Increases the price of the claim by the price increase rate\\n    /// @param self The variable price contract\\n    function _increaseClaimPrice(VariablePriceContract storage self) internal {\\n        \\n        // get the current price\\n        uint256 currentPrice = self.price;\\n        // get the current modifier\\n        PriceModifier currentModifier = self.priceModifier;\\n        // get the current modifier factor\\n        uint256 currentModifierFactor = self.priceModifierFactor;\\n\\n        // fixed price - increase by modifier factor\\n        if (currentModifier == PriceModifier.Fixed) {\\n            currentPrice = currentPrice + currentModifierFactor;\\n        }\\n        // exponential intcrease\\n        else if (currentModifier == PriceModifier.Exponential) {\\n            currentPrice =\\n                currentPrice +\\n                (currentPrice / currentModifierFactor);\\n        }\\n        // inverse log increase\\n        else if (currentModifier == PriceModifier.InverseLog) {\\n            currentPrice =\\n                currentPrice +\\n                (currentPrice / (currentModifierFactor * currentPrice));\\n        } else {\\n            return;\\n        }\\n        // set the new price\\n        self.price = currentPrice;\\n    }\\n}\\n\",\"keccak256\":\"0x1bbc4b0f1eb9fb6fd741d5844074de8536f861bfce0ffbe10b433bd94684cfd5\",\"license\":\"MIT\"}},\"version\":1}",
+  "bytecode": "0x60566037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea2646970667358221220f31a911e4f80a53735e7463e63a0f9cb564cad02fab35c166d6f848a2dcedd4864736f6c634300081c0033",
+  "deployedBytecode": "0x73000000000000000000000000000000000000000030146080604052600080fdfea2646970667358221220f31a911e4f80a53735e7463e63a0f9cb564cad02fab35c166d6f848a2dcedd4864736f6c634300081c0033",
+  "devdoc": {
+    "kind": "dev",
+    "methods": {},
+    "version": 1
+  },
+  "userdoc": {
+    "kind": "user",
+    "methods": {},
+    "version": 1
+  },
+  "storageLayout": {
+    "storage": [],
+    "types": null
+  }
+}

@@ -32,7 +32,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Mail, Calendar, Lock, Unlock, UserCheck, UserX } from "lucide-react";
 import { useDispatch } from "react-redux";
-import { updateUserStatus } from "@/store/slices/userSlice";
+import { suspendUserByAdmin, reactivateUserByAdmin } from "@/store/slices/userSlice";
 import { AppDispatch } from "@/store/store";
 import { toast } from "@/hooks/use-toast";
 
@@ -78,18 +78,34 @@ export function UserDetailView({
 
   const handleStatusChange = async (isActive: boolean) => {
     try {
-      dispatch(updateUserStatus({ userId: user.id, isActive }));
-      toast({
-        title: isActive ? "User Activated" : "User Suspended",
-        description: `${user.firstName} ${user.lastName} has been ${
-          isActive ? "activated" : "suspended"
-        } successfully.`,
-      });
-    } catch (error) {
+      if (isActive) { // If the desired state is active, call reactivate
+        await dispatch(reactivateUserByAdmin({ userId: user.id })).unwrap();
+      } else { // If the desired state is inactive, call suspend
+        await dispatch(suspendUserByAdmin({ userId: user.id })).unwrap();
+      }
+      // The toast messages are now handled by the thunks themselves upon success.
+      // We can keep a generic success message here or rely on thunk toasts.
+      // For consistency with how thunks usually show toasts, let's remove these specific ones.
+      // toast({
+      //   title: isActive ? "User Activated" : "User Suspended",
+      //   description: `${user.firstName} ${user.lastName} has been ${
+      //     isActive ? "activated" : "suspended"
+      //   } successfully.`,
+      // });
+    } catch (error: unknown) { // Catching potential rejection from unwrap()
       console.error("Failed to update user status:", error);
+      let errorMessage = "Failed to update user status. Please try again.";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      // For Parse.Error or other specific error objects, you might extract more details
+      // For example, if error has a 'data' or 'response' field.
+      
       toast({
         title: "Error",
-        description: "Failed to update user status. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -120,7 +136,7 @@ export function UserDetailView({
           </div>
 
           <div className="flex flex-wrap gap-2 pt-2">
-            {user.roles.map((role) => {
+            {user.orgRoles.map((role) => { // Changed from user.roles to user.orgRoles
               const variant =
                 role === "org_admin"
                   ? "default"

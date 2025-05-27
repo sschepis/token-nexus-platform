@@ -1,0 +1,47 @@
+{
+  "name": "evm-indexer-client",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/index.cjs.js",
+  "module": "dist/index.esm.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "rollup -c",
+    "dev": "rollup -c -w",
+    "lint": "eslint . --ext .ts",
+    "clean": "rimraf dist"
+  },
+  "keywords": [
+    "evm",
+    "indexer",
+    "client",
+    "gunjs",
+    "parse"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.9.0",
+    "ethers": "^6.13.7",
+    "gun": "^0.2020.1240",
+    "siwe": "^3.0.0"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^28.0.3",
+    "@rollup/plugin-node-resolve": "^16.0.1",
+    "@rollup/plugin-typescript": "^12.1.2",
+    "@types/gun": "^0.9.6",
+    "@types/node": "^22.15.14",
+    "nodemon": "^3.1.10",
+    "rimraf": "^5.0.10",
+    "rollup": "^4.40.2",
+    "rollup-plugin-dts": "^6.2.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  }
+}

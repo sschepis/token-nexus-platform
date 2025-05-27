@@ -1,5 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
-import React, { useState } from "react";
+import Parse from 'parse';
+import React, { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -9,15 +11,40 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Upload, FileUp, ChevronUp, Info } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
-import { toast } from "sonner";
+import { toast } from "@/hooks/use-toast";
 
 export const BundleUpload = () => {
   const [file, setFile] = useState<File | null>(null);
-  const [version, setVersion] = useState("");
-  const [description, setDescription] = useState("");
-  const [bundleType, setBundleType] = useState("");
+  const [appDefinitions, setAppDefinitions] = useState<{ id: string, name: string }[]>([]);
+  const [selectedAppDefinitionId, setSelectedAppDefinitionId] = useState("");
+  const [versionString, setVersionString] = useState(""); // Renamed from version
+  const [changelog, setChangelog] = useState(""); // New state
+  // description can be used for releaseNotes or a separate field
+  const [releaseNotes, setReleaseNotes] = useState(""); // Using description for this
+  const [minPlatformVersion, setMinPlatformVersion] = useState(""); // New state
+  const [dependenciesString, setDependenciesString] = useState(""); // New state for JSON string
+  // bundleType is not directly part of AppVersion schema, but could be metadata for AppDefinition
+  
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+
+  useEffect(() => {
+    // Fetch AppDefinitions to populate a selector
+    const fetchDefs = async () => {
+      try {
+        const defs = await Parse.Cloud.run('listAppsForAdmin', {});
+        setAppDefinitions(defs.map((d: any) => ({ id: d.objectId, name: d.name })));
+      } catch (error) {
+        console.error("Failed to fetch app definitions for upload form", error);
+        toast({
+          title: "Error",
+          description: "Failed to load app definitions for selection.",
+          variant: "destructive",
+        });
+      }
+    };
+    fetchDefs();
+  }, []);
   
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
@@ -30,42 +57,96 @@ export const BundleUpload = () => {
     e.preventDefault();
     
     if (!file) {
-      toast.error("Please select a bundle file");
-      return;
-    }
-    
-    if (!version) {
-      toast.error("Please enter a version");
-      return;
-    }
-    
-    if (!bundleType) {
-      toast.error("Please select a bundle type");
-      return;
-    }
-    
-    setIsUploading(true);
-    
-    // Simulate upload progress
-    const interval = setInterval(() => {
-      setUploadProgress(prev => {
-        const newProgress = prev + 10;
-        if (newProgress >= 100) {
-          clearInterval(interval);
-          setTimeout(() => {
-            setIsUploading(false);
-            toast.success("Bundle uploaded successfully");
-            // Reset form
-            setFile(null);
-            setVersion("");
-            setDescription("");
-            setUploadProgress(0);
-          }, 500);
-          return 100;
-        }
-        return newProgress;
+      toast({
+        title: "Error",
+        description: "Please select a bundle file.",
+        variant: "destructive",
       });
-    }, 500);
+      return;
+    }
+    if (!selectedAppDefinitionId) {
+      toast({
+        title: "Error",
+        description: "Please select an Application Definition.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!versionString) {
+      toast({
+        title: "Error",
+        description: "Please enter a version string (e.g., 1.0.0).",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadProgress(0);
+
+    try {
+      // 1. Upload the file to Parse Server
+      const parseFile = new Parse.File(file.name, file);
+      await parseFile.save({
+        progress: (value) => {
+          setUploadProgress(Math.round(value * 100));
+        }
+      });
+      const bundleUrl = parseFile.url();
+
+      // 2. Parse dependencies string if provided
+      let dependencies = {};
+      if (dependenciesString) {
+        try {
+          dependencies = JSON.parse(dependenciesString);
+        } catch (jsonError) {
+          toast({
+            title: "Error",
+            description: "Invalid JSON format for dependencies.",
+            variant: "destructive",
+          });
+          setIsUploading(false);
+          return;
+        }
+      }
+
+      // 3. Call the cloud function
+      const params = {
+        appDefinitionId: selectedAppDefinitionId,
+        versionString,
+        bundleUrl,
+        changelog,
+        releaseNotes, // Using description state for this
+        minPlatformVersion,
+        dependencies,
+      };
+
+      await Parse.Cloud.run('submitAppForReview', params);
+      
+      toast({
+        title: "Success",
+        description: `Version ${versionString} submitted for review successfully!`,
+      });
+      // Reset form
+      setFile(null);
+      setSelectedAppDefinitionId("");
+      setVersionString("");
+      setChangelog("");
+      setReleaseNotes("");
+      setMinPlatformVersion("");
+      setDependenciesString("");
+      setUploadProgress(0);
+
+    } catch (error: any) {
+      console.error("Failed to submit app for review:", error);
+      toast({
+        title: "Error",
+        description: `Submission failed: ${error.message || "Unknown error"}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   return (
@@ -73,42 +154,75 @@ export const BundleUpload = () => {
       <Alert variant="default" className="bg-blue-50 text-blue-800 border-blue-200">
         <Info className="h-4 w-4" />
         <AlertDescription>
-          App bundles contain the necessary contracts, configurations, and frontend assets for deployment.
+          Upload a new version of an application for review and publishing to the App Store.
         </AlertDescription>
       </Alert>
 
       <div className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="bundle-type">Bundle Type</Label>
-          <Select value={bundleType} onValueChange={setBundleType}>
-            <SelectTrigger id="bundle-type">
-              <SelectValue placeholder="Select bundle type" />
+          <Label htmlFor="app-definition">Application Definition</Label>
+          <Select value={selectedAppDefinitionId} onValueChange={setSelectedAppDefinitionId}>
+            <SelectTrigger id="app-definition">
+              <SelectValue placeholder="Select an application" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="standard">Standard</SelectItem>
-              <SelectItem value="professional">Professional</SelectItem>
-              <SelectItem value="enterprise">Enterprise</SelectItem>
+              {appDefinitions.map(def => (
+                <SelectItem key={def.id} value={def.id}>{def.name}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
         
         <div className="space-y-2">
-          <Label htmlFor="version">Version</Label>
+          <Label htmlFor="versionString">Version String</Label>
           <Input
-            id="version"
-            placeholder="e.g., 1.0.0"
-            value={version}
-            onChange={(e) => setVersion(e.target.value)}
+            id="versionString"
+            placeholder="e.g., 1.0.0 or 2.1.0-beta.1"
+            value={versionString}
+            onChange={(e) => setVersionString(e.target.value)}
+            required
           />
         </div>
-        
+
         <div className="space-y-2">
-          <Label htmlFor="description">Description</Label>
+          <Label htmlFor="changelog">Changelog (Markdown supported)</Label>
           <Textarea
-            id="description"
-            placeholder="Enter bundle description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            id="changelog"
+            placeholder="Describe changes in this version..."
+            value={changelog}
+            onChange={(e) => setChangelog(e.target.value)}
+            rows={4}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="releaseNotes">Release Notes (Optional)</Label>
+          <Textarea
+            id="releaseNotes"
+            placeholder="Enter detailed release notes..."
+            value={releaseNotes}
+            onChange={(e) => setReleaseNotes(e.target.value)}
+            rows={3}
+          />
+        </div>
+
+         <div className="space-y-2">
+          <Label htmlFor="minPlatformVersion">Minimum Platform Version (Optional)</Label>
+          <Input
+            id="minPlatformVersion"
+            placeholder="e.g., 1.2.0"
+            value={minPlatformVersion}
+            onChange={(e) => setMinPlatformVersion(e.target.value)}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="dependencies">Dependencies (JSON format, Optional)</Label>
+          <Textarea
+            id="dependencies"
+            placeholder='e.g., { "otherAppSlug": ">=1.2.0" }'
+            value={dependenciesString}
+            onChange={(e) => setDependenciesString(e.target.value)}
             rows={3}
           />
         </div>

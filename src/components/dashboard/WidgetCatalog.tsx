@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { WidgetType, useDashboardStore } from '@/store/dashboardStore';
-import { DollarSign, Users, Clock, RefreshCcw, BarChart, ListTodo } from 'lucide-react';
+import { DollarSign, Users, Clock, RefreshCcw, BarChart, ListTodo, AppWindow } from 'lucide-react';
 
 interface WidgetOption {
   type: WidgetType;
@@ -62,6 +62,12 @@ export const WidgetCatalog: React.FC<WidgetCatalogProps> = ({ open, onClose }) =
       title: 'Chart',
       description: 'Customizable data visualization',
       icon: <BarChart className="h-8 w-8 text-primary" />
+    },
+    {
+      type: 'installedApps',
+      title: 'My Applications',
+      description: 'View and launch your installed applications',
+      icon: <AppWindow className="h-8 w-8 text-primary" />
     }
   ];
 

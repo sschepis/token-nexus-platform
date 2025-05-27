@@ -10,6 +10,7 @@ import { UserMetricsWidget } from './widgets/UserMetricsWidget';
 import { ActivityFeedWidget } from './widgets/ActivityFeedWidget';
 import { QuickActionsWidget } from './widgets/QuickActionsWidget';
 import { ChartWidget } from './widgets/ChartWidget';
+import InstalledAppsWidget from './widgets/InstalledAppsWidget';
 
 interface WidgetRendererProps {
   widget: Widget;
@@ -34,6 +35,8 @@ export const WidgetRenderer: React.FC<WidgetRendererProps> = ({ widget, isEditin
         return <QuickActionsWidget id={widget.id} config={widget.config} />;
       case 'chartWidget':
         return <ChartWidget id={widget.id} config={widget.config} />;
+      case 'installedApps':
+        return <InstalledAppsWidget />;
       default:
         return <div>Unknown widget type: {widget.type}</div>;
     }

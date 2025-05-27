@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
@@ -9,9 +10,10 @@ export type WidgetType =
   | 'tokenStats' 
   | 'recentTokens' 
   | 'userMetrics' 
-  | 'activityFeed' 
-  | 'quickActions' 
-  | 'chartWidget';
+  | 'activityFeed'
+  | 'quickActions'
+  | 'chartWidget'
+  | 'installedApps'; // Added new widget type
 
 export interface Widget {
   id: string;
@@ -28,6 +30,8 @@ export interface DashboardState {
   updateLayout: (layouts: Layout[]) => void;
   updateWidgetConfig: (widgetId: string, config: Record<string, any>) => void;
   resetDashboard: () => void;
+  setLayouts: (layouts: Layout[]) => void;
+  setWidgets: (widgets: Widget[]) => void;
 }
 
 // Default titles for widget types
@@ -38,6 +42,7 @@ const defaultWidgetTitles: Record<WidgetType, string> = {
   activityFeed: 'Activity Feed',
   quickActions: 'Quick Actions',
   chartWidget: 'Chart',
+  installedApps: 'My Applications', // Added title for the new widget
 };
 
 // Initial layouts for each widget type
@@ -57,6 +62,8 @@ const getInitialLayout = (id: string, type: WidgetType): Layout => {
       return { ...baseLayout, w: 3, h: 4 };
     case 'chartWidget':
       return { ...baseLayout, w: 6, h: 6 };
+    case 'installedApps': // Added layout for the new widget
+      return { ...baseLayout, w: 4, h: 4 };
     default:
       return { ...baseLayout, w: 3, h: 3 };
   }
@@ -107,6 +114,14 @@ export const useDashboardStore = create<DashboardState>()(
       
       resetDashboard: () => {
         set({ layouts: [], widgets: [] });
+      },
+      
+      setLayouts: (layouts: Layout[]) => {
+        set({ layouts });
+      },
+      
+      setWidgets: (widgets: Widget[]) => {
+        set({ widgets });
       },
     }),
     {
