@@ -1,0 +1,1584 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Comprehensive documentation for the Token Nexus Platform - A modern blockchain application platform with secure app runtime framework">
+      
+      
+        <meta name="author" content="Token Nexus Team">
+      
+      
+        <link rel="canonical" href="https://your-username.github.io/token-nexus-platform/ORGANIZATION_ADMIN_GUIDE/">
+      
+      
+      
+      
+      <link rel="icon" href="../assets/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.14">
+    
+    
+      
+        <title>Organization Admin Guide - Token Nexus Platform Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.342714a4.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+  
+
+
+  
+  
+
+<script id="__analytics">function __md_analytics(){function e(){dataLayer.push(arguments)}window.dataLayer=window.dataLayer||[],e("js",new Date),e("config",""),document.addEventListener("DOMContentLoaded",(function(){document.forms.search&&document.forms.search.query.addEventListener("blur",(function(){this.value&&e("event","search",{search_term:this.value})}));document$.subscribe((function(){var t=document.forms.feedback;if(void 0!==t)for(var a of t.querySelectorAll("[type=submit]"))a.addEventListener("click",(function(a){a.preventDefault();var n=document.location.pathname,d=this.getAttribute("data-md-value");e("event","feedback",{page:n,data:d}),t.firstElementChild.disabled=!0;var r=t.querySelector(".md-feedback__note [data-md-value='"+d+"']");r&&(r.hidden=!1)})),t.hidden=!1})),location$.subscribe((function(t){e("config","",{page_path:t.pathname})}))}));var t=document.createElement("script");t.async=!0,t.src="https://www.googletagmanager.com/gtag/js?id=",document.getElementById("__analytics").insertAdjacentElement("afterEnd",t)}</script>
+  
+    <script>"undefined"!=typeof __md_analytics&&__md_analytics()</script>
+  
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#organization-admin-guide" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Token Nexus Platform Documentation" class="md-header__button md-logo" aria-label="Token Nexus Platform Documentation" data-md-component="logo">
+      
+  <img src="../assets/logo.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Token Nexus Platform Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Organization Admin Guide
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/your-username/token-nexus-platform" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
+  </div>
+  <div class="md-source__repository">
+    token-nexus-platform
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href=".." class="md-tabs__link">
+          
+  
+  
+    
+  
+  Home
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../architecture/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../features/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Features
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../implementation/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Implementation
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../technical/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Technical
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../tasks/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Tasks
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Token Nexus Platform Documentation" class="md-nav__button md-logo" aria-label="Token Nexus Platform Documentation" data-md-component="logo">
+      
+  <img src="../assets/logo.png" alt="logo">
+
+    </a>
+    Token Nexus Platform Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/your-username/token-nexus-platform" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
+  </div>
+  <div class="md-source__repository">
+    token-nexus-platform
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
+      
+        
+  
+  
+  
+    <a href=".." class="md-nav__link">
+      
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      
+        <span class="md-nav__icon md-icon"></span>
+      
+    </a>
+  
+
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
+      
+        
+  
+  
+  
+    <a href="../architecture/" class="md-nav__link">
+      
+  
+  
+  <span class="md-ellipsis">
+    Architecture
+    
+  </span>
+  
+
+      
+        <span class="md-nav__icon md-icon"></span>
+      
+    </a>
+  
+
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
+      
+        
+  
+  
+  
+    <a href="../features/" class="md-nav__link">
+      
+  
+  
+  <span class="md-ellipsis">
+    Features
+    
+  </span>
+  
+
+      
+        <span class="md-nav__icon md-icon"></span>
+      
+    </a>
+  
+
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
+      
+        
+  
+  
+  
+    <a href="../implementation/" class="md-nav__link">
+      
+  
+  
+  <span class="md-ellipsis">
+    Implementation
+    
+  </span>
+  
+
+      
+        <span class="md-nav__icon md-icon"></span>
+      
+    </a>
+  
+
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
+      
+        
+  
+  
+  
+    <a href="../technical/" class="md-nav__link">
+      
+  
+  
+  <span class="md-ellipsis">
+    Technical
+    
+  </span>
+  
+
+      
+        <span class="md-nav__icon md-icon"></span>
+      
+    </a>
+  
+
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
+      
+        
+  
+  
+  
+    <a href="../tasks/" class="md-nav__link">
+      
+  
+  
+  <span class="md-ellipsis">
+    Tasks
+    
+  </span>
+  
+
+      
+        <span class="md-nav__icon md-icon"></span>
+      
+    </a>
+  
+
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/your-username/token-nexus-platform/edit/main/docsite/ORGANIZATION_ADMIN_GUIDE.md" title="Edit this page" class="md-content__button md-icon">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+    
+      
+    
+    <a href="https://github.com/your-username/token-nexus-platform/raw/main/docsite/ORGANIZATION_ADMIN_GUIDE.md" title="View source of this page" class="md-content__button md-icon">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 18c.56 0 1 .44 1 1s-.44 1-1 1-1-.44-1-1 .44-1 1-1m0-3c-2.73 0-5.06 1.66-6 4 .94 2.34 3.27 4 6 4s5.06-1.66 6-4c-.94-2.34-3.27-4-6-4m0 6.5a2.5 2.5 0 0 1-2.5-2.5 2.5 2.5 0 0 1 2.5-2.5 2.5 2.5 0 0 1 2.5 2.5 2.5 2.5 0 0 1-2.5 2.5M9.27 20H6V4h7v5h5v4.07c.7.08 1.36.25 2 .49V8l-6-6H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h4.5a8.2 8.2 0 0 1-1.23-2"/></svg>
+    </a>
+  
+
+
+<h1 id="organization-admin-guide">Organization Admin Guide<a class="headerlink" href="#organization-admin-guide" title="Permanent link">&para;</a></h1>
+<p>Welcome to the Token Nexus Platform Organization Administration Guide. This guide provides comprehensive instructions for organization administrators to effectively manage their organization within the Token Nexus Platform.</p>
+<h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
+<ol>
+<li><a href="#overview">Overview</a></li>
+<li><a href="#getting-started">Getting Started</a></li>
+<li><a href="#dashboard-overview">Dashboard Overview</a></li>
+<li><a href="#user-management">User Management</a></li>
+<li><a href="#app-marketplace">App Marketplace</a></li>
+<li><a href="#token-management">Token Management</a></li>
+<li><a href="#object-manager">Object Manager</a></li>
+<li><a href="#page-builder">Page Builder</a></li>
+<li><a href="#cloud-functions">Cloud Functions</a></li>
+<li><a href="#organization-settings">Organization Settings</a></li>
+<li><a href="#billing--plans">Billing &amp; Plans</a></li>
+<li><a href="#security--compliance">Security &amp; Compliance</a></li>
+<li><a href="#reports--analytics">Reports &amp; Analytics</a></li>
+<li><a href="#ai-assistant">AI Assistant</a></li>
+<li><a href="#troubleshooting">Troubleshooting</a></li>
+</ol>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<p>As an Organization Administrator, you have comprehensive control over your organization's presence on the Token Nexus Platform. You can:</p>
+<ul>
+<li>Manage users and their permissions within your organization</li>
+<li>Install and configure applications from the marketplace</li>
+<li>Create and manage digital tokens and smart contracts</li>
+<li>Build custom pages and interfaces</li>
+<li>Monitor organization activity and performance</li>
+<li>Configure organization settings and branding</li>
+</ul>
+<h2 id="getting-started">Getting Started<a class="headerlink" href="#getting-started" title="Permanent link">&para;</a></h2>
+<h3 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Organization Admin role within your organization</li>
+<li>Access to your organization's dashboard</li>
+<li>Basic understanding of blockchain concepts</li>
+<li>Familiarity with your organization's business requirements</li>
+</ul>
+<h3 id="initial-setup-checklist">Initial Setup Checklist<a class="headerlink" href="#initial-setup-checklist" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Complete Organization Profile</strong>: Set up basic organization information</li>
+<li><strong>Configure Branding</strong>: Upload logo and set brand colors</li>
+<li><strong>Invite Users</strong>: Add team members to your organization</li>
+<li><strong>Install Essential Apps</strong>: Install required applications from marketplace</li>
+<li><strong>Set Permissions</strong>: Configure user roles and permissions</li>
+<li><strong>Review Settings</strong>: Configure organization-wide settings</li>
+</ol>
+<h2 id="dashboard-overview">Dashboard Overview<a class="headerlink" href="#dashboard-overview" title="Permanent link">&para;</a></h2>
+<h3 id="main-dashboard">Main Dashboard<a class="headerlink" href="#main-dashboard" title="Permanent link">&para;</a></h3>
+<p>Your organization dashboard provides a centralized view of:</p>
+<ul>
+<li><strong>Key Metrics</strong>: User activity, token statistics, app usage</li>
+<li><strong>Recent Activity</strong>: Latest actions by organization members</li>
+<li><strong>Quick Actions</strong>: Common administrative tasks</li>
+<li><strong>System Status</strong>: Platform health and notifications</li>
+</ul>
+<h3 id="widget-management">Widget Management<a class="headerlink" href="#widget-management" title="Permanent link">&para;</a></h3>
+<p>Customize your dashboard with widgets:</p>
+<p><strong>Available Widgets</strong>:
+- <strong>User Metrics</strong>: User activity and engagement
+- <strong>Token Stats</strong>: Token creation and transaction data
+- <strong>Installed Apps</strong>: Applications and their usage
+- <strong>Recent Tokens</strong>: Recently created or modified tokens
+- <strong>Activity Feed</strong>: Organization activity timeline
+- <strong>Quick Actions</strong>: Shortcuts to common tasks</p>
+<p><strong>Widget Configuration</strong>:
+1. Click "Customize Dashboard"
+2. Add/remove widgets as needed
+3. Resize and reposition widgets
+4. Save your layout</p>
+<h2 id="user-management">User Management<a class="headerlink" href="#user-management" title="Permanent link">&para;</a></h2>
+<h3 id="managing-organization-users">Managing Organization Users<a class="headerlink" href="#managing-organization-users" title="Permanent link">&para;</a></h3>
+<p>Access user management at:
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Dashboard → Users
+</span></code></pre></div></p>
+<h4 id="adding-users">Adding Users<a class="headerlink" href="#adding-users" title="Permanent link">&para;</a></h4>
+<p><strong>Invite New Users</strong>:
+1. Click "Invite User"
+2. Enter email address
+3. Select role (Admin, Member, Viewer)
+4. Add optional welcome message
+5. Send invitation</p>
+<p><strong>Bulk User Import</strong>:
+1. Prepare CSV file with user data
+2. Use "Import Users" feature
+3. Map CSV columns to user fields
+4. Review and confirm import</p>
+<h4 id="user-roles-and-permissions">User Roles and Permissions<a class="headerlink" href="#user-roles-and-permissions" title="Permanent link">&para;</a></h4>
+<p><strong>Organization Admin</strong>:
+- Full organization management access
+- User management and role assignment
+- Billing and subscription management
+- App installation and configuration</p>
+<p><strong>Member</strong>:
+- Access to organization features
+- Create and manage tokens
+- Use installed applications
+- Limited administrative functions</p>
+<p><strong>Viewer</strong>:
+- Read-only access to organization data
+- View reports and analytics
+- No creation or modification rights</p>
+<p><strong>Custom Roles</strong>:
+Create custom roles with specific permissions:
+1. Navigate to "Roles &amp; Permissions"
+2. Click "Create Custom Role"
+3. Select specific permissions
+4. Assign role to users</p>
+<h4 id="user-management-actions">User Management Actions<a class="headerlink" href="#user-management-actions" title="Permanent link">&para;</a></h4>
+<p><strong>Edit User Details</strong>:
+- Update user information
+- Change role assignments
+- Modify permissions
+- Set user status</p>
+<p><strong>Deactivate Users</strong>:
+- Temporarily disable user access
+- Maintain user data
+- Can be reactivated later</p>
+<p><strong>Remove Users</strong>:
+- Permanently remove from organization
+- Transfer user data if needed
+- Cannot be undone</p>
+<h3 id="team-collaboration">Team Collaboration<a class="headerlink" href="#team-collaboration" title="Permanent link">&para;</a></h3>
+<p><strong>Project Teams</strong>:
+- Create project-specific teams
+- Assign team leaders
+- Manage team permissions
+- Track team activities</p>
+<p><strong>Communication Tools</strong>:
+- Internal messaging system
+- Activity notifications
+- Collaboration workflows
+- Task assignments</p>
+<h2 id="app-marketplace">App Marketplace<a class="headerlink" href="#app-marketplace" title="Permanent link">&para;</a></h2>
+<h3 id="discovering-and-installing-apps">Discovering and Installing Apps<a class="headerlink" href="#discovering-and-installing-apps" title="Permanent link">&para;</a></h3>
+<p>Access the marketplace at:
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Dashboard → Marketplace
+</span></code></pre></div></p>
+<h4 id="browsing-apps">Browsing Apps<a class="headerlink" href="#browsing-apps" title="Permanent link">&para;</a></h4>
+<p><strong>App Categories</strong>:
+- <strong>Finance</strong>: Financial tools and integrations
+- <strong>Productivity</strong>: Workflow and project management
+- <strong>Communication</strong>: Messaging and collaboration
+- <strong>Integration</strong>: Third-party service connections
+- <strong>Security</strong>: Security and compliance tools
+- <strong>Analytics</strong>: Data analysis and reporting</p>
+<p><strong>App Information</strong>:
+- Features and functionality
+- Pricing and plans
+- User reviews and ratings
+- Screenshots and demos
+- Developer information</p>
+<h4 id="installing-apps">Installing Apps<a class="headerlink" href="#installing-apps" title="Permanent link">&para;</a></h4>
+<p><strong>Installation Process</strong>:
+1. Browse or search for apps
+2. Review app details and permissions
+3. Click "Install"
+4. Review and accept permissions
+5. Configure app settings
+6. Confirm installation</p>
+<p><strong>App Permissions</strong>:
+Apps may request access to:
+- User data (names, emails)
+- Organization settings
+- Token information
+- API access
+- File storage</p>
+<h3 id="managing-installed-apps">Managing Installed Apps<a class="headerlink" href="#managing-installed-apps" title="Permanent link">&para;</a></h3>
+<p><strong>App Configuration</strong>:
+- Access installed app settings
+- Configure app-specific options
+- Manage integrations
+- Update app permissions</p>
+<p><strong>App Usage Monitoring</strong>:
+- Track app usage statistics
+- Monitor performance
+- Review user feedback
+- Analyze app value</p>
+<p><strong>App Updates</strong>:
+- Automatic update notifications
+- Manual update approval
+- Version history
+- Rollback capabilities</p>
+<h3 id="uninstalling-apps">Uninstalling Apps<a class="headerlink" href="#uninstalling-apps" title="Permanent link">&para;</a></h3>
+<p><strong>Safe Uninstallation</strong>:
+1. Review app data and dependencies
+2. Export important data if needed
+3. Notify affected users
+4. Confirm uninstallation
+5. Clean up remaining data</p>
+<h2 id="token-management">Token Management<a class="headerlink" href="#token-management" title="Permanent link">&para;</a></h2>
+<h3 id="creating-digital-tokens">Creating Digital Tokens<a class="headerlink" href="#creating-digital-tokens" title="Permanent link">&para;</a></h3>
+<p>Access token management at:
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>Dashboard → Tokens
+</span></code></pre></div></p>
+<h4 id="token-types">Token Types<a class="headerlink" href="#token-types" title="Permanent link">&para;</a></h4>
+<p><strong>ERC-20 Tokens</strong>:
+- Standard fungible tokens
+- Custom supply and decimals
+- Transfer restrictions
+- Compliance features</p>
+<p><strong>ERC-721 NFTs</strong>:
+- Non-fungible tokens
+- Unique digital assets
+- Metadata and attributes
+- Royalty mechanisms</p>
+<p><strong>ERC-1155 Multi-Tokens</strong>:
+- Multiple token types in one contract
+- Efficient batch operations
+- Flexible token economics</p>
+<h4 id="token-creation-process">Token Creation Process<a class="headerlink" href="#token-creation-process" title="Permanent link">&para;</a></h4>
+<p><strong>Basic Information</strong>:
+- Token name and symbol
+- Total supply
+- Decimal places
+- Description and metadata</p>
+<p><strong>Advanced Features</strong>:
+- Mintable/Burnable capabilities
+- Pause functionality
+- Access controls
+- Compliance restrictions</p>
+<p><strong>Deployment Options</strong>:
+- Target blockchain network
+- Gas optimization settings
+- Contract verification
+- Initial distribution</p>
+<h3 id="token-management_1">Token Management<a class="headerlink" href="#token-management_1" title="Permanent link">&para;</a></h3>
+<p><strong>Token Administration</strong>:
+- Mint additional tokens (if enabled)
+- Burn tokens from circulation
+- Pause/unpause token operations
+- Update metadata</p>
+<p><strong>Transfer Management</strong>:
+- Monitor token transfers
+- Set transfer restrictions
+- Whitelist/blacklist addresses
+- Compliance reporting</p>
+<p><strong>Metadata Management</strong>:
+- Update token descriptions
+- Manage token images
+- Add attributes
+- Version control</p>
+<h2 id="object-manager">Object Manager<a class="headerlink" href="#object-manager" title="Permanent link">&para;</a></h2>
+<h3 id="data-management">Data Management<a class="headerlink" href="#data-management" title="Permanent link">&para;</a></h3>
+<p>Access object management at:
+<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>Dashboard → Object Manager
+</span></code></pre></div></p>
+<h4 id="creating-data-objects">Creating Data Objects<a class="headerlink" href="#creating-data-objects" title="Permanent link">&para;</a></h4>
+<p><strong>Object Types</strong>:
+- <strong>Custom Objects</strong>: Organization-specific data structures
+- <strong>Standard Objects</strong>: Pre-defined platform objects
+- <strong>External Objects</strong>: Data from external systems</p>
+<p><strong>Object Schema Design</strong>:
+1. Define object structure
+2. Set field types and constraints
+3. Configure relationships
+4. Set permissions and access controls</p>
+<h4 id="field-types">Field Types<a class="headerlink" href="#field-types" title="Permanent link">&para;</a></h4>
+<p><strong>Basic Fields</strong>:
+- Text (single line, multi-line)
+- Numbers (integer, decimal)
+- Dates and times
+- Boolean (true/false)
+- Files and images</p>
+<p><strong>Advanced Fields</strong>:
+- Relationships (one-to-many, many-to-many)
+- JSON objects
+- Geolocation
+- Arrays and lists
+- Calculated fields</p>
+<h4 id="object-permissions">Object Permissions<a class="headerlink" href="#object-permissions" title="Permanent link">&para;</a></h4>
+<p><strong>Access Control</strong>:
+- Read permissions
+- Write permissions
+- Delete permissions
+- Field-level security</p>
+<p><strong>Role-Based Access</strong>:
+- Organization roles
+- Custom permission sets
+- Dynamic permissions
+- Audit trails</p>
+<h3 id="data-import-and-export">Data Import and Export<a class="headerlink" href="#data-import-and-export" title="Permanent link">&para;</a></h3>
+<p><strong>Import Data</strong>:
+- CSV file import
+- JSON data import
+- API data synchronization
+- Bulk data operations</p>
+<p><strong>Export Data</strong>:
+- Export to CSV
+- JSON export
+- API access
+- Scheduled exports</p>
+<h2 id="page-builder">Page Builder<a class="headerlink" href="#page-builder" title="Permanent link">&para;</a></h2>
+<h3 id="creating-custom-pages">Creating Custom Pages<a class="headerlink" href="#creating-custom-pages" title="Permanent link">&para;</a></h3>
+<p>Access page builder at:
+<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>Dashboard → Page Builder
+</span></code></pre></div></p>
+<h4 id="page-types">Page Types<a class="headerlink" href="#page-types" title="Permanent link">&para;</a></h4>
+<p><strong>Landing Pages</strong>:
+- Organization homepage
+- Product showcases
+- Marketing pages
+- Lead capture forms</p>
+<p><strong>Dashboard Pages</strong>:
+- Custom dashboards
+- Data visualization
+- Report displays
+- Interactive interfaces</p>
+<p><strong>Application Pages</strong>:
+- Token interaction pages
+- User portals
+- Administrative interfaces
+- Public information pages</p>
+<h4 id="design-tools">Design Tools<a class="headerlink" href="#design-tools" title="Permanent link">&para;</a></h4>
+<p><strong>Visual Editor</strong>:
+- Drag-and-drop interface
+- Pre-built components
+- Custom CSS styling
+- Responsive design</p>
+<p><strong>Components Library</strong>:
+- Headers and navigation
+- Forms and inputs
+- Charts and graphs
+- Media elements
+- Custom components</p>
+<p><strong>Template System</strong>:
+- Professional templates
+- Industry-specific designs
+- Customizable layouts
+- Responsive frameworks</p>
+<h3 id="page-publishing">Page Publishing<a class="headerlink" href="#page-publishing" title="Permanent link">&para;</a></h3>
+<p><strong>Publishing Options</strong>:
+- Public pages (accessible to everyone)
+- Private pages (organization members only)
+- Protected pages (login required)
+- Custom domain hosting</p>
+<p><strong>SEO Optimization</strong>:
+- Meta tags and descriptions
+- Search engine optimization
+- Social media integration
+- Analytics tracking</p>
+<h2 id="cloud-functions">Cloud Functions<a class="headerlink" href="#cloud-functions" title="Permanent link">&para;</a></h2>
+<h3 id="serverless-computing">Serverless Computing<a class="headerlink" href="#serverless-computing" title="Permanent link">&para;</a></h3>
+<p>Access cloud functions at:
+<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>Dashboard → Cloud Functions
+</span></code></pre></div></p>
+<h4 id="function-types">Function Types<a class="headerlink" href="#function-types" title="Permanent link">&para;</a></h4>
+<p><strong>Triggers</strong>:
+- Database triggers (before/after save)
+- File triggers (upload/delete)
+- User triggers (login/signup)
+- Custom event triggers</p>
+<p><strong>Scheduled Jobs</strong>:
+- Recurring tasks
+- Maintenance operations
+- Report generation
+- Data synchronization</p>
+<p><strong>API Endpoints</strong>:
+- REST API endpoints
+- Webhook handlers
+- Integration points
+- Custom business logic</p>
+<h4 id="function-development">Function Development<a class="headerlink" href="#function-development" title="Permanent link">&para;</a></h4>
+<p><strong>Code Editor</strong>:
+- Syntax highlighting
+- Code completion
+- Error detection
+- Version control</p>
+<p><strong>Testing Tools</strong>:
+- Function testing interface
+- Mock data generation
+- Performance monitoring
+- Error logging</p>
+<p><strong>Deployment</strong>:
+- One-click deployment
+- Environment management
+- Rollback capabilities
+- Health monitoring</p>
+<h3 id="function-management">Function Management<a class="headerlink" href="#function-management" title="Permanent link">&para;</a></h3>
+<p><strong>Monitoring</strong>:
+- Function execution logs
+- Performance metrics
+- Error rates
+- Usage statistics</p>
+<p><strong>Scaling</strong>:
+- Automatic scaling
+- Resource allocation
+- Timeout configuration
+- Memory limits</p>
+<h2 id="organization-settings">Organization Settings<a class="headerlink" href="#organization-settings" title="Permanent link">&para;</a></h2>
+<h3 id="profile-management">Profile Management<a class="headerlink" href="#profile-management" title="Permanent link">&para;</a></h3>
+<p>Access settings at:
+<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>Dashboard → Settings
+</span></code></pre></div></p>
+<h4 id="basic-information">Basic Information<a class="headerlink" href="#basic-information" title="Permanent link">&para;</a></h4>
+<p><strong>Organization Details</strong>:
+- Organization name
+- Description and industry
+- Contact information
+- Business address
+- Tax information</p>
+<p><strong>Branding</strong>:
+- Logo upload and management
+- Brand colors (primary/secondary)
+- Custom themes
+- Typography settings</p>
+<h4 id="domain-configuration">Domain Configuration<a class="headerlink" href="#domain-configuration" title="Permanent link">&para;</a></h4>
+<p><strong>Custom Domains</strong>:
+- Add custom domain
+- DNS configuration
+- SSL certificate management
+- Domain verification</p>
+<p><strong>Subdomain Settings</strong>:
+- Organization subdomain
+- URL customization
+- Redirect configuration</p>
+<h3 id="security-settings">Security Settings<a class="headerlink" href="#security-settings" title="Permanent link">&para;</a></h3>
+<p><strong>Authentication</strong>:
+- Password policies
+- Two-factor authentication
+- Single sign-on (SSO)
+- Session management</p>
+<p><strong>API Security</strong>:
+- API key management
+- Rate limiting
+- IP whitelisting
+- CORS configuration</p>
+<p><strong>Data Security</strong>:
+- Encryption settings
+- Backup configuration
+- Data retention policies
+- Privacy controls</p>
+<h3 id="integration-settings">Integration Settings<a class="headerlink" href="#integration-settings" title="Permanent link">&para;</a></h3>
+<p><strong>Third-Party Integrations</strong>:
+- Email service configuration
+- SMS service setup
+- Payment gateway integration
+- Analytics tracking</p>
+<p><strong>Webhook Configuration</strong>:
+- Outbound webhooks
+- Event subscriptions
+- Retry policies
+- Security tokens</p>
+<h2 id="billing-plans">Billing &amp; Plans<a class="headerlink" href="#billing-plans" title="Permanent link">&para;</a></h2>
+<h3 id="subscription-management">Subscription Management<a class="headerlink" href="#subscription-management" title="Permanent link">&para;</a></h3>
+<p>Access billing at:
+<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>Dashboard → Settings → Billing
+</span></code></pre></div></p>
+<h4 id="plan-types">Plan Types<a class="headerlink" href="#plan-types" title="Permanent link">&para;</a></h4>
+<p><strong>Free Plan</strong>:
+- Basic features
+- Limited users
+- Community support
+- Usage restrictions</p>
+<p><strong>Standard Plan</strong>:
+- Advanced features
+- More users
+- Email support
+- Higher limits</p>
+<p><strong>Enterprise Plan</strong>:
+- All features
+- Unlimited users
+- Priority support
+- Custom integrations</p>
+<h4 id="billing-management">Billing Management<a class="headerlink" href="#billing-management" title="Permanent link">&para;</a></h4>
+<p><strong>Payment Methods</strong>:
+- Credit card management
+- Bank account setup
+- Invoice billing
+- Purchase orders</p>
+<p><strong>Usage Monitoring</strong>:
+- Current usage metrics
+- Billing cycle information
+- Overage alerts
+- Usage forecasting</p>
+<p><strong>Invoicing</strong>:
+- Invoice history
+- Payment status
+- Tax information
+- Billing contacts</p>
+<h3 id="cost-optimization">Cost Optimization<a class="headerlink" href="#cost-optimization" title="Permanent link">&para;</a></h3>
+<p><strong>Usage Analysis</strong>:
+- Feature usage breakdown
+- Cost per user analysis
+- Optimization recommendations
+- Budget planning</p>
+<p><strong>Resource Management</strong>:
+- Storage optimization
+- API call monitoring
+- Performance tuning
+- Capacity planning</p>
+<h2 id="security-compliance">Security &amp; Compliance<a class="headerlink" href="#security-compliance" title="Permanent link">&para;</a></h2>
+<h3 id="security-monitoring">Security Monitoring<a class="headerlink" href="#security-monitoring" title="Permanent link">&para;</a></h3>
+<p><strong>Access Logs</strong>:
+- User login history
+- Permission changes
+- Data access logs
+- Administrative actions</p>
+<p><strong>Security Alerts</strong>:
+- Suspicious activity detection
+- Failed login attempts
+- Unauthorized access attempts
+- Security policy violations</p>
+<h3 id="compliance-management">Compliance Management<a class="headerlink" href="#compliance-management" title="Permanent link">&para;</a></h3>
+<p><strong>Data Privacy</strong>:
+- GDPR compliance tools
+- Data processing records
+- Consent management
+- Data deletion requests</p>
+<p><strong>Audit Trails</strong>:
+- Complete activity logs
+- Compliance reporting
+- Audit preparation
+- Regulatory documentation</p>
+<p><strong>Backup and Recovery</strong>:
+- Automated backups
+- Disaster recovery planning
+- Data restoration procedures
+- Business continuity</p>
+<h2 id="reports-analytics">Reports &amp; Analytics<a class="headerlink" href="#reports-analytics" title="Permanent link">&para;</a></h2>
+<h3 id="organization-analytics">Organization Analytics<a class="headerlink" href="#organization-analytics" title="Permanent link">&para;</a></h3>
+<p>Access reports at:
+<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>Dashboard → Reports
+</span></code></pre></div></p>
+<h4 id="usage-reports">Usage Reports<a class="headerlink" href="#usage-reports" title="Permanent link">&para;</a></h4>
+<p><strong>User Activity</strong>:
+- Login frequency
+- Feature usage
+- Session duration
+- Geographic distribution</p>
+<p><strong>App Usage</strong>:
+- App adoption rates
+- Feature utilization
+- Performance metrics
+- User satisfaction</p>
+<p><strong>Token Analytics</strong>:
+- Token creation trends
+- Transaction volumes
+- Holder distributions
+- Market performance</p>
+<h4 id="custom-reports">Custom Reports<a class="headerlink" href="#custom-reports" title="Permanent link">&para;</a></h4>
+<p><strong>Report Builder</strong>:
+- Drag-and-drop interface
+- Custom metrics
+- Filtering options
+- Visualization tools</p>
+<p><strong>Scheduled Reports</strong>:
+- Automated report generation
+- Email delivery
+- Report sharing
+- Archive management</p>
+<h3 id="performance-monitoring">Performance Monitoring<a class="headerlink" href="#performance-monitoring" title="Permanent link">&para;</a></h3>
+<p><strong>System Performance</strong>:
+- Response times
+- Uptime monitoring
+- Error rates
+- Resource usage</p>
+<p><strong>Business Metrics</strong>:
+- Key performance indicators
+- Growth metrics
+- Efficiency measures
+- ROI analysis</p>
+<h2 id="ai-assistant">AI Assistant<a class="headerlink" href="#ai-assistant" title="Permanent link">&para;</a></h2>
+<h3 id="using-the-ai-assistant">Using the AI Assistant<a class="headerlink" href="#using-the-ai-assistant" title="Permanent link">&para;</a></h3>
+<p>Access AI assistance at:
+<div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>Dashboard → AI Assistant (floating button)
+</span></code></pre></div></p>
+<h4 id="capabilities">Capabilities<a class="headerlink" href="#capabilities" title="Permanent link">&para;</a></h4>
+<p><strong>Organization Management</strong>:
+- Answer questions about features
+- Provide configuration guidance
+- Suggest best practices
+- Troubleshoot issues</p>
+<p><strong>Data Operations</strong>:
+- Query organization data
+- Generate reports
+- Analyze trends
+- Provide insights</p>
+<p><strong>User Support</strong>:
+- Help with common tasks
+- Explain platform features
+- Guide through workflows
+- Offer recommendations</p>
+<h4 id="best-practices">Best Practices<a class="headerlink" href="#best-practices" title="Permanent link">&para;</a></h4>
+<p><strong>Effective Queries</strong>:
+- Be specific about your needs
+- Provide context for requests
+- Ask follow-up questions
+- Verify suggested actions</p>
+<p><strong>Data Privacy</strong>:
+- AI assistant respects permissions
+- No unauthorized data access
+- Secure communication
+- Audit trail maintained</p>
+<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
+<h3 id="common-issues">Common Issues<a class="headerlink" href="#common-issues" title="Permanent link">&para;</a></h3>
+<p><strong>User Access Problems</strong>:
+1. Check user role and permissions
+2. Verify organization membership
+3. Review account status
+4. Check for system outages</p>
+<p><strong>App Installation Issues</strong>:
+1. Verify organization permissions
+2. Check app requirements
+3. Review dependency conflicts
+4. Contact app developer</p>
+<p><strong>Token Creation Problems</strong>:
+1. Check network connectivity
+2. Verify gas settings
+3. Review token parameters
+4. Check account balances</p>
+<p><strong>Performance Issues</strong>:
+1. Check internet connection
+2. Clear browser cache
+3. Review system status
+4. Contact support</p>
+<h3 id="getting-help">Getting Help<a class="headerlink" href="#getting-help" title="Permanent link">&para;</a></h3>
+<p><strong>Documentation</strong>:
+- User guides and tutorials
+- Video documentation
+- API references
+- Best practices guides</p>
+<p><strong>Support Channels</strong>:
+- In-app support chat
+- Email support
+- Community forums
+- Knowledge base</p>
+<p><strong>Training Resources</strong>:
+- Webinar training sessions
+- Video tutorials
+- Best practices workshops
+- Certification programs</p>
+<h3 id="escalation-process">Escalation Process<a class="headerlink" href="#escalation-process" title="Permanent link">&para;</a></h3>
+<p><strong>When to Escalate</strong>:
+- Security incidents
+- Data corruption
+- System outages
+- Compliance violations</p>
+<p><strong>How to Escalate</strong>:
+1. Document the issue thoroughly
+2. Gather relevant information
+3. Contact support with details
+4. Follow up as needed</p>
+<h2 id="best-practices_1">Best Practices<a class="headerlink" href="#best-practices_1" title="Permanent link">&para;</a></h2>
+<h3 id="organization-management">Organization Management<a class="headerlink" href="#organization-management" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Regular Security Reviews</strong>: Monthly security audits</li>
+<li><strong>User Training</strong>: Quarterly training sessions</li>
+<li><strong>Data Backup</strong>: Regular backup verification</li>
+<li><strong>Performance Monitoring</strong>: Continuous monitoring</li>
+</ol>
+<h3 id="user-experience">User Experience<a class="headerlink" href="#user-experience" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Clear Permissions</strong>: Well-defined user roles</li>
+<li><strong>Regular Updates</strong>: Keep users informed</li>
+<li><strong>Feedback Collection</strong>: Gather user feedback</li>
+<li><strong>Continuous Improvement</strong>: Iterate based on feedback</li>
+</ol>
+<h3 id="technical-excellence">Technical Excellence<a class="headerlink" href="#technical-excellence" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Code Quality</strong>: Follow development standards</li>
+<li><strong>Testing Procedures</strong>: Comprehensive testing</li>
+<li><strong>Documentation</strong>: Keep documentation current</li>
+<li><strong>Version Control</strong>: Track all changes</li>
+</ol>
+<h2 id="support-and-resources">Support and Resources<a class="headerlink" href="#support-and-resources" title="Permanent link">&para;</a></h2>
+<h3 id="documentation-links">Documentation Links<a class="headerlink" href="#documentation-links" title="Permanent link">&para;</a></h3>
+<ul>
+<li><a href="../SYSTEM_ADMIN_GUIDE/">System Admin Guide</a></li>
+<li><a href="../API_DOCUMENTATION/">API Documentation</a></li>
+<li><a href="../SECURITY_GUIDE/">Security Guide</a></li>
+<li><a href="../DEVELOPER_GUIDE/">Developer Guide</a></li>
+</ul>
+<h3 id="support-contacts">Support Contacts<a class="headerlink" href="#support-contacts" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>General Support</strong>: <a href="&#109;&#97;&#105;&#108;&#116;&#111;&#58;&#115;&#117;&#112;&#112;&#111;&#114;&#116;&#64;&#116;&#111;&#107;&#101;&#110;&#110;&#101;&#120;&#117;&#115;&#46;&#99;&#111;&#109;">&#115;&#117;&#112;&#112;&#111;&#114;&#116;&#64;&#116;&#111;&#107;&#101;&#110;&#110;&#101;&#120;&#117;&#115;&#46;&#99;&#111;&#109;</a></li>
+<li><strong>Billing Questions</strong>: <a href="&#109;&#97;&#105;&#108;&#116;&#111;&#58;&#98;&#105;&#108;&#108;&#105;&#110;&#103;&#64;&#116;&#111;&#107;&#101;&#110;&#110;&#101;&#120;&#117;&#115;&#46;&#99;&#111;&#109;">&#98;&#105;&#108;&#108;&#105;&#110;&#103;&#64;&#116;&#111;&#107;&#101;&#110;&#110;&#101;&#120;&#117;&#115;&#46;&#99;&#111;&#109;</a></li>
+<li><strong>Technical Issues</strong>: <a href="&#109;&#97;&#105;&#108;&#116;&#111;&#58;&#116;&#101;&#99;&#104;&#110;&#105;&#99;&#97;&#108;&#64;&#116;&#111;&#107;&#101;&#110;&#110;&#101;&#120;&#117;&#115;&#46;&#99;&#111;&#109;">&#116;&#101;&#99;&#104;&#110;&#105;&#99;&#97;&#108;&#64;&#116;&#111;&#107;&#101;&#110;&#110;&#101;&#120;&#117;&#115;&#46;&#99;&#111;&#109;</a></li>
+<li><strong>Emergency Support</strong>: +1-XXX-XXX-XXXX</li>
+</ul>
+<h3 id="community-resources">Community Resources<a class="headerlink" href="#community-resources" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Community Forum</strong>: community.tokennexus.com</li>
+<li><strong>Developer Portal</strong>: developers.tokennexus.com</li>
+<li><strong>Knowledge Base</strong>: help.tokennexus.com</li>
+<li><strong>Status Page</strong>: status.tokennexus.com</li>
+</ul>
+<hr />
+<p><em>This guide is updated regularly. Last updated: [Date]</em>
+<em>For technical support, contact: <a href="&#109;&#97;&#105;&#108;&#116;&#111;&#58;&#115;&#117;&#112;&#112;&#111;&#114;&#116;&#64;&#116;&#111;&#107;&#101;&#110;&#110;&#101;&#120;&#117;&#115;&#46;&#99;&#111;&#109;">&#115;&#117;&#112;&#112;&#111;&#114;&#116;&#64;&#116;&#111;&#107;&#101;&#110;&#110;&#101;&#120;&#117;&#115;&#46;&#99;&#111;&#109;</a></em></p>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2025 Token Nexus Platform
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        <div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/your-username/token-nexus-platform" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8M97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://hub.docker.com/r/your-username/token-nexus-platform" target="_blank" rel="noopener" title="hub.docker.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M349.9 236.3h-66.1v-59.4h66.1zm0-204.3h-66.1v60.7h66.1zm78.2 144.8H362v59.4h66.1zm-156.3-72.1h-66.1v60.1h66.1zm78.1 0h-66.1v60.1h66.1zm276.8 100c-14.4-9.7-47.6-13.2-73.1-8.4-3.3-24-16.7-44.9-41.1-63.7l-14-9.3-9.3 14c-18.4 27.8-23.4 73.6-3.7 103.8-8.7 4.7-25.8 11.1-48.4 10.7H2.4c-8.7 50.8 5.8 116.8 44 162.1 37.1 43.9 92.7 66.2 165.4 66.2 157.4 0 273.9-72.5 328.4-204.2 21.4.4 67.6.1 91.3-45.2 1.5-2.5 6.6-13.2 8.5-17.1zm-511.1-27.9h-66v59.4h66.1v-59.4zm78.1 0h-66.1v59.4h66.1zm78.1 0h-66.1v59.4h66.1zm-78.1-72.1h-66.1v60.1h66.1z"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://twitter.com/your-username" target="_blank" rel="noopener" title="twitter.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M459.37 151.716c.325 4.548.325 9.097.325 13.645 0 138.72-105.583 298.558-298.558 298.558-59.452 0-114.68-17.219-161.137-47.106 8.447.974 16.568 1.299 25.34 1.299 49.055 0 94.213-16.568 130.274-44.832-46.132-.975-84.792-31.188-98.112-72.772 6.498.974 12.995 1.624 19.818 1.624 9.421 0 18.843-1.3 27.614-3.573-48.081-9.747-84.143-51.98-84.143-102.985v-1.299c13.969 7.797 30.214 12.67 47.431 13.319-28.264-18.843-46.781-51.005-46.781-87.391 0-19.492 5.197-37.36 14.294-52.954 51.655 63.675 129.3 105.258 216.365 109.807-1.624-7.797-2.599-15.918-2.599-24.04 0-57.828 46.782-104.934 104.934-104.934 30.213 0 57.502 12.67 76.67 33.137 23.715-4.548 46.456-13.32 66.599-25.34-7.798 24.366-24.366 44.833-46.132 57.827 21.117-2.273 41.584-8.122 60.426-16.243-14.292 20.791-32.161 39.308-52.628 54.253"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "..", "features": ["announce.dismiss", "content.action.edit", "content.action.view", "content.code.annotate", "content.code.copy", "content.tabs.link", "content.tooltips", "header.autohide", "navigation.expand", "navigation.footer", "navigation.indexes", "navigation.instant", "navigation.instant.prefetch", "navigation.instant.progress", "navigation.prune", "navigation.sections", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "navigation.tracking", "search.highlight", "search.share", "search.suggest", "toc.follow", "toc.integrate"], "search": "../assets/javascripts/workers/search.d50fe291.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.13a4f30d.min.js"></script>
+      
+    
+  </body>
+</html>
