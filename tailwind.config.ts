@@ -1,9 +1,13 @@
 
 import type { Config } from "tailwindcss";
 
-export default {
+/** @type {import('tailwindcss').Config} */
+module.exports = {
 	darkMode: ["class"],
 	content: [
+		'./src/pages/**/*.{js,ts,jsx,tsx,mdx}',
+		'./src/components/**/*.{js,ts,jsx,tsx,mdx}',
+		'./src/app/**/*.{js,ts,jsx,tsx,mdx}',
 		"./pages/**/*.{ts,tsx}",
 		"./components/**/*.{ts,tsx}",
 		"./app/**/*.{ts,tsx}",
@@ -80,9 +84,9 @@ export default {
 				}
 			},
 			borderRadius: {
-				lg: 'var(--radius)',
-				md: 'calc(var(--radius) - 2px)',
-				sm: 'calc(var(--radius) - 4px)'
+				lg: '0.75rem', // Slightly more rounded for a softer look
+				md: '0.5rem', // Standard medium rounding
+				sm: '0.25rem' // Small rounding
 			},
 			keyframes: {
 				'accordion-down': {

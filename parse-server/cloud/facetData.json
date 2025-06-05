@@ -1,0 +1,251 @@
+{
+  "facets": [
+    {
+      "contractName": "CarbonCreditFacet",
+      "facetName": "Carbon Credit Management",
+      "description": "Manages carbon credits associated with ERC721 tokens, allowing for initialization and retirement of carbon credits per token",
+      "configurationFields": [
+        {
+          "name": "tokenId",
+          "type": "uint256",
+          "description": "The ID of the ERC721 token to associate carbon credits with",
+          "required": true
+        },
+        {
+          "name": "initialBalance",
+          "type": "uint256",
+          "description": "The initial balance of carbon credits for the token",
+          "required": true
+        }
+      ],
+      "dependentFacets": [
+        "ERC721"
+      ],
+      "initializerFunction": "initializeCarbonCredit",
+      "batchInitializerFunction": "batchInitializeCarbonCredits",
+      "postDeployScript": null
+    },
+    {
+      "contractName": "ClaimTopicsRegistryFacet",
+      "facetName": "Claim Topics Registry",
+      "description": "Manages the registry of claim topics for the identity system, allowing addition and removal of claim topics",
+      "configurationFields": [
+        {
+          "name": "initialClaimTopics",
+          "type": "uint256[]",
+          "description": "Array of initial claim topics to be registered",
+          "required": false
+        }
+      ],
+      "dependentFacets": [
+        "IdentityStorage"
+      ],
+      "initializerFunction": "addClaimTopic",
+      "batchInitializerFunction": null,
+      "postDeployScript": "async function initializeClaimTopics(facet, topics) {\n  for (const topic of topics) {\n    await facet.addClaimTopic(topic);\n  }\n}"
+    },
+    {
+      "contractName": "GemforceMinterFacet",
+      "facetName": "Gemforce Minter",
+      "description": "Handles token minting with customizable attributes and metadata for the Gemforce system",
+      "configurationFields": [
+        {
+          "name": "metadata",
+          "type": "Attribute[]",
+          "description": "Array of attributes to be assigned to minted tokens",
+          "required": true,
+          "subFields": [
+            {
+              "name": "trait_type",
+              "type": "string",
+              "description": "The type of the attribute"
+            },
+            {
+              "name": "value",
+              "type": "string",
+              "description": "The value of the attribute"
+            }
+          ]
+        }
+      ],
+      "dependentFacets": [
+        "AttributeLib",
+        "IdentityStorage"
+      ],
+      "initializerFunction": "gemforceMint",
+      "batchInitializerFunction": null,
+      "postDeployScript": null
+    },
+    {
+      "contractName": "IdentityRegistryFacet",
+      "facetName": "Identity Registry",
+      "description": "Manages the registry of digital identities, including identity verification and claim management",
+      "configurationFields": [
+        {
+          "name": "trustedIssuers",
+          "type": "address[]",
+          "description": "Array of addresses that will be registered as trusted issuers",
+          "required": true
+        },
+        {
+          "name": "initialIdentities",
+          "type": "object[]",
+          "description": "Array of initial identities to register",
+          "required": false,
+          "subFields": [
+            {
+              "name": "address",
+              "type": "address",
+              "description": "The address of the identity"
+            },
+            {
+              "name": "identityContract",
+              "type": "address",
+              "description": "The address of the identity contract"
+            },
+            {
+              "name": "claims",
+              "type": "uint256[]",
+              "description": "Array of claim topics for this identity"
+            }
+          ]
+        }
+      ],
+      "dependentFacets": [
+        "IdentityStorage",
+        "ClaimTopicsRegistryFacet",
+        "TrustedIssuersRegistryFacet"
+      ],
+      "initializerFunction": "addIdentity",
+      "batchInitializerFunction": "batchAddIdentity",
+      "postDeployScript": "async function initializeIdentityRegistry(facet, config) {\n  for (const identity of config.initialIdentities) {\n    await facet.addIdentity(identity.address, identity.identityContract);\n    if (identity.claims.length > 0) {\n      await facet.setClaims(identity.address, identity.claims);\n    }\n  }\n}"
+    },
+    {
+      "contractName": "MarketplaceFacet",
+      "facetName": "NFT Marketplace",
+      "description": "Manages an NFT marketplace with support for ETH and ERC20 payments, including listing, purchasing, and fee distribution",
+      "configurationFields": [
+        {
+          "name": "feeReceivers",
+          "type": "object[]",
+          "description": "Array of fee receivers and their share percentages",
+          "required": true,
+          "subFields": [
+            {
+              "name": "receiver",
+              "type": "address",
+              "description": "Address to receive fees"
+            },
+            {
+              "name": "sharePerMillion",
+              "type": "uint256",
+              "description": "Share percentage in millionths (e.g., 100000 = 10%)"
+            }
+          ]
+        },
+        {
+          "name": "supportedPaymentTokens",
+          "type": "address[]",
+          "description": "Array of ERC20 token addresses that can be used for payments",
+          "required": false
+        }
+      ],
+      "dependentFacets": [
+        "IdentityStorage",
+        "ERC721",
+        "ReentrancyGuard"
+      ],
+      "initializerFunction": "initializeMarketplace",
+      "batchInitializerFunction": null,
+      "postDeployScript": "async function initializeMarketplace(facet, config) {\n  await facet.initializeMarketplace(config.feeReceivers);\n}"
+    },
+    {
+      "contractName": "MultiSaleFacet",
+      "facetName": "Multi-Token Sale Manager",
+      "description": "Manages token sales supporting multiple token types (ERC20, ERC721, ERC1155) with configurable settings and proof-based purchases",
+      "configurationFields": [
+        {
+          "name": "saleSettings",
+          "type": "object",
+          "description": "Settings for the token sale",
+          "required": true,
+          "subFields": [
+            {
+              "name": "token",
+              "type": "address",
+              "description": "Address of the token contract being sold"
+            },
+            {
+              "name": "tokenType",
+              "type": "enum",
+              "description": "Type of token (ERC20, ERC721, ERC1155)",
+              "options": ["ERC20", "ERC721", "ERC1155"]
+            },
+            {
+              "name": "price",
+              "type": "uint256",
+              "description": "Price per token"
+            },
+            {
+              "name": "maxQuantityPerAccount",
+              "type": "uint256",
+              "description": "Maximum quantity per account (0 for unlimited)"
+            },
+            {
+              "name": "paymentMethod",
+              "type": "enum",
+              "description": "Payment method (ETH or ERC20)",
+              "options": ["ETH", "ERC20"]
+            },
+            {
+              "name": "paymentToken",
+              "type": "address",
+              "description": "Address of ERC20 token used for payment (if applicable)"
+            }
+          ]
+        }
+      ],
+      "dependentFacets": [
+        "IdentityStorage",
+        "MultiSaleLib",
+        "VariablePriceLib",
+        "ReentrancyGuard"
+      ],
+      "initializerFunction": "createTokenSale",
+      "batchInitializerFunction": null,
+      "postDeployScript": "async function initializeMultiSale(facet, config) {\n  await facet.createTokenSale(config.saleSettings);\n}"
+    },
+    {
+      "contractName": "TrustedIssuersRegistryFacet",
+      "facetName": "Trusted Issuers Registry",
+      "description": "Manages the registry of trusted issuers who can issue claims in the identity system",
+      "configurationFields": [
+        {
+          "name": "trustedIssuers",
+          "type": "object[]",
+          "description": "Array of trusted issuers and their claim topics",
+          "required": true,
+          "subFields": [
+            {
+              "name": "address",
+              "type": "address",
+              "description": "Address of the trusted issuer"
+            },
+            {
+              "name": "claimTopics",
+              "type": "uint256[]",
+              "description": "Array of claim topics this issuer is authorized for"
+            }
+          ]
+        }
+      ],
+      "dependentFacets": [
+        "IdentityStorage",
+        "ClaimTopicsRegistryFacet"
+      ],
+      "initializerFunction": "addTrustedIssuer",
+      "batchInitializerFunction": null,
+      "postDeployScript": "async function initializeTrustedIssuers(facet, config) {\n  for (const issuer of config.trustedIssuers) {\n    await facet.addTrustedIssuer(issuer.address, issuer.claimTopics);\n  }\n}"
+    }
+  ]
+}

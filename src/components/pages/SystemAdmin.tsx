@@ -12,6 +12,7 @@ import { GlobalUserManager } from "@/components/system-admin/GlobalUserManager";
 import MarketingCMS from "@/components/system-admin/MarketingCMS";
 import SignupManagement from "@/components/system-admin/SignupManagement";
 import { OrgLifecycleManager } from "@/components/system-admin/OrgLifecycleManager";
+import ProjectIntegrations from "./system-admin/ProjectIntegrations";
 
 const SystemAdmin = () => {
   const navigate = useNavigate();
@@ -29,7 +30,6 @@ const SystemAdmin = () => {
 
   const currentTab = location.pathname.split('/system-admin/')[1]?.split('/')[0] || "deploy";
 
-
   const handleTabChange = (value: string) => {
     navigate(`/system-admin/${value}`);
   };
@@ -39,21 +39,22 @@ const SystemAdmin = () => {
         <div className="flex flex-col space-y-2">
           <h1 className="text-3xl font-bold tracking-tight">System Administration</h1>
           <p className="text-muted-foreground">
-            Manage the platform, app store, organizations, and users.
+            Manage the platform, app store, organizations, users, and integrations.
           </p>
         </div>
 
         <Tabs value={currentTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="grid grid-cols-9 w-full max-w-7xl"> {/* Adjusted grid-cols and max-w */}
+          <TabsList className="grid grid-cols-10 w-full max-w-7xl">
             <TabsTrigger value="deploy">Contract Deployment</TabsTrigger>
             <TabsTrigger value="chains">Chain Configuration</TabsTrigger>
-            <TabsTrigger value="store">App Store</TabsTrigger> {/* Renamed from bundles */}
+            <TabsTrigger value="store">App Store</TabsTrigger>
             <TabsTrigger value="status">Deployment Status</TabsTrigger>
-            <TabsTrigger value="orgs">Organizations</TabsTrigger> {/* New Tab */}
-            <TabsTrigger value="users">Users</TabsTrigger> {/* New Tab */}
-            <TabsTrigger value="lifecycle">Org Lifecycle</TabsTrigger> {/* New Tab */}
-            <TabsTrigger value="cms">Marketing CMS</TabsTrigger> {/* New Tab */}
-            <TabsTrigger value="signups">Signups</TabsTrigger> {/* New Tab */}
+            <TabsTrigger value="orgs">Organizations</TabsTrigger>
+            <TabsTrigger value="users">Users</TabsTrigger>
+            <TabsTrigger value="lifecycle">Org Lifecycle</TabsTrigger>
+            <TabsTrigger value="cms">Marketing CMS</TabsTrigger>
+            <TabsTrigger value="signups">Signups</TabsTrigger>
+            <TabsTrigger value="integrations">Project Integrations</TabsTrigger>
           </TabsList>
         </Tabs>
 
@@ -64,13 +65,14 @@ const SystemAdmin = () => {
             <Route path="/" element={<Navigate to="deploy" replace />} />
             <Route path="/deploy" element={<ContractDeployWizard />} />
             <Route path="/chains" element={<ChainConfigurator />} />
-            <Route path="/store" element={<AppBundleManager />} /> {/* Renamed from bundles */}
+            <Route path="/store" element={<AppBundleManager />} />
             <Route path="/status" element={<DeploymentDashboard />} />
-            <Route path="/orgs" element={<GlobalOrgManager />} /> {/* New Route */}
-            <Route path="/users" element={<GlobalUserManager />} /> {/* New Route */}
-            <Route path="/lifecycle" element={<OrgLifecycleManager />} /> {/* New Route */}
-            <Route path="/cms" element={<MarketingCMS />} /> {/* New Route */}
-            <Route path="/signups" element={<SignupManagement />} /> {/* New Route */}
+            <Route path="/orgs" element={<GlobalOrgManager />} />
+            <Route path="/users" element={<GlobalUserManager />} />
+            <Route path="/lifecycle" element={<OrgLifecycleManager />} />
+            <Route path="/cms" element={<MarketingCMS />} />
+            <Route path="/signups" element={<SignupManagement />} />
+            <Route path="/integrations" element={<ProjectIntegrations />} />
           </Routes>
         </div>
     </div>

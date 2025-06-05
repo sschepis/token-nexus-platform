@@ -27,7 +27,22 @@ const initialState: AuthState = {
   user: null,
   token: null,
   orgId: null,
-  permissions: ["dashboard:read", "objects:read", "tokens:read", "users:read", "integrations:read", "reports:read", "audit:read", "notifications:read", "settings:read"], // Removed "system:admin"
+  permissions: [
+    "dashboard:read",
+    "objects:read",
+    "tokens:read",
+    "users:read",
+    "integrations:read",
+    "reports:read",
+    "audit:read",
+    "notifications:read",
+    "settings:read",
+    "system:admin",
+    "apps:read",
+    "apps:manage",
+    "apps:install",
+    "apps:configure"
+  ],
   isAuthenticated: false,
   isLoading: false,
   error: null,

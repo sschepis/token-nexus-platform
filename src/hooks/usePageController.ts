@@ -130,8 +130,6 @@ export const usePageController = (options: UsePageControllerOptions): UsePageCon
     pageName,
     description,
     category,
-    pageProps,
-    pageState,
     permissions,
     tags
   ]);

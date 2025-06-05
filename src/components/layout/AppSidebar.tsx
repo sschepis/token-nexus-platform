@@ -38,6 +38,12 @@ import {
   Zap,
   Plus,
   Palette,
+  Rocket,
+  Link as LinkIcon,
+  ShoppingCart,
+  Building2,
+  Users,
+  Server,
   GitBranch
 } from "lucide-react";
 
@@ -240,9 +246,29 @@ export function AppSidebar() {
   // Define System Admin navigation items
   const adminNavItems = [
     {
+      name: 'Contract Deploy',
+      path: '/system-admin/deploy',
+      icon: <Rocket className="h-5 w-5" />,
+    },
+    {
       name: 'Contract Import',
       path: '/system-admin/import',
       icon: <DatabaseZap className="h-5 w-5" />,
+    },
+    {
+      name: 'Chain Config',
+      path: '/system-admin/chains',
+      icon: <LinkIcon className="h-5 w-5" />,
+    },
+    {
+      name: 'App Store',
+      path: '/system-admin/store',
+      icon: <Store className="h-5 w-5" />,
+    },
+    {
+      name: 'App Store Management',
+      path: '/system-admin/app-store',
+      icon: <ShoppingCart className="h-5 w-5" />,
     },
     {
       name: 'App Bundles',
@@ -252,7 +278,17 @@ export function AppSidebar() {
     {
       name: 'Organizations',
       path: '/system-admin/orgs',
-      icon: <Cog className="h-5 w-5" />,
+      icon: <Building2 className="h-5 w-5" />,
+    },
+    {
+      name: 'Global Users',
+      path: '/system-admin/users',
+      icon: <Users className="h-5 w-5" />,
+    },
+    {
+      name: 'Deployment Status',
+      path: '/system-admin/status',
+      icon: <Server className="h-5 w-5" />,
     },
   ];
 

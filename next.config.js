@@ -1,7 +1,9 @@
+const withTM = require('next-transpile-modules')(['react-grid-layout', 'react-resizable']);
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
   // Add other Next.js configurations here if needed
 };
 
-export default nextConfig;
+module.exports = withTM(nextConfig);

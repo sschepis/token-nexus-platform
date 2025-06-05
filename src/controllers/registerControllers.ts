@@ -27,37 +27,55 @@ import { workflowPageController } from './WorkflowPageController';
 export function registerAllControllers(): void {
   console.log('Registering all page controllers...');
 
+  const controllers = [
+    { name: 'usersPageController', controller: () => usersPageController.getPageController() },
+    { name: 'objectManagerPageController', controller: () => objectManagerPageController },
+    { name: 'dashboardPageController', controller: () => dashboardPageController },
+    { name: 'routesPageController', controller: () => routesPageController },
+    { name: 'cloudFunctionsPageController', controller: () => cloudFunctionsPageController },
+    { name: 'pageBuilderPageController', controller: () => pageBuilderPageController },
+    { name: 'componentLibraryPageController', controller: () => componentLibraryPageController },
+    { name: 'reportsPageController', controller: () => reportsPageController },
+    { name: 'integrationsPageController', controller: () => integrationsPageController },
+    { name: 'marketplacePageController', controller: () => marketplacePageController },
+    { name: 'notificationsPageController', controller: () => notificationsPageController },
+    { name: 'auditLogsPageController', controller: () => auditLogsPageController },
+    { name: 'tokensPageController', controller: () => tokensPageController },
+    { name: 'aiAssistantPageController', controller: () => aiAssistantPageController },
+    { name: 'settingsPageController', controller: () => settingsPageController },
+    { name: 'themePageController', controller: () => themePageController },
+    { name: 'workflowPageController', controller: () => workflowPageController }
+  ];
+
+  let registeredCount = 0;
+  const failedControllers: string[] = [];
+
+  for (const { name, controller } of controllers) {
+    try {
+      console.log(`Registering ${name}...`);
+      const controllerInstance = controller();
+      controllerRegistry.registerPageController(controllerInstance);
+      console.log(`✓ ${name} registered successfully`);
+      registeredCount++;
+    } catch (error) {
+      console.error(`❌ Failed to register ${name}:`, error);
+      failedControllers.push(name);
+      // Continue with other controllers instead of failing completely
+    }
+  }
+
+  console.log(`Controller registration complete: ${registeredCount}/${controllers.length} successful`);
+  
+  if (failedControllers.length > 0) {
+    console.warn('Failed controllers:', failedControllers);
+  }
+
+  // Log registration statistics
   try {
-    // Register core controllers - note: usersPageController needs .getPageController() call
-    controllerRegistry.registerPageController(usersPageController.getPageController());
-    controllerRegistry.registerPageController(objectManagerPageController);
-    controllerRegistry.registerPageController(dashboardPageController);
-    controllerRegistry.registerPageController(routesPageController);
-    controllerRegistry.registerPageController(cloudFunctionsPageController);
-
-    // Register new controllers
-    controllerRegistry.registerPageController(pageBuilderPageController);
-    controllerRegistry.registerPageController(componentLibraryPageController);
-    controllerRegistry.registerPageController(reportsPageController);
-    controllerRegistry.registerPageController(integrationsPageController);
-    controllerRegistry.registerPageController(marketplacePageController);
-    controllerRegistry.registerPageController(notificationsPageController);
-    controllerRegistry.registerPageController(auditLogsPageController);
-    controllerRegistry.registerPageController(tokensPageController);
-    controllerRegistry.registerPageController(aiAssistantPageController);
-    controllerRegistry.registerPageController(settingsPageController);
-    controllerRegistry.registerPageController(themePageController);
-    controllerRegistry.registerPageController(workflowPageController);
-
-    console.log('All page controllers registered successfully');
-
-    // Log registration statistics
     const stats = controllerRegistry.getStatistics();
     console.log('Controller Registry Statistics:', stats);
-
   } catch (error) {
-    console.error('Error registering controllers:', error);
-    throw error;
+    console.error('Error getting controller registry statistics:', error);
   }
 }
 

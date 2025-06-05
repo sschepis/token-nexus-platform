@@ -24,8 +24,6 @@ async function ensureParseInstallation(): Promise<void> {
         
         // Set required properties that cloud functions expect
         installation.set("deviceType", "web");
-        installation.set("currentInstallationId", existingInstallationId);
-        installation.set("installationId", existingInstallationId);
         installation.set("updatedAt", new Date());
         
         await installation.save();
@@ -49,7 +47,6 @@ async function ensureParseInstallation(): Promise<void> {
     
     // Set the installation ID properties that cloud functions expect
     const installationId = installation.id;
-    installation.set("currentInstallationId", installationId);
     installation.set("installationId", installationId);
     
     // Save again with the installation ID properties
@@ -77,7 +74,6 @@ async function ensureParseInstallation(): Promise<void> {
       try {
         const fallbackInstallation = new Parse.Installation();
         fallbackInstallation.set("deviceType", "web");
-        fallbackInstallation.set("currentInstallationId", tempInstallationId);
         fallbackInstallation.set("installationId", tempInstallationId);
         fallbackInstallation.set("createdAt", new Date());
         
@@ -125,7 +121,7 @@ async function initializeParse(): Promise<void> {
       throw error;
     }
 
-    // Always ensure installation is set up to prevent currentInstallationId errors
+    // Always ensure installation is set up to prevent installation errors
     // This is required for cloud function calls to work properly
     await ensureParseInstallation();
 
@@ -367,10 +363,21 @@ export async function initializeApp(): Promise<PlatformStatus> {
 
     // Initialize app registry and controllers if platform is operational
     if (platformStatus.status === 'OPERATIONAL') {
-      appRegistry.initializeBuiltInApps();
+      try {
+        console.log('Initializing built-in apps...');
+        appRegistry.initializeBuiltInApps();
+        console.log('✓ Built-in apps initialized successfully');
 
-      // Register page controllers
-      initializeControllers();
+        // Register page controllers
+        console.log('Initializing controllers...');
+        initializeControllers();
+        console.log('✓ Controllers initialized successfully');
+      } catch (error) {
+        console.error('❌ Failed to initialize platform infrastructure:', error);
+        // Don't throw here - allow the app to continue running even if controllers fail
+        // This prevents the "require(...) is not a function" error from blocking the entire app
+        console.warn('Platform will continue with limited functionality');
+      }
     }
 
     // You can add other module initializations here, for example:

@@ -1,0 +1,201 @@
+/* Website Builder Styles */
+
+/* Layout */
+.website-builder-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: #f5f5f5;
+}
+
+.website-builder-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background-color: #fff;
+  border-bottom: 1px solid #e0e0e0;
+  height: 50px;
+}
+
+.website-builder-main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Header Components */
+.website-builder-breadcrumb {
+  font-size: 14px;
+  color: #666;
+}
+
+.website-builder-breadcrumb span {
+  color: #333;
+}
+
+.website-builder-breadcrumb span.current-page {
+  font-weight: 500;
+}
+
+.website-builder-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Buttons */
+.website-builder-actions button {
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.save-page {
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+}
+
+.save-page:hover {
+  background-color: #45a049;
+}
+
+.preview-page {
+  background-color: #2196F3;
+  color: white;
+  border: none;
+}
+
+.preview-page:hover {
+  background-color: #1e88e5;
+}
+
+/* GrapesJS Editor */
+#gjs {
+  flex: 1;
+  border: none;
+}
+
+#blocks {
+  width: 250px;
+  background-color: #fff;
+  border-left: 1px solid #e0e0e0;
+  overflow-y: auto;
+}
+
+/* GrapesJS Customizations */
+.gjs-one-bg {
+  background-color: #fff;
+}
+
+.gjs-two-color {
+  color: #363636;
+}
+
+.gjs-three-bg {
+  background-color: #f5f5f5;
+}
+
+.gjs-four-color {
+  color: #2196F3;
+}
+
+.gjs-pn-btn {
+  border-radius: 4px;
+}
+
+.gjs-pn-panel {
+  padding: 0.5rem;
+}
+
+.gjs-block {
+  border-radius: 4px;
+  margin: 0.5rem;
+  padding: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.gjs-block:hover {
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Data Components Modal */
+.data-components-modal {
+  max-width: 800px;
+  width: 90%;
+}
+
+.data-components-list {
+  padding: 1rem;
+}
+
+.data-category {
+  margin-bottom: 2rem;
+}
+
+.data-category h3 {
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.data-items {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.data-item {
+  padding: 1rem;
+  background-color: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  cursor: move;
+  transition: all 0.2s ease;
+}
+
+.data-item:hover {
+  border-color: #2196F3;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.data-item-label {
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+.data-item-desc {
+  font-size: 12px;
+  color: #666;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  #blocks {
+    width: 200px;
+  }
+
+  .website-builder-actions button {
+    padding: 0.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .website-builder-header {
+    flex-direction: column;
+    height: auto;
+    gap: 0.5rem;
+  }
+
+  .website-builder-actions {
+    width: 100%;
+  }
+
+  .website-builder-actions button {
+    flex: 1;
+  }
+}

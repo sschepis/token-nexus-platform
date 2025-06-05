@@ -8,10 +8,11 @@ import { Toaster } from '@/components/ui/sonner'; // Assuming path is correct
 import { AnimatePresence } from 'framer-motion';
 import { PageTransition } from '@/components/ui/animated-container'; // Assuming path is correct
 import AppLayout from '@/components/layout/AppLayout'; // Added AppLayout import
-import '../index.css';
+import '../styles/globals.css';
 import { initializeApp, PlatformStatus } from '@/services/appInitService'; // Path updated
 import { useEffect, useState } from 'react'; // For initializeApp
 import { useRouter } from 'next/router';
+import { useTheme } from '@/hooks/useTheme';
 
 // Create a client
 const queryClient = new QueryClient();

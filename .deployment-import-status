@@ -1,0 +1,173 @@
+{
+  "networkName": "basesep",
+  "chainId": "84532",
+  "isImported": true,
+  "importedAt": "2025-06-03T23:53:52.821Z",
+  "importedContracts": 41,
+  "contracts": [
+    {
+      "contractName": "AddressSet",
+      "address": "0x8aB21bf41B908d9CBee3E78e97033E3916840cA8"
+    },
+    {
+      "contractName": "AttributeLib",
+      "address": "0x9d0749b64bEDB024B1AaF596c84029E67635D43c"
+    },
+    {
+      "contractName": "Base64",
+      "address": "0x8d10857B6d2bEA12d67A888F3E995ea142Db701E"
+    },
+    {
+      "contractName": "Bytes32Set",
+      "address": "0xB01Cf1Baf9ABFa5309AE3ff649B31ae87A80AE62"
+    },
+    {
+      "contractName": "CarbonCreditFacet",
+      "address": "0xDBf79b6eA80E9E77124B4cb8aFD5A3d892dAD868"
+    },
+    {
+      "contractName": "CarbonCreditLib",
+      "address": "0x44520E8dA039d4D7D460f5DBF6C1eC347De53A7C"
+    },
+    {
+      "contractName": "ClaimTopicsRegistryFacet",
+      "address": "0xe489f3ebd395529fAdD74dC5fd351F9CA8653266"
+    },
+    {
+      "contractName": "CollateralTokenFactoryFacet",
+      "address": "0xc5f7d926f16419dc2FD68ae792EC6E9c30fD0bD9"
+    },
+    {
+      "contractName": "DiamondCutFacet",
+      "address": "0x2277bF15E42E91Bf23e2055950133E36b6cDA5e0"
+    },
+    {
+      "contractName": "DiamondFactory",
+      "address": "0x4376001036419D5713F08a708BDC28c10a74AEea"
+    },
+    {
+      "contractName": "DiamondFactoryLib",
+      "address": "0x50353159348c63A448eDAfC6d5ef81CF9C1cdE9a"
+    },
+    {
+      "contractName": "DiamondLib",
+      "address": "0x2Be86045394c8096b3b9d9449A08Cc74afEd5717"
+    },
+    {
+      "contractName": "DiamondLoupeFacet",
+      "address": "0x3421fcCa9c15D9564AD8aFBC75516D70Ff74Cb0b"
+    },
+    {
+      "contractName": "ERC721AAttributesFacet",
+      "address": "0xbD8fa04CfB6e697bEC22cd616f8067582A5aB352"
+    },
+    {
+      "contractName": "ERC721AEnumerationLib",
+      "address": "0x6a9A6D75AECEfB8dC969D5Ef5ea3EcF57e29706d"
+    },
+    {
+      "contractName": "ERC721ALib",
+      "address": "0x8F980CBDb943c2794FdA47D82d81a71d31A815DE"
+    },
+    {
+      "contractName": "ERC721AMetadataFacet",
+      "address": "0x4e366182f42150b93214e898A3a6b03eE027bb8a"
+    },
+    {
+      "contractName": "ERC721AReceiverFacet",
+      "address": "0x62F5aFc93aA257e7D48df1E8623c5a625E97aD52"
+    },
+    {
+      "contractName": "ERC721EnumerableFacet",
+      "address": "0x1FBadBcFF28eCFEcBBBDc108B6f52804a0e7e49F"
+    },
+    {
+      "contractName": "ERC721PermissionedTokenFacet",
+      "address": "0x3c06E1EB88217964799566E85773C2E9c03DEB4b"
+    },
+    {
+      "contractName": "FeeDistributorFacet",
+      "address": "0xaED448D8a5CCc94BC54DCf97571e8F6F6973dF88"
+    },
+    {
+      "contractName": "GemforceMinterFacet",
+      "address": "0x942790630E43604b3417303F6e939407240B3d05"
+    },
+    {
+      "contractName": "Identity",
+      "address": "0x4C6fE457018d32B9aEc2aA99F655b5aCD7d0D658"
+    },
+    {
+      "contractName": "IdentityFactory",
+      "address": "0x5c970fD1E772548Be3Dc3de62381Fd8b2b3fAb96"
+    },
+    {
+      "contractName": "IdentityRegistryFacet",
+      "address": "0x97ecF7f1188b5471f8257D82a8Bc38F361Dc28C9"
+    },
+    {
+      "contractName": "IdentitySystemStorage",
+      "address": "0x05d7966Acfa90f529e3844B1d1b7702dBde7789c"
+    },
+    {
+      "contractName": "LibDiamond",
+      "address": "0x30Fb10d923CfFC1151B8CFe683A937F414854570"
+    },
+    {
+      "contractName": "MarketplaceFacet",
+      "address": "0x5F7f4140D8A316035e372aBA11F37cE9E414e94E"
+    },
+    {
+      "contractName": "MerkleProver",
+      "address": "0x6361c8F2C7Fb1498C15C5e90Ed477ee8cEeC9f5f"
+    },
+    {
+      "contractName": "MetadataLib",
+      "address": "0xEA17bE869d528F2c3e4F7cae231ebE4BE42BeB75"
+    },
+    {
+      "contractName": "MultiSaleFacet",
+      "address": "0x162d5925d4Fc7AfafE680779EccaA55Cfb563C30"
+    },
+    {
+      "contractName": "MultiSaleLib",
+      "address": "0x3b12B21202DaC69552E7b1f9D4D3E31085c7a378"
+    },
+    {
+      "contractName": "SVGManager",
+      "address": "0xE6Ccc4284AFF145f86a8EABB688b453b99f57FE6"
+    },
+    {
+      "contractName": "SVGTemplatesFacet",
+      "address": "0x5b44eBcBF0De2A64c74dE2D1A54304E740C60482"
+    },
+    {
+      "contractName": "SVGTemplatesLib",
+      "address": "0xFD3DfE346d5d5c8C90313036BC1b1E3De29FCb33"
+    },
+    {
+      "contractName": "Strings",
+      "address": "0x26375f3210F1F8C90f53c663AC44F3d4a86b12A6"
+    },
+    {
+      "contractName": "StringsLib",
+      "address": "0x928c0A50586514D291087403befe3540E3631ECd"
+    },
+    {
+      "contractName": "TradeDealFacet",
+      "address": "0x0879C3915b706dF98a01A4a68Dc623AF59931A1b"
+    },
+    {
+      "contractName": "TrustedIssuersRegistryFacet",
+      "address": "0xDa256f670eE92a1a89033b72391663fb68E0b83A"
+    },
+    {
+      "contractName": "UInt256Set",
+      "address": "0x908B9bE15117446dE01d076Ecb75D9210E182D97"
+    },
+    {
+      "contractName": "VariablePriceLib",
+      "address": "0x92E3cBf7226518CF757c48446067de1485CCCcBb"
+    }
+  ]
+}

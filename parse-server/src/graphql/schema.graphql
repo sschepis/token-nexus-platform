@@ -1,0 +1,226 @@
+scalar Date
+scalar Object
+scalar File
+
+type User {
+  id: ID!
+  username: String!
+  email: String
+  emailVerified: Boolean
+  createdAt: Date!
+  updatedAt: Date!
+  mfaEnabled: Boolean
+  roles: [Role!]
+  organizations: [Organization!]
+}
+
+type Role {
+  id: ID!
+  name: String!
+  users: [User!]
+  roles: [Role!]
+  createdAt: Date!
+  updatedAt: Date!
+}
+
+type Organization {
+  id: ID!
+  name: String!
+  slug: String!
+  description: String
+  logo: File
+  members: [User!]
+  applications: [Application!]
+  settings: Object
+  createdAt: Date!
+  updatedAt: Date!
+}
+
+type Application {
+  id: ID!
+  name: String!
+  slug: String!
+  description: String
+  version: String!
+  organization: Organization!
+  template: Template
+  components: [Component!]
+  pages: [Page!]
+  settings: Object
+  createdAt: Date!
+  updatedAt: Date!
+}
+
+type Template {
+  id: ID!
+  name: String!
+  description: String
+  version: String!
+  components: [Component!]
+  dependencies: [Template!]
+  settings: Object
+  createdAt: Date!
+  updatedAt: Date!
+}
+
+type Component {
+  id: ID!
+  name: String!
+  type: String!
+  version: String!
+  config: Object
+  dependencies: [Component!]
+  createdAt: Date!
+  updatedAt: Date!
+}
+
+type Page {
+  id: ID!
+  title: String!
+  slug: String!
+  content: Object
+  components: [Component!]
+  settings: Object
+  createdAt: Date!
+  updatedAt: Date!
+}
+
+type Query {
+  # User queries
+  me: User
+  user(id: ID!): User
+  users(limit: Int, skip: Int, where: Object): [User!]
+
+  # Role queries
+  role(id: ID!): Role
+  roles(limit: Int, skip: Int, where: Object): [Role!]
+
+  # Organization queries
+  organization(id: ID!): Organization
+  organizations(limit: Int, skip: Int, where: Object): [Organization!]
+  myOrganizations: [Organization!]
+
+  # Application queries
+  application(id: ID!): Application
+  applications(limit: Int, skip: Int, where: Object): [Application!]
+  organizationApplications(organizationId: ID!): [Application!]
+
+  # Template queries
+  template(id: ID!): Template
+  templates(limit: Int, skip: Int, where: Object): [Template!]
+
+  # Component queries
+  component(id: ID!): Component
+  components(limit: Int, skip: Int, where: Object): [Component!]
+
+  # Page queries
+  page(id: ID!): Page
+  pages(limit: Int, skip: Int, where: Object): [Page!]
+  applicationPages(applicationId: ID!): [Page!]
+}
+
+input CreateUserInput {
+  username: String!
+  email: String!
+  password: String!
+}
+
+input UpdateUserInput {
+  username: String
+  email: String
+  password: String
+}
+
+input CreateOrganizationInput {
+  name: String!
+  slug: String!
+  description: String
+  logo: Upload
+  settings: Object
+}
+
+input UpdateOrganizationInput {
+  name: String
+  slug: String
+  description: String
+  logo: Upload
+  settings: Object
+}
+
+input CreateApplicationInput {
+  name: String!
+  slug: String!
+  description: String
+  organizationId: ID!
+  templateId: ID
+  settings: Object
+}
+
+input UpdateApplicationInput {
+  name: String
+  slug: String
+  description: String
+  settings: Object
+}
+
+input CreatePageInput {
+  title: String!
+  slug: String!
+  content: Object!
+  applicationId: ID!
+  settings: Object
+}
+
+input UpdatePageInput {
+  title: String
+  slug: String
+  content: Object
+  settings: Object
+}
+
+type Mutation {
+  # User mutations
+  createUser(input: CreateUserInput!): User!
+  updateUser(id: ID!, input: UpdateUserInput!): User!
+  deleteUser(id: ID!): Boolean!
+  
+  # MFA mutations
+  setupMFA: MFASetupPayload!
+  verifyAndEnableMFA(token: String!): Boolean!
+  disableMFA: Boolean!
+  verifyMFAToken(token: String!): Boolean!
+  verifyRecoveryKeyAndDisableMFA(recoveryKey: String!): Boolean!
+
+  # Organization mutations
+  createOrganization(input: CreateOrganizationInput!): Organization!
+  updateOrganization(id: ID!, input: UpdateOrganizationInput!): Organization!
+  deleteOrganization(id: ID!): Boolean!
+  addUserToOrganization(organizationId: ID!, userId: ID!, roleId: ID!): Boolean!
+  removeUserFromOrganization(organizationId: ID!, userId: ID!): Boolean!
+
+  # Application mutations
+  createApplication(input: CreateApplicationInput!): Application!
+  updateApplication(id: ID!, input: UpdateApplicationInput!): Application!
+  deleteApplication(id: ID!): Boolean!
+  installApplication(applicationId: ID!, organizationId: ID!): Boolean!
+  uninstallApplication(applicationId: ID!, organizationId: ID!): Boolean!
+
+  # Page mutations
+  createPage(input: CreatePageInput!): Page!
+  updatePage(id: ID!, input: UpdatePageInput!): Page!
+  deletePage(id: ID!): Boolean!
+}
+
+type MFASetupPayload {
+  secret: String!
+  qrCode: String!
+  recoveryKeys: [String!]!
+}
+
+type Subscription {
+  # Real-time updates
+  userUpdated(id: ID!): User
+  organizationUpdated(id: ID!): Organization
+  applicationUpdated(id: ID!): Application
+  pageUpdated(id: ID!): Page
+}

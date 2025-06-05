@@ -27,22 +27,6 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
   fallbackTheme
 }) => {
   const [currentTheme, setCurrentTheme] = useState<OrganizationTheme | null>(initialTheme || null);
-  const [currentInstallationId, setCurrentInstallationId] = useState<string | null>(null);
-  
-  useEffect(() => {
-    // Attempt to fetch currentInstallationId from Parse SDK
-    const fetchInstallationId = async () => {
-      try {
-        const installationId = localStorage.getItem('parse/currentInstallationId') || 'fallback-installation-id';
-        setCurrentInstallationId(installationId);
-      } catch (error) {
-        console.warn("Failed to fetch currentInstallationId. Using fallback value.");
-        setCurrentInstallationId("fallback-installation-id");
-      }
-    };
-  
-    fetchInstallationId();
-  }, []);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewTheme, setPreviewTheme] = useState<OrganizationTheme | null>(null);
