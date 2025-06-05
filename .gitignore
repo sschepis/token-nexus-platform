@@ -16,6 +16,22 @@ dist-ssr
 .next/
 out/
 
+# Python virtual environments
+venv/
+.venv/
+env/
+.env/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Backup files
+*.backup
+*.bak
+*.orig
+*.tmp
+*.temp
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
