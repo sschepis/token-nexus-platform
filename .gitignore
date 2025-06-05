@@ -25,6 +25,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# TypeScript build cache
+*.tsbuildinfo
+
 # Backup files
 *.backup
 *.bak
