@@ -1,6 +1,6 @@
 
 import React, { useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useRouter } from "next/router";
 import { useAppDispatch } from "@/store/hooks";
 import { loginStart, loginSuccess, loginFailed } from "@/store/slices/authSlice";
 import { fetchOrgsSuccess } from "@/store/slices/orgSlice";
@@ -15,15 +15,15 @@ import { Loader2 } from "lucide-react";
 
 const Login = () => {
   const dispatch = useAppDispatch();
-  const navigate = useNavigate();
-  const location = useLocation();
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   // Get the redirect location from the route state
-  const from = location.state?.from?.pathname || '/dashboard';
+  // Next.js router doesn't use location.state, use query params or default to dashboard
+  const from = router.query.from as string || '/dashboard';
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,8 +47,7 @@ const Login = () => {
       dispatch(loginSuccess(authResponse));
       
       // Fetch organizations after successful login
-      // TODO: Replace mockApis.getUserOrgs with a real API call if available in apiService
-      const orgsResponse = await mockApis.getUserOrgs();
+      const orgsResponse = await apiService.getUserOrgs();
       dispatch(fetchOrgsSuccess(orgsResponse.data.orgs));
       
       toast({
@@ -56,7 +55,7 @@ const Login = () => {
         description: "Welcome back to Token Nexus Platform.",
       });
       
-      navigate(from, { replace: true });
+      router.push(from);
     } catch (error) {
       dispatch(loginFailed("Invalid email or password."));
       toast({

@@ -1,3 +1,4 @@
+import Parse from 'parse'; // Import Parse SDK
 import React, { useEffect, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAppSelector } from "@/store/hooks";
@@ -32,7 +33,12 @@ import {
   Cog,
   Package,
   DatabaseZap,
-  Fingerprint // Import Fingerprint icon
+  Fingerprint, // Import Fingerprint icon
+  Bot,
+  Zap,
+  Plus,
+  Palette,
+  GitBranch
 } from "lucide-react";
 
 import {
@@ -86,17 +92,30 @@ export function AppSidebar() {
      
     // Check for imported contracts status for Alchemy Analytics
     const checkImportedContractsStatus = async () => {
+      if (!user) { // Only run if user is authenticated
+        setHasImportedContracts(false); // Reset if user logs out
+        return;
+      }
+      
+      // Check if platform is in setup mode - no contracts available during setup
+      const platformStatus = process.env.NEXT_PUBLIC_PLATFORM_STATUS || 'PRISTINE';
+      if (platformStatus === 'PRISTINE' || platformStatus === 'CORE_ARTIFACTS_IMPORTING') {
+        setHasImportedContracts(false);
+        return;
+      }
+      
       try {
         const result = await Parse.Cloud.run('getAlchemyAnalyticsEnabledStatus');
         setHasImportedContracts(result.enabled);
       } catch (error) {
-        console.error('Error fetching imported contracts status:', error);
+        console.error('Error calling Parse.Cloud.run("getAlchemyAnalyticsEnabledStatus"):', error);
         setHasImportedContracts(false); // Default to false on error
       }
     };
-    checkImportedContractsStatus();
-
-  }, []);
+    if (user) { // Call only if user object is available
+      checkImportedContractsStatus();
+    }
+  }, [user]); // Add user to dependency array
 
   // Check if user has system admin permissions
   // Prefer user.isAdmin if available, otherwise fallback to permissions array
@@ -185,6 +204,36 @@ export function AppSidebar() {
       name: "Tokens",
       path: "/tokens",
       icon: <Key className="h-5 w-5" />
+    },
+    {
+      name: "AI Assistant",
+      path: "/ai-assistant",
+      icon: <Bot className="h-5 w-5" />
+    },
+    {
+      name: "Cloud Functions",
+      path: "/cloud-functions",
+      icon: <Zap className="h-5 w-5" />
+    },
+    {
+      name: "Workflows",
+      path: "/workflows",
+      icon: <GitBranch className="h-5 w-5" />
+    },
+    {
+      name: "Objects",
+      path: "/objects",
+      icon: <Database className="h-5 w-5" />
+    },
+    {
+      name: "Settings",
+      path: "/settings",
+      icon: <SettingsIcon className="h-5 w-5" />
+    },
+    {
+      name: "Theme",
+      path: "/theme",
+      icon: <Palette className="h-5 w-5" />
     }
   ];
 
@@ -283,6 +332,11 @@ export function AppSidebar() {
       name: "Debug Settings",
       path: "/dev/settings",
       icon: <Bug className="h-5 w-5" />
+    },
+    {
+      name: "Create Token",
+      path: "/token-create",
+      icon: <Plus className="h-5 w-5" />
     }
   ];
 

@@ -39,7 +39,7 @@ export interface AppManifest {
   // Dependencies and requirements
   dependencies?: {
     platform: string; // Minimum platform version
-    apps?: string[]; // Required app IDs
+    apps?: AppDependency[]; // Enhanced app dependencies
     permissions: string[]; // Required platform permissions
   };
   
@@ -48,6 +48,18 @@ export interface AppManifest {
     schema: Record<string, AppConfigField>;
     defaultValues?: Record<string, unknown>;
   };
+  
+  // NEW: Scheduled Jobs
+  scheduledJobs?: AppScheduledJob[];
+  
+  // NEW: Database Triggers
+  triggers?: AppTrigger[];
+  
+  // NEW: Custom Code
+  customCode?: AppCustomCode;
+  
+  // NEW: Inter-App APIs
+  apis?: AppAPI[];
 }
 
 export interface AppRoute {
@@ -134,10 +146,126 @@ export interface AppFrameworkContext {
 }
 
 // App component props
+export interface AppFrameworkAPI {
+  triggerEvent: (eventName: string, data: any) => Promise<any>;
+  callAPI: (path: string, method?: string, data?: any) => Promise<any>;
+  updateConfig: (newConfig: any) => Promise<any>;
+}
+
+export interface AppRuntimeContext {
+  manifest: AppManifest;
+  installation: any; // Will be properly typed later
+  api: AppFrameworkAPI;
+}
+
 export interface AppComponentProps {
   appId: string;
   config: Record<string, unknown>;
   organization: AppOrganization;
   user: AppUser;
   permissions: string[];
+  appFramework?: AppRuntimeContext;
+}
+// Enhanced App Bundle System - New Interfaces
+
+export interface AppScheduledJob {
+  id: string;
+  name: string;
+  description?: string;
+  schedule: string; // Cron expression
+  function: string; // Cloud function name
+  params?: Record<string, unknown>;
+  enabled: boolean;
+  timezone?: string;
+}
+
+export interface AppTrigger {
+  id: string;
+  name: string;
+  className: string; // Parse class name
+  triggerType: 'beforeSave' | 'afterSave' | 'beforeDelete' | 'afterDelete';
+  function: string; // Cloud function name
+  conditions?: TriggerCondition[];
+}
+
+export interface TriggerCondition {
+  field: string;
+  operator: 'equals' | 'changed' | 'contains' | 'greaterThan' | 'lessThan';
+  value?: unknown;
+  previousValue?: unknown;
+}
+
+export interface AppCustomCode {
+  type: 'javascript' | 'typescript' | 'bundle';
+  entryPoint: string;
+  dependencies?: Record<string, string>; // package.json style
+  buildConfig?: BuildConfiguration;
+  runtime?: RuntimeConfiguration;
+}
+
+export interface AppAPI {
+  id: string;
+  name: string;
+  version: string;
+  endpoints: APIEndpoint[];
+  authentication?: APIAuthentication;
+}
+
+export interface AppDependency {
+  appId: string;
+  version: string;
+  apis?: string[]; // Required API endpoints
+  optional?: boolean;
+}
+
+export interface APIEndpoint {
+  path: string;
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  description?: string;
+  parameters?: APIParameter[];
+  response?: APIResponse;
+}
+
+export interface APIParameter {
+  name: string;
+  type: string;
+  required?: boolean;
+  description?: string;
+}
+
+export interface APIResponse {
+  type: string;
+  description?: string;
+  schema?: Record<string, unknown>;
+}
+
+export interface APIAuthentication {
+  type: 'none' | 'apiKey' | 'oauth' | 'jwt';
+  config?: Record<string, unknown>;
+}
+
+export interface BuildConfiguration {
+  target: 'node' | 'browser' | 'universal';
+  minify: boolean;
+  sourceMaps: boolean;
+  externals?: string[];
+  plugins?: BuildPlugin[];
+}
+
+export interface BuildPlugin {
+  name: string;
+  config?: Record<string, unknown>;
+}
+
+export interface RuntimeConfiguration {
+  memory: number; // MB
+  timeout: number; // seconds
+  environment: Record<string, string>;
+  permissions: RuntimePermission[];
+}
+
+export interface RuntimePermission {
+  type: string;
+  resource?: string;
+  actions?: string[];
 }

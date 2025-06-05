@@ -1,9 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware'; // Import createJSONStorage
 import { Layout } from 'react-grid-layout';
 import { v4 as uuidv4 } from 'uuid';
+import { apiService } from '@/services/api'; // Import apiService
+import { store } from './store'; // Import the actual store instance
+import { RootState } from './store'; // Import RootState for typing
 
 // Define the available widget types
 export type WidgetType = 
@@ -32,6 +35,8 @@ export interface DashboardState {
   resetDashboard: () => void;
   setLayouts: (layouts: Layout[]) => void;
   setWidgets: (widgets: Widget[]) => void;
+  saveDashboardLayout: () => Promise<void>; // New action to save layout
+  loadDashboardLayout: () => Promise<void>; // New action to load layout
 }
 
 // Default titles for widget types
@@ -123,9 +128,60 @@ export const useDashboardStore = create<DashboardState>()(
       setWidgets: (widgets: Widget[]) => {
         set({ widgets });
       },
+    
+      saveDashboardLayout: async () => {
+        const state = useDashboardStore.getState(); // Get current state
+        const rootState = (window as any).__REDUX_STORE__.getState() as RootState; // Access Redux store
+        const { user, orgId } = rootState.auth; // Corrected to use orgId from auth slice
+
+        if (!user || !orgId) {
+          console.warn("User or organization not found, cannot save dashboard layout.");
+          return;
+        }
+
+        try {
+          await apiService.saveDashboardLayout({
+            userId: user.id,
+            orgId: orgId, // Corrected access
+            layouts: state.layouts,
+            widgets: state.widgets,
+          });
+          console.log("Dashboard layout saved successfully.");
+        } catch (error) {
+          console.error("Failed to save dashboard layout:", error);
+          // Optionally dispatch an error to a Redux store if you have a general error slice
+        }
+      },
+
+      loadDashboardLayout: async () => { // Removed userId and orgId parameters as they are fetched from Redux
+        const rootState = store.getState() as RootState; // Access Redux store properly
+        const { user, orgId } = rootState.auth; // Corrected to use orgId from auth slice
+
+        if (!user || !orgId) {
+          console.warn("User or organization not found, cannot load dashboard layout.");
+          set({ layouts: [], widgets: [] }); // Set to empty if cannot load
+          return;
+        }
+        try {
+          const response = await apiService.getDashboardLayout(user.id, orgId);
+          if (response.data.layouts && response.data.widgets) {
+              set({ layouts: response.data.layouts, widgets: response.data.widgets });
+              console.log("Dashboard layout loaded successfully.");
+          } else {
+              set({ layouts: [], widgets: [] }); // Initialize to empty if no data returned
+          }
+        } catch (error) {
+            console.error("Failed to load dashboard layout:", error);
+            // If no layout exists, maybe initialize with default or empty
+            set({ layouts: [], widgets: [] });
+        }
+      },
     }),
     {
       name: 'dashboard-storage',
+      version: 1, // Increment version to trigger rehydration logic if schema changes
+      storage: createJSONStorage(() => localStorage), // Use createJSONStorage for web
+      partialize: (state) => ({ layouts: state.layouts, widgets: state.widgets }), // Only persist layouts and widgets
     }
   )
 );

@@ -1,7 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React from 'react';
 import { DollarSign, Users, RefreshCcw } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 
 interface QuickActionsWidgetProps {
   id: string;
@@ -11,8 +12,8 @@ interface QuickActionsWidgetProps {
 export const QuickActionsWidget: React.FC<QuickActionsWidgetProps> = ({ id, config }) => {
   return (
     <div className="grid gap-3">
-      <Link 
-        to="/tokens/create"
+      <Link
+        href="/tokens/create"
         className="flex items-center gap-2 p-3 rounded-lg hover:bg-secondary transition-colors"
       >
         <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
@@ -24,8 +25,8 @@ export const QuickActionsWidget: React.FC<QuickActionsWidgetProps> = ({ id, conf
         </div>
       </Link>
       
-      <Link 
-        to="/users/invite"
+      <Link
+        href="/users/invite"
         className="flex items-center gap-2 p-3 rounded-lg hover:bg-secondary transition-colors"
       >
         <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
@@ -37,8 +38,8 @@ export const QuickActionsWidget: React.FC<QuickActionsWidgetProps> = ({ id, conf
         </div>
       </Link>
       
-      <Link 
-        to="/settings"
+      <Link
+        href="/settings"
         className="flex items-center gap-2 p-3 rounded-lg hover:bg-secondary transition-colors"
       >
         <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">

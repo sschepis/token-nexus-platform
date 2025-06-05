@@ -1,7 +1,8 @@
+import { createCRUDSlice } from '../utils/createCRUDSlice';
+import { apiService } from '@/services/api';
+import { createAsyncThunk } from '@reduxjs/toolkit';
 
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-
-export type NotificationType = 'system' | 'security' | 'usage' | 'team';
+export type NotificationType = 'system' | 'security' | 'usage' | 'team' | 'integration';
 export type NotificationPriority = 'low' | 'normal' | 'high' | 'urgent';
 
 export interface Notification {
@@ -9,83 +10,121 @@ export interface Notification {
   type: NotificationType;
   title: string;
   message: string;
-  timestamp: string;
+  createdAt: string;
   isRead: boolean;
   priority: NotificationPriority;
   actionUrl?: string;
   actionLabel?: string;
   userId: string;
+  data?: Record<string, any>;
 }
 
-interface NotificationState {
-  notifications: Notification[];
-  unreadCount: number;
-  isLoading: boolean;
-  error: string | null;
+export interface CreateNotificationParams {
+  type: NotificationType;
+  title: string;
+  message: string;
+  priority?: NotificationPriority;
+  actionUrl?: string;
+  actionLabel?: string;
+  data?: Record<string, any>;
 }
 
-const initialState: NotificationState = {
-  notifications: [],
-  unreadCount: 0,
-  isLoading: false,
-  error: null,
+export interface UpdateNotificationParams {
+  isRead?: boolean;
+  data?: Record<string, any>;
+}
+
+// Custom API adapter for notifications
+const notificationApiAdapter = {
+  getAll: (params?: any) => apiService.getNotifications(params),
+  getById: (id: string) => {
+    // Notifications don't typically have a getById, so we'll simulate it
+    return apiService.getNotifications({ notificationId: id }).then(response => ({
+      data: {
+        notification: response.data.notifications?.[0] || null
+      }
+    }));
+  },
+  create: (params: CreateNotificationParams) => {
+    // Notifications are typically created by the system, not by users
+    // This is a placeholder implementation
+    throw new Error('Creating notifications directly is not supported');
+  },
+  update: (id: string, params: UpdateNotificationParams) => {
+    if (params.isRead !== undefined) {
+      return apiService.markNotificationAsRead(id);
+    }
+    throw new Error('General notification updates not supported');
+  },
+  delete: (id: string) => apiService.deleteNotification(id),
 };
 
-export const notificationSlice = createSlice({
+// Create the CRUD slice using our factory
+const notificationCRUD = createCRUDSlice<Notification, CreateNotificationParams, UpdateNotificationParams>({
   name: 'notification',
-  initialState,
-  reducers: {
-    fetchNotificationsStart: (state) => {
-      state.isLoading = true;
-      state.error = null;
-    },
-    fetchNotificationsSuccess: (state, action: PayloadAction<Notification[]>) => {
-      state.notifications = action.payload;
-      state.unreadCount = action.payload.filter(n => !n.isRead).length;
-      state.isLoading = false;
-    },
-    fetchNotificationsFailed: (state, action: PayloadAction<string>) => {
-      state.isLoading = false;
-      state.error = action.payload;
-    },
-    markAsRead: (state, action: PayloadAction<string>) => {
-      const notification = state.notifications.find(n => n.id === action.payload);
-      if (notification && !notification.isRead) {
-        notification.isRead = true;
-        state.unreadCount -= 1;
-      }
-    },
-    markAllAsRead: (state) => {
-      state.notifications.forEach(n => { n.isRead = true; });
-      state.unreadCount = 0;
-    },
-    addNotification: (state, action: PayloadAction<Notification>) => {
-      state.notifications.unshift(action.payload);
-      if (!action.payload.isRead) {
-        state.unreadCount += 1;
-      }
-    },
-    deleteNotification: (state, action: PayloadAction<string>) => {
-      const index = state.notifications.findIndex(n => n.id === action.payload);
-      if (index !== -1) {
-        const wasUnread = !state.notifications[index].isRead;
-        state.notifications.splice(index, 1);
-        if (wasUnread) {
-          state.unreadCount -= 1;
-        }
-      }
-    },
+  apiService: notificationApiAdapter,
+  initialState: {
+    unreadCount: 0,
+  },
+  responseMapping: {
+    items: 'notifications',
+    item: 'notification',
+  },
+  errorMessages: {
+    fetch: 'Failed to fetch notifications',
+    create: 'Failed to create notification',
+    update: 'Failed to update notification',
+    delete: 'Failed to delete notification',
+    getById: 'Failed to fetch notification details',
   },
 });
 
+// Export the slice
+export const notificationSlice = notificationCRUD.slice;
+
+// Export actions with backward-compatible names
+export const fetchNotifications = notificationCRUD.actions.fetchItems;
+export const markNotificationAsReadAsync = notificationCRUD.actions.updateItem;
+export const deleteNotificationAsync = notificationCRUD.actions.deleteItem;
+
+// Export standard CRUD actions
 export const {
-  fetchNotificationsStart,
-  fetchNotificationsSuccess,
-  fetchNotificationsFailed,
-  markAsRead,
-  markAllAsRead,
-  addNotification,
-  deleteNotification,
-} = notificationSlice.actions;
+  clearError: clearNotificationErrors,
+  setFilters,
+  resetFilters,
+  clearSelectedItem,
+} = notificationCRUD.actions;
+
+// Create custom thunks for notification-specific operations
+export const markAllNotificationsAsReadAsync = createAsyncThunk(
+  'notifications/markAllAsRead',
+  async (type?: string) => {
+    const response = await apiService.markAllNotificationsAsRead(type);
+    return response.data;
+  }
+);
+
+// Simple action creators for backward compatibility
+export const addNotification = notificationSlice.actions.clearError; // Placeholder
+export const updateUnreadCount = notificationSlice.actions.clearError; // Placeholder
+export const markAsRead = markNotificationAsReadAsync;
+export const markAllAsRead = markAllNotificationsAsReadAsync;
+export const deleteNotification = deleteNotificationAsync;
+
+// Export selectors with notification-specific names
+export const notificationSelectors = {
+  selectNotifications: notificationCRUD.selectors.selectItems,
+  selectSelectedNotification: notificationCRUD.selectors.selectSelectedItem,
+  selectIsLoading: notificationCRUD.selectors.selectIsLoading,
+  selectIsCreating: notificationCRUD.selectors.selectIsCreating,
+  selectIsUpdating: notificationCRUD.selectors.selectIsUpdating,
+  selectIsDeleting: notificationCRUD.selectors.selectIsDeleting,
+  selectNotificationError: notificationCRUD.selectors.selectError,
+  selectNotificationTotalCount: notificationCRUD.selectors.selectTotalCount,
+  selectNotificationHasMore: notificationCRUD.selectors.selectHasMore,
+  selectNotificationFilters: notificationCRUD.selectors.selectFilters,
+  // Custom selectors
+  selectUnreadCount: (state: any) => state.notification.unreadCount,
+};
 
 export default notificationSlice.reducer;

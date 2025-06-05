@@ -11,6 +11,13 @@ import notificationReducer from './slices/notificationSlice';
 import routeReducer from './slices/routeSlice';
 import appReducer from './slices/appSlice';
 import cloudFunctionReducer from './slices/cloudFunctionSlice';
+import themeReducer from './slices/themeSlice';
+import integrationReducer from './slices/integrationSlice';
+import aiAssistantReducer from './slices/aiAssistantSlice'; // Import new aiAssistant slice
+import appMarketplaceReducer from './slices/appMarketplaceSlice';
+import triggerReducer from './slices/triggerSlice';
+import scheduledJobReducer from './slices/scheduledJobSlice';
+import workflowReducer from './slices/workflowSlice';
 
 // Persist configuration for auth state
 const authPersistConfig = {
@@ -36,6 +43,13 @@ const rootReducer = combineReducers({
   route: routeReducer,
   app: appReducer,
   cloudFunction: cloudFunctionReducer,
+  theme: themeReducer,
+  integration: integrationReducer,
+  aiAssistant: aiAssistantReducer, // Add aiAssistant reducer
+  appMarketplace: appMarketplaceReducer,
+  trigger: triggerReducer,
+  scheduledJob: scheduledJobReducer,
+  workflow: workflowReducer,
 });
 
 export const store = configureStore({

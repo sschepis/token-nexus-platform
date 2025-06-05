@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useAppSelector } from "@/store/hooks";
-import { mockApis } from "@/services/api";
+import { apiService, mockApis } from "@/services/api";
 import { Token } from "@/store/slices/tokenSlice";
 import AppLayout from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -44,7 +44,7 @@ const Tokens = () => {
   useEffect(() => {
     const fetchTokens = async () => {
       try {
-        const response = await mockApis.getTokens();
+        const response = await apiService.getTokens();
         setTokens(response.data.tokens);
       } catch (error) {
         console.error("Failed to fetch tokens:", error);

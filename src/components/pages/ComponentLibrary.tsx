@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAppSelector } from "@/store/hooks";
-// import AppLayout from "@/components/layout/AppLayout"; // Removed AppLayout import
+import { apiService } from "@/services/api"; // Import apiService
+import { objectManagerService } from "@/services/objectManagerService"; // Import objectManagerService
 import {
   Card,
   CardContent,
@@ -32,123 +33,21 @@ const ComponentLibrary: React.FC = () => {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState<boolean>(false);
   const { currentOrg } = useAppSelector(state => state.org);
 
-  // Get custom components
+  // Get custom components from backend
   const { data: components = [], isLoading, refetch } = useQuery({
     queryKey: ["customComponents", currentOrg?.id],
     queryFn: async () => {
-      // Mock data - in production, this would fetch from your database
-      const mockComponents = [
-        {
-          id: "comp-123",
-          name: "Customer Card",
-          description: "Displays customer information in a card format",
-          type: "display" as const,
-          objectBinding: "Customer__c",
-          preview: "/placeholder.svg",
-          elements: [
-            {
-              id: "el-1",
-              type: "card",
-              props: { title: "Customer Information" },
-              position: { x: 0, y: 0 },
-              size: { width: 400, height: 300 },
-              children: [
-                {
-                  id: "el-2",
-                  type: "text",
-                  props: { fieldBinding: "Name", label: "Name" },
-                  position: { x: 20, y: 20 },
-                  size: { width: 200, height: 40 },
-                  children: []
-                },
-                {
-                  id: "el-3",
-                  type: "text",
-                  props: { fieldBinding: "Email__c", label: "Email" },
-                  position: { x: 20, y: 70 },
-                  size: { width: 200, height: 40 },
-                  children: []
-                }
-              ]
-            }
-          ],
-          createdAt: "2023-06-10T14:45:00Z",
-          updatedAt: "2023-06-12T11:30:00Z"
-        },
-        {
-          id: "comp-456",
-          name: "Project Form",
-          description: "Form for creating or editing projects",
-          type: "form" as const,
-          objectBinding: "Project__c",
-          preview: "/placeholder.svg",
-          elements: [
-            {
-              id: "el-4",
-              type: "form",
-              props: { submitLabel: "Save Project" },
-              position: { x: 0, y: 0 },
-              size: { width: 400, height: 300 },
-              children: [
-                {
-                  id: "el-5",
-                  type: "input",
-                  props: { fieldBinding: "Name", label: "Project Name" },
-                  position: { x: 20, y: 20 },
-                  size: { width: 200, height: 40 },
-                  children: []
-                },
-                {
-                  id: "el-6",
-                  type: "datepicker",
-                  props: { fieldBinding: "StartDate__c", label: "Start Date" },
-                  position: { x: 20, y: 70 },
-                  size: { width: 200, height: 40 },
-                  children: []
-                }
-              ]
-            }
-          ],
-          createdAt: "2023-06-15T09:30:00Z",
-          updatedAt: "2023-06-16T13:45:00Z"
-        }
-      ];
-      
-      return mockComponents as CustomComponent[];
+      const response = await apiService.getAvailableComponents({ organizationId: currentOrg?.id });
+      return response.data;
     }
   });
 
-  // Get custom objects
+  // Get custom objects from backend
   const { data: objects = [] } = useQuery({
     queryKey: ["customObjects", currentOrg?.id],
     queryFn: async () => {
-      // Mock data - in production, this would fetch from your database
-      return [
-        {
-          id: "obj-123",
-          apiName: "Customer__c",
-          label: "Customer",
-          description: "Customer information",
-          fields: [
-            { id: "field-1", apiName: "Name", label: "Name", type: "text", required: true },
-            { id: "field-2", apiName: "Email__c", label: "Email", type: "email", required: true }
-          ],
-          createdAt: "2023-04-15T10:30:00Z",
-          updatedAt: "2023-06-10T14:45:00Z",
-        },
-        {
-          id: "obj-456",
-          apiName: "Project__c",
-          label: "Project",
-          description: "Project management",
-          fields: [
-            { id: "field-5", apiName: "Name", label: "Name", type: "text", required: true },
-            { id: "field-7", apiName: "StartDate__c", label: "Start Date", type: "date", required: true }
-          ],
-          createdAt: "2023-04-20T09:15:00Z",
-          updatedAt: "2023-06-12T11:30:00Z",
-        }
-      ] as CustomObject[];
+      const response = await objectManagerService.fetchObjects(currentOrg?.id || ''); // Pass currentOrg.id
+      return response;
     }
   });
 
@@ -162,12 +61,12 @@ const ComponentLibrary: React.FC = () => {
     ? components.filter(comp => 
         comp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         comp.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        comp.objectBinding.toLowerCase().includes(searchQuery.toLowerCase())
+        (comp.objectBinding || '').toLowerCase().includes(searchQuery.toLowerCase()) // Handle optional objectBinding
       )
     : components;
 
   const pageContent = (
-    <> {/* Added React Fragment wrapper */}
+    <>
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
           <div>

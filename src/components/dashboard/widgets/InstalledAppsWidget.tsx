@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Rocket, Loader2, Settings, Package, MoreVertical } from 'lucide-react';
 import { toast } from 'sonner';
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
@@ -176,7 +176,7 @@ const InstalledAppsWidget = () => {
                 <div className="flex items-center gap-2">
                   {app.status === 'active' && (
                     <Button asChild variant="outline" size="sm">
-                      <Link to={`/marketplace/apps/${app.appDefinition.id}`}>
+                      <Link href={`/marketplace/apps/${app.appDefinition.id}`}>
                         <Rocket className="mr-2 h-4 w-4" />
                         Open
                       </Link>
@@ -190,7 +190,7 @@ const InstalledAppsWidget = () => {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem asChild>
-                        <Link to={`/marketplace/apps/${app.appDefinition.id}/settings`}>
+                        <Link href={`/marketplace/apps/${app.appDefinition.id}/settings`}>
                           <Settings className="mr-2 h-4 w-4" />
                           Settings
                         </Link>

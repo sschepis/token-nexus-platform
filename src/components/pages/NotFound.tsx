@@ -1,6 +1,6 @@
 
 import React from "react";
-import { Link } from "react-router-dom";
+import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -15,7 +15,7 @@ const NotFound = () => {
           moved, deleted, or never existed.
         </p>
         <Button asChild>
-          <Link to="/" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2">
             <ArrowLeft className="h-4 w-4" />
             Return to Dashboard
           </Link>

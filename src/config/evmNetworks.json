@@ -7,6 +7,13 @@
     "blockExplorerUrl": "https://sepolia.etherscan.io"
   },
   {
+    "id": "basesep",
+    "name": "Base Sepolia",
+    "chainId": 84532,
+    "rpcUrl": "https://sepolia.base.org",
+    "blockExplorerUrl": "https://sepolia.basescan.org"
+  },
+  {
     "id": "mainnet",
     "name": "Ethereum Mainnet",
     "chainId": 1,

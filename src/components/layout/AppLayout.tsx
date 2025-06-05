@@ -9,9 +9,11 @@ import {
   SidebarInset,
 } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
+import { AppFooter } from "./AppFooter";
 import FloatingAIChatButton from "@/components/ai-assistant/FloatingAIChatButton";
 import AIChatPopup from "@/components/ai-assistant/AIChatPopup";
 import { PlatformState } from "@/services/appInitService";
+import { PageControllerProvider } from "@/contexts/PageControllerContext";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -91,7 +93,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
         query: { from: router.asPath }
       });
     }
-  }, [isAuthenticated, mounted, platformState, isInitialSetup, isSetupRoute, router.pathname, router.asPath]);
+  }, [isAuthenticated, mounted, platformState, isInitialSetup, isSetupRoute, router.pathname, router.asPath, router]);
 
   const toggleChatPopup = () => {
     setIsChatPopupOpen(prev => !prev);
@@ -100,66 +102,77 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   // For setup routes, use a simpler layout without sidebar and navbar
   if (isSetupRoute) {
     return (
-      <div className="h-screen bg-background">
-        <motion.main
-          className="h-full overflow-y-auto"
-          variants={mainVariants}
-          initial="hidden"
-          animate="visible"
-        >
-          <AnimatedContainer animation="fade" duration={0.5} delay={0.15}>
-            {children}
-          </AnimatedContainer>
-        </motion.main>
-      </div>
+      <PageControllerProvider>
+        <div className="h-screen bg-background">
+          <motion.main
+            className="h-full overflow-y-auto pb-12" // Add padding bottom for footer
+            variants={mainVariants}
+            initial="hidden"
+            animate="visible"
+          >
+            <AnimatedContainer animation="fade" duration={0.5} delay={0.15}>
+              {children}
+            </AnimatedContainer>
+          </motion.main>
+          <AppFooter />
+        </div>
+      </PageControllerProvider>
     );
   }
 
   // Prevent hydration errors by rendering minimal content during server-side rendering
   if (!mounted) {
     return (
-      <div className="h-screen bg-background">
-        <div className="h-full overflow-y-auto">
-          {/* Minimal structure to match client render but without dynamic content */}
-          <div>{children}</div>
+      <PageControllerProvider>
+        <div className="h-screen bg-background">
+          <div className="h-full overflow-y-auto pb-16">
+            {/* Minimal structure to match client render but without dynamic content */}
+            <div>{children}</div>
+          </div>
+          <AppFooter />
         </div>
-      </div>
+      </PageControllerProvider>
     );
   }
 
   return (
-    <SidebarProvider defaultOpen={true}>
-      <motion.div
-        className="h-screen flex overflow-hidden bg-background w-full"
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-      >
-        <AppSidebar />
+    <PageControllerProvider>
+      <SidebarProvider defaultOpen={true}>
+        <motion.div
+          className="h-screen flex overflow-hidden bg-background w-full"
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+        >
+          <AppSidebar />
+          
+          <SidebarInset>
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <Navbar />
+              <motion.main
+                className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 pb-16" // Add padding bottom for footer
+                variants={mainVariants}
+              >
+                <AnimatedContainer animation="fade" duration={0.5} delay={0.15}>
+                  {children}
+                </AnimatedContainer>
+              </motion.main>
+            </div>
+          </SidebarInset>
+          
+          {/* AI Chat Components */}
+          {isAuthenticated && !isInitialSetup && (
+            <>
+              <FloatingAIChatButton onClick={toggleChatPopup} />
+              <AIChatPopup isOpen={isChatPopupOpen} onClose={toggleChatPopup} />
+            </>
+          )}
+        </motion.div>
         
-        <SidebarInset>
-          <div className="flex-1 flex flex-col overflow-hidden">
-            <Navbar />
-            <motion.main
-              className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8"
-              variants={mainVariants}
-            >
-              <AnimatedContainer animation="fade" duration={0.5} delay={0.15}>
-                {children}
-              </AnimatedContainer>
-            </motion.main>
-          </div>
-        </SidebarInset>
-        
-        {/* AI Chat Components */}
-        {isAuthenticated && !isInitialSetup && (
-          <>
-            <FloatingAIChatButton onClick={toggleChatPopup} />
-            <AIChatPopup isOpen={isChatPopupOpen} onClose={toggleChatPopup} />
-          </>
-        )}
-      </motion.div>
-    </SidebarProvider>
+        {/* App Footer - always visible when authenticated */}
+        {isAuthenticated && !isInitialSetup && <AppFooter />}
+      </SidebarProvider>
+    </PageControllerProvider>
   );
 };
 

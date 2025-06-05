@@ -1,0 +1,330 @@
+import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import { apiService } from '../../services/api';
+
+export type AuditEventType = 'user_activity' | 'security' | 'token_usage' | 'admin_action' | 'organization_summary';
+export type AuditSeverity = 'low' | 'medium' | 'high' | 'critical';
+
+export interface AuditEvent {
+  id: string;
+  eventType: AuditEventType;
+  description: string;
+  userId: string;
+  userEmail?: string;
+  createdAt: string;
+  severity: AuditSeverity;
+  ipAddress?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface Report {
+  id: string;
+  type: string;
+  title: string;
+  createdAt: string;
+  createdBy: string;
+  status: 'generating' | 'completed' | 'failed';
+  format: 'json' | 'csv' | 'pdf';
+  data?: any;
+  fileUrl?: string;
+}
+
+interface AuditState {
+  events: AuditEvent[];
+  reports: Report[];
+  metrics: { 
+    tokenActivityData: any[]; 
+    userActivityData: any[];
+    transactionsByTypeData: any[];
+    usersByRoleData: any[];
+    apiUsageData: any[];
+  } | null;
+  isLoadingMetrics: boolean;
+  isLoading: boolean;
+  isLoadingReports: boolean;
+  isGeneratingReport: boolean;
+  isExporting: boolean;
+  auditError: string | null;
+  reportError: string | null;
+  exportError: string | null;
+  metricsError: string | null;
+  totalCount: number;
+  hasMore: boolean;
+  filters: {
+    eventType: AuditEventType[] | null;
+    severity: AuditSeverity[] | null;
+    dateRange: {
+      start: string | null;
+      end: string | null;
+    };
+    userId: string | null;
+  };
+}
+
+const initialState: AuditState = {
+  events: [],
+  reports: [],
+  metrics: null,
+  isLoadingMetrics: false,
+  isLoading: false,
+  isLoadingReports: false,
+  isGeneratingReport: false,
+  isExporting: false,
+  auditError: null,
+  reportError: null,
+  exportError: null,
+  metricsError: null,
+  totalCount: 0,
+  hasMore: false,
+  filters: {
+    eventType: null,
+    severity: null,
+    dateRange: {
+      start: null,
+      end: null,
+    },
+    userId: null,
+  },
+};
+
+// Async thunks for audit operations
+export const fetchAuditLogs = createAsyncThunk(
+  'audit/fetchAuditLogs',
+  async (params?: {
+    startDate?: string;
+    endDate?: string;
+    actions?: string[];
+    userIds?: string[];
+    resourceType?: string;
+    severity?: string | string[];
+    limit?: number;
+    skip?: number;
+  }) => {
+    const response = await apiService.getAuditLogs(params);
+    return response.data;
+  }
+);
+
+export const generateReport = createAsyncThunk(
+  'audit/generateReport',
+  async (params: {
+    type: 'user_activity' | 'token_usage' | 'security_events' | 'organization_summary';
+    startDate?: string;
+    endDate?: string;
+    filters?: any;
+    format?: 'json' | 'csv' | 'pdf';
+  }) => {
+    const response = await apiService.generateReport(params);
+    return response.data;
+  }
+);
+
+export const fetchReports = createAsyncThunk(
+  'audit/fetchReports',
+  async (params?: {
+    type?: string;
+    limit?: number;
+    skip?: number;
+  }) => {
+    const response = await apiService.getReports(params);
+    return response.data;
+  }
+);
+
+export const deleteAuditLog = createAsyncThunk(
+  'audit/deleteAuditLog',
+  async (params: { auditLogId: string; reason: string }) => {
+    const response = await apiService.deleteAuditLog(params.auditLogId, params.reason);
+    return response.data;
+  }
+);
+
+export const exportAuditLogs = createAsyncThunk(
+  'audit/exportAuditLogs',
+  async (params: {
+    format: 'csv' | 'json' | 'pdf';
+    filters?: {
+      startDate?: string;
+      endDate?: string;
+      actions?: string[];
+      userIds?: string[];
+      resourceType?: string;
+    };
+    maxRecords?: number;
+  }) => {
+    const response = await apiService.exportAuditLogs(params);
+    return response.data;
+  }
+);
+
+export const fetchMetrics = createAsyncThunk(
+  'audit/fetchMetrics',
+  async (params: {
+    timeRange?: string;
+    startDate?: string;
+    endDate?: string;
+    organizationId?: string;
+  }) => {
+    // Fetch all metrics data concurrently
+    const [
+      tokenActivityRes,
+      userActivityRes,
+      transactionsByTypeRes,
+      usersByRoleRes,
+      apiUsageRes
+    ] = await Promise.all([
+      apiService.fetchTokenActivityMetrics(params),
+      apiService.fetchUserActivityMetrics(params),
+      apiService.fetchTransactionTypeMetrics(params),
+      apiService.fetchUserRoleMetrics(params), // This one might not use all params
+      apiService.fetchAPIMetrics(params)
+    ]);
+
+    return {
+      tokenActivityData: tokenActivityRes.data || [],
+      userActivityData: userActivityRes.data || [],
+      transactionsByTypeData: transactionsByTypeRes.data || [],
+      usersByRoleData: usersByRoleRes.data || [],
+      apiUsageData: apiUsageRes.data || [],
+    };
+  }
+);
+
+export const auditSlice = createSlice({
+  name: 'audit',
+  initialState,
+  reducers: {
+    setEventTypeFilter: (state, action: PayloadAction<AuditEventType[] | null>) => {
+      state.filters.eventType = action.payload;
+    },
+    setSeverityFilter: (state, action: PayloadAction<AuditSeverity[] | null>) => {
+      state.filters.severity = action.payload;
+    },
+    setDateRangeFilter: (state, action: PayloadAction<{ start: string | null; end: string | null }>) => {
+      state.filters.dateRange = action.payload;
+    },
+    setUserFilter: (state, action: PayloadAction<string | null>) => {
+      state.filters.userId = action.payload;
+    },
+    resetFilters: (state) => {
+      state.filters = initialState.filters;
+    },
+    clearErrors: (state) => {
+      state.auditError = null;
+      state.reportError = null;
+      state.exportError = null;
+      state.metricsError = null;
+    },
+  },
+  extraReducers: (builder) => {
+    // Fetch audit logs
+    builder
+      .addCase(fetchAuditLogs.pending, (state) => {
+        state.isLoading = true;
+        state.auditError = null;
+      })
+      .addCase(fetchAuditLogs.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.events = action.payload.auditLogs || [];
+        state.totalCount = action.payload.totalCount || 0;
+        state.hasMore = action.payload.hasMore || false;
+      })
+      .addCase(fetchAuditLogs.rejected, (state, action) => {
+        state.isLoading = false;
+        state.auditError = action.error.message || 'Failed to fetch audit logs';
+      })
+      
+      // Generate report
+      .addCase(generateReport.pending, (state) => {
+        state.isGeneratingReport = true;
+        state.reportError = null;
+      })
+      .addCase(generateReport.fulfilled, (state, action) => {
+        state.isGeneratingReport = false;
+        if (action.payload.report) {
+          const newReport: Report = {
+            id: action.payload.reportId,
+            type: action.payload.report.type,
+            title: action.payload.report.title || `${action.payload.report.type} Report`,
+            createdAt: new Date().toISOString(),
+            createdBy: 'current-user',
+            status: 'completed',
+            format: action.payload.report.format || 'json',
+            data: action.payload.report
+          };
+          state.reports.unshift(newReport);
+        }
+      })
+      .addCase(generateReport.rejected, (state, action) => {
+        state.isGeneratingReport = false;
+        state.reportError = action.error.message || 'Failed to generate report';
+      })
+      
+      // Fetch reports
+      .addCase(fetchReports.pending, (state) => {
+        state.isLoadingReports = true;
+        state.reportError = null;
+      })
+      .addCase(fetchReports.fulfilled, (state, action) => {
+        state.isLoadingReports = false;
+        state.reports = action.payload.reports || [];
+      })
+      .addCase(fetchReports.rejected, (state, action) => {
+        state.isLoadingReports = false;
+        state.reportError = action.error.message || 'Failed to fetch reports';
+      })
+      
+      // Delete audit log
+      .addCase(deleteAuditLog.pending, (state) => {
+        state.isLoading = true;
+        state.auditError = null;
+      })
+      .addCase(deleteAuditLog.fulfilled, (state, action) => {
+        state.isLoading = false;
+        if (action.payload.deletedAuditLog?.id) {
+          state.events = state.events.filter(event => event.id !== action.payload.deletedAuditLog.id);
+        }
+      })
+      .addCase(deleteAuditLog.rejected, (state, action) => {
+        state.isLoading = false;
+        state.auditError = action.error.message || 'Failed to delete audit log';
+      })
+      
+      // Export audit logs
+      .addCase(exportAuditLogs.pending, (state) => {
+        state.isExporting = true;
+        state.exportError = null;
+      })
+      .addCase(exportAuditLogs.fulfilled, (state) => {
+        state.isExporting = false;
+      })
+      .addCase(exportAuditLogs.rejected, (state, action) => {
+        state.isExporting = false;
+        state.exportError = action.error.message || 'Failed to export audit logs';
+      })
+
+      // Fetch metrics
+      .addCase(fetchMetrics.pending, (state) => {
+        state.isLoadingMetrics = true;
+        state.metricsError = null;
+      })
+      .addCase(fetchMetrics.fulfilled, (state, action) => {
+        state.isLoadingMetrics = false;
+        state.metrics = action.payload; // Assign the consolidated payload directly
+      })
+      .addCase(fetchMetrics.rejected, (state, action) => {
+        state.isLoadingMetrics = false;
+        state.metricsError = action.error.message || 'Failed to fetch report metrics';
+      });
+  },
+});
+
+export const {
+  setEventTypeFilter,
+  setSeverityFilter,
+  setDateRangeFilter,
+  setUserFilter,
+  resetFilters,
+  clearErrors,
+} = auditSlice.actions;
+
+export default auditSlice.reducer;

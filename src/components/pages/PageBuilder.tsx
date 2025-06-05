@@ -164,35 +164,15 @@ const PageBuilder: React.FC = () => {
   const { data: objects = [], isLoading } = useQuery({
     queryKey: ["customObjects", currentOrg?.id],
     queryFn: async () => {
-      // Mock data for now - in production, this would fetch from your database
-      return [
-        {
-          id: "obj-123",
-          apiName: "Customer__c",
-          label: "Customer",
-          description: "Customer information",
-          fields: [
-            { id: "field-1", apiName: "Name", label: "Name", type: "text", required: true },
-            { id: "field-2", apiName: "Email__c", label: "Email", type: "email", required: true },
-            { id: "field-3", apiName: "Phone__c", label: "Phone", type: "phone", required: false }
-          ],
-          createdAt: "2023-04-15T10:30:00Z",
-          updatedAt: "2023-06-10T14:45:00Z",
-        },
-        {
-          id: "obj-456",
-          apiName: "Project__c",
-          label: "Project",
-          description: "Project management",
-          fields: [
-            { id: "field-5", apiName: "Name", label: "Name", type: "text", required: true },
-            { id: "field-6", apiName: "Customer__c", label: "Customer", type: "lookup", required: true, referenceTo: "Customer__c" },
-            { id: "field-7", apiName: "StartDate__c", label: "Start Date", type: "date", required: true }
-          ],
-          createdAt: "2023-04-20T09:15:00Z",
-          updatedAt: "2023-06-12T11:30:00Z",
-        }
-      ] as CustomObject[];
+      try {
+        const result = await Parse.Cloud.run('getAvailableObjects', {
+          organizationId: currentOrg?.id
+        });
+        return result.success ? result.objects : [];
+      } catch (error) {
+        console.error('Error fetching custom objects:', error);
+        return [];
+      }
     }
   });
 

@@ -9,6 +9,7 @@ export interface CustomField {
   defaultValue?: string;
   options?: string[];
   referenceTo?: string;
+  targetClass?: string; // Added for Pointer field types
 }
 
 export interface CustomObject {

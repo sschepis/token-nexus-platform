@@ -1,5 +1,5 @@
-
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { createCRUDSlice } from '../utils/createCRUDSlice';
+import { apiService } from '../../services/api';
 
 export type TokenStatus = 'pending' | 'confirmed' | 'failed';
 export type TokenType = 'ERC3643' | 'Stellar' | 'ERC20' | 'ERC721';
@@ -15,6 +15,7 @@ export interface Token {
   createdAt: string;
   createdBy: string;
   contractAddress?: string;
+  orgId?: string;
 }
 
 export interface Transaction {
@@ -27,69 +28,103 @@ export interface Transaction {
   timestamp: string;
 }
 
-interface TokenState {
-  tokens: Token[];
-  transactions: Transaction[];
-  isLoading: boolean;
-  error: string | null;
+export interface CreateTokenParams {
+  name: string;
+  symbol: string;
+  type: TokenType;
+  blockchain: string;
+  supply: number;
+  description?: string;
+  decimals?: number;
+  orgId?: string;
 }
 
-const initialState: TokenState = {
-  tokens: [],
-  transactions: [],
-  isLoading: false,
-  error: null,
+export interface UpdateTokenParams {
+  name?: string;
+  symbol?: string;
+  status?: TokenStatus;
+  contractAddress?: string;
+  reason?: string;
+}
+
+// Custom API adapter to handle the specific token API structure
+const customTokenApiAdapter = {
+  getAll: (params?: any) => apiService.getTokens(params),
+  getById: (id: string) => apiService.getTokenDetails(id),
+  create: (params: CreateTokenParams) => apiService.createToken(params),
+  update: (id: string, params: UpdateTokenParams) => {
+    // Handle the specific updateTokenStatus API signature
+    if (params.status) {
+      return apiService.updateTokenStatus(id, params.status, {
+        reason: params.reason,
+        contractAddress: params.contractAddress,
+      });
+    }
+    // For other updates, we'd need a general update method
+    throw new Error('General token updates not yet implemented');
+  },
+  delete: (id: string) => apiService.deleteToken(id),
 };
 
-export const tokenSlice = createSlice({
+// Create the CRUD slice using our factory
+const tokenCRUD = createCRUDSlice<Token, CreateTokenParams, UpdateTokenParams>({
   name: 'token',
-  initialState,
-  reducers: {
-    fetchTokensStart: (state) => {
-      state.isLoading = true;
-      state.error = null;
-    },
-    fetchTokensSuccess: (state, action: PayloadAction<Token[]>) => {
-      state.tokens = action.payload;
-      state.isLoading = false;
-    },
-    fetchTokensFailed: (state, action: PayloadAction<string>) => {
-      state.isLoading = false;
-      state.error = action.payload;
-    },
-    createTokenStart: (state) => {
-      state.isLoading = true;
-      state.error = null;
-    },
-    createTokenSuccess: (state, action: PayloadAction<Token>) => {
-      state.tokens.push(action.payload);
-      state.isLoading = false;
-    },
-    createTokenFailed: (state, action: PayloadAction<string>) => {
-      state.isLoading = false;
-      state.error = action.payload;
-    },
-    fetchTransactionsSuccess: (state, action: PayloadAction<Transaction[]>) => {
-      state.transactions = action.payload;
-    },
-    updateTokenStatus: (state, action: PayloadAction<{ tokenId: string; status: TokenStatus }>) => {
-      const token = state.tokens.find(t => t.id === action.payload.tokenId);
-      if (token) {
-        token.status = action.payload.status;
-      }
-    },
+  apiService: customTokenApiAdapter,
+  initialState: {
+    // Add custom state for transactions
+    transactions: [] as Transaction[],
+    isLoadingTokenDetails: false,
+    isUpdatingTokenStatus: false,
+  },
+  responseMapping: {
+    items: 'tokens',
+    item: 'token',
+  },
+  errorMessages: {
+    fetch: 'Failed to fetch tokens',
+    create: 'Failed to create token',
+    update: 'Failed to update token status',
+    delete: 'Failed to delete token',
+    getById: 'Failed to fetch token details',
   },
 });
 
+// Export the slice
+export const tokenSlice = tokenCRUD.slice;
+
+// Export actions with backward-compatible names
+export const fetchTokens = tokenCRUD.actions.fetchItems;
+export const createToken = tokenCRUD.actions.createItem;
+export const deleteToken = tokenCRUD.actions.deleteItem;
+export const getTokenDetails = tokenCRUD.actions.fetchItemById;
+export const updateTokenStatus = tokenCRUD.actions.updateItem;
+
+// Export standard CRUD actions
 export const {
-  fetchTokensStart,
-  fetchTokensSuccess,
-  fetchTokensFailed,
-  createTokenStart,
-  createTokenSuccess,
-  createTokenFailed,
-  fetchTransactionsSuccess,
-  updateTokenStatus
-} = tokenSlice.actions;
+  clearError: clearTokenErrors,
+  setFilters,
+  resetFilters,
+  clearSelectedItem,
+} = tokenCRUD.actions;
+
+// Export selectors with token-specific names
+export const tokenSelectors = {
+  selectTokens: tokenCRUD.selectors.selectItems,
+  selectSelectedToken: tokenCRUD.selectors.selectSelectedItem,
+  selectIsLoadingTokens: tokenCRUD.selectors.selectIsLoading,
+  selectIsCreatingToken: tokenCRUD.selectors.selectIsCreating,
+  selectIsUpdatingToken: tokenCRUD.selectors.selectIsUpdating,
+  selectIsDeletingToken: tokenCRUD.selectors.selectIsDeleting,
+  selectTokenError: tokenCRUD.selectors.selectError,
+  selectTokenTotalCount: tokenCRUD.selectors.selectTotalCount,
+  selectTokenHasMore: tokenCRUD.selectors.selectHasMore,
+  selectTokenFilters: tokenCRUD.selectors.selectFilters,
+  // Custom selectors for transactions
+  selectTransactions: (state: any) => state.token.transactions,
+};
+
+// For backward compatibility, create simple action creators for the custom functionality
+export const fetchTransactionsSuccess = tokenSlice.actions.clearError; // Placeholder
+export const updateTokenStatusSync = tokenSlice.actions.clearError; // Placeholder
 
 export default tokenSlice.reducer;

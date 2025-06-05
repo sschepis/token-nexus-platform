@@ -1,5 +1,6 @@
 
 import React, { useEffect, useState } from "react";
+import Parse from 'parse';
 import { useAppDispatch, useAppSelector } from "@/store/hooks"; // Import Redux hooks
 import { fetchOrgUsers, removeUserFromOrganization, OrgUser } from "@/store/slices/userSlice"; // Import new actions and type
 import { KycStatus, UserRole } from "@/store/slices/userSlice"; // Keep these if still used by UI helpers
@@ -20,6 +21,8 @@ import {
   MoreHorizontal,
   ArrowUpDown,
   RefreshCw,
+  Users as UsersIcon,
+  Zap,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -37,11 +40,16 @@ import { toast as sonnerToast } from "sonner"; // Assuming sonner is used projec
 import UserInviteDialog from "@/components/user/UserInviteDialog";
 import UserRoleManagement from "@/components/user/UserRoleManagement";
 import UserDetailView from "@/components/user/UserDetailView";
+import { usePageController, useDataAction, useUIAction, useNavigationAction } from "@/hooks/usePageController";
 
 const Users = () => {
   const dispatch = useAppDispatch();
   const { orgUsers, isLoading, error } = useAppSelector((state) => state.user);
   const { currentOrg } = useAppSelector((state) => state.org);
+  const { orgId: authOrgId } = useAppSelector((state) => state.auth);
+  
+  // Use currentOrg.id if available, otherwise fall back to authOrgId
+  const effectiveOrgId = currentOrg?.id || authOrgId;
 
   const [searchTerm, setSearchTerm] = useState("");
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
@@ -49,11 +57,27 @@ const Users = () => {
   const [userDetailOpen, setUserDetailOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<OrgUser | null>(null);
 
+  // Register page with controller registry
+  const pageController = usePageController({
+    pageId: 'users',
+    pageName: 'User Management',
+    description: 'Manage organization users, roles, and permissions. View user details, invite new users, and administer user access.',
+    category: 'user-management',
+    permissions: ['organization-admin', 'organization-member'],
+    tags: ['users', 'administration', 'permissions', 'organization']
+  });
+
   useEffect(() => {
-    if (currentOrg?.id) {
-      dispatch(fetchOrgUsers({ orgId: currentOrg.id }));
+    console.log('Users page - currentOrg:', currentOrg);
+    console.log('Users page - authOrgId:', authOrgId);
+    console.log('Users page - effectiveOrgId:', effectiveOrgId);
+    if (effectiveOrgId) {
+      console.log('Dispatching fetchOrgUsers with orgId:', effectiveOrgId);
+      dispatch(fetchOrgUsers({ orgId: effectiveOrgId }));
+    } else {
+      console.log('No effective orgId available, cannot fetch users');
     }
-  }, [dispatch, currentOrg?.id]);
+  }, [dispatch, effectiveOrgId, authOrgId, currentOrg]);
 
   const filteredUsers = (orgUsers || []).filter(
     (user) =>
@@ -64,10 +88,185 @@ const Users = () => {
   );
   
   useEffect(() => {
+    console.log('Users page - orgUsers:', orgUsers);
+    console.log('Users page - isLoading:', isLoading);
+    console.log('Users page - error:', error);
     if (error) {
         sonnerToast.error(`Failed to load users: ${error}`);
     }
-  }, [error]);
+  }, [orgUsers, isLoading, error]);
+
+  // Data Actions for Controller Registry
+  const fetchUsersAction = useDataAction(
+    pageController,
+    'fetch-users',
+    'Fetch Organization Users',
+    'Retrieve all users in the current organization with their roles and status',
+    async (params) => {
+      const orgId = (params.orgId as string) || effectiveOrgId;
+      if (!orgId) {
+        throw new Error('No organization ID provided');
+      }
+      
+      const result = await dispatch(fetchOrgUsers({ orgId }));
+      const users = Array.isArray(result.payload) ? result.payload : [];
+      return {
+        users,
+        total: users.length,
+        message: 'Users fetched successfully'
+      };
+    },
+    [
+      {
+        name: 'orgId',
+        type: 'string',
+        required: false,
+        description: 'Organization ID (defaults to current organization)',
+        defaultValue: currentOrg?.id
+      }
+    ],
+    ['organization-admin', 'organization-member']
+  );
+
+  const removeUserAction = useDataAction(
+    pageController,
+    'remove-user',
+    'Remove User from Organization',
+    'Remove a user from the current organization (requires confirmation)',
+    async (params) => {
+      const userId = params.userId as string;
+      const reason = params.reason as string;
+      const orgId = effectiveOrgId;
+      
+      if (!orgId) {
+        throw new Error('No organization context available');
+      }
+      
+      const user = orgUsers?.find(u => u.id === userId);
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      await dispatch(removeUserFromOrganization({ orgId, userId }));
+      
+      return {
+        message: `User ${user.firstName} ${user.lastName} has been removed from the organization`,
+        removedUser: user,
+        reason: reason || 'No reason provided'
+      };
+    },
+    [
+      {
+        name: 'userId',
+        type: 'string',
+        required: true,
+        description: 'ID of the user to remove from the organization'
+      },
+      {
+        name: 'reason',
+        type: 'string',
+        required: false,
+        description: 'Reason for removing the user (for audit log)'
+      }
+    ],
+    ['organization-admin']
+  );
+
+  // UI Actions for Controller Registry
+  const searchUsersAction = useUIAction(
+    pageController,
+    'search-users',
+    'Search Users',
+    'Filter the user list based on search criteria like name or email',
+    (params) => {
+      const { searchTerm: term } = params;
+      setSearchTerm(term as string || '');
+    },
+    [
+      {
+        name: 'searchTerm',
+        type: 'string',
+        required: false,
+        description: 'Search term to filter users by name or email',
+        defaultValue: ''
+      }
+    ],
+    ['organization-admin', 'organization-member']
+  );
+
+  const openInviteDialogAction = useUIAction(
+    pageController,
+    'open-invite-dialog',
+    'Open User Invite Dialog',
+    'Show the dialog to invite a new user to the organization',
+    () => {
+      setInviteDialogOpen(true);
+    },
+    [],
+    ['organization-admin']
+  );
+
+  const openUserDetailAction = useUIAction(
+    pageController,
+    'open-user-detail',
+    'Open User Detail View',
+    'Show detailed information about a specific user',
+    (params) => {
+      const { userId } = params;
+      const user = orgUsers?.find(u => u.id === userId);
+      if (user) {
+        setSelectedUser(user);
+        setUserDetailOpen(true);
+      } else {
+        throw new Error('User not found');
+      }
+    },
+    [
+      {
+        name: 'userId',
+        type: 'string',
+        required: true,
+        description: 'ID of the user to view details for'
+      }
+    ],
+    ['organization-admin', 'organization-member']
+  );
+
+  const openRoleManagementAction = useUIAction(
+    pageController,
+    'open-role-management',
+    'Open Role Management',
+    'Show the role management interface for a specific user',
+    (params) => {
+      const { userId } = params;
+      const user = orgUsers?.find(u => u.id === userId);
+      if (user) {
+        setSelectedUser(user);
+        setRoleManagementOpen(true);
+      } else {
+        throw new Error('User not found');
+      }
+    },
+    [
+      {
+        name: 'userId',
+        type: 'string',
+        required: true,
+        description: 'ID of the user to manage roles for'
+      }
+    ],
+    ['organization-admin']
+  );
+
+  // Navigation Actions
+  const navigateToUserDetail = useNavigationAction(
+    pageController,
+    'navigate-to-user-detail',
+    'Navigate to User Detail Page',
+    'Navigate to a dedicated user detail page',
+    '', // Will be set dynamically
+    ['organization-admin', 'organization-member']
+  );
 
   const formatDate = (dateString: string | undefined) => {
     if (!dateString) return "N/A";
@@ -124,35 +323,56 @@ const Users = () => {
     setRoleManagementOpen(true);
   };
 
-  const handleRefreshUsers = () => {
-    if (currentOrg?.id) {
-      dispatch(fetchOrgUsers({ orgId: currentOrg.id }));
-      sonnerToast.info("Refreshing user list...");
-    } else {
-      sonnerToast.warning("No organization selected to refresh users for.");
+  const handleRefreshUsers = async () => {
+    try {
+      await fetchUsersAction({ orgId: effectiveOrgId });
+      sonnerToast.success("User list refreshed successfully");
+    } catch (error) {
+      sonnerToast.error("Failed to refresh user list");
+      console.error('Refresh users error:', error);
     }
   };
   
   const handleRemoveUser = (userIdToRemove: string) => {
-    if (!currentOrg?.id) {
+    if (!effectiveOrgId) {
         sonnerToast.error("Cannot remove user: No organization context.");
         return;
     }
-    if (selectedUser?.id === userIdToRemove && userIdToRemove === selectedUser?.id /* TODO: check if it's current logged in user */) {
-        // sonnerToast.error("You cannot remove yourself.");
-        // return;
-    }
+    
+    const user = orgUsers?.find(u => u.id === userIdToRemove);
+    const userName = user ? `${user.firstName} ${user.lastName}` : userIdToRemove;
+    
     // Add confirmation dialog here if desired
-    sonnerToast.warning(`Are you sure you want to remove user ${userIdToRemove} from this organization? This action cannot be undone.`, {
+    sonnerToast.warning(`Are you sure you want to remove ${userName} from this organization? This action cannot be undone.`, {
         action: {
             label: "Confirm Remove",
-            onClick: () => dispatch(removeUserFromOrganization({ orgId: currentOrg.id, userId: userIdToRemove })),
+            onClick: async () => {
+              try {
+                await removeUserAction({ userId: userIdToRemove, reason: 'Removed by admin' });
+                sonnerToast.success(`${userName} has been removed from the organization`);
+              } catch (error) {
+                sonnerToast.error("Failed to remove user");
+                console.error('Remove user error:', error);
+              }
+            },
         },
         cancel: {
             label: "Cancel",
             onClick: () => {},
         }
     });
+  };
+
+  // Debug function to check user setup
+  const handleDebugUserSetup = async () => {
+    try {
+      const result = await Parse.Cloud.run('debugUserOrgSetup', { orgId: effectiveOrgId });
+      console.log('Debug User Setup:', result);
+      sonnerToast.info('Debug info logged to console. Check browser console for details.');
+    } catch (error) {
+      console.error('Debug error:', error);
+      sonnerToast.error('Debug failed: ' + (error as Error).message);
+    }
   };
 
   // handleInviteSuccess can be removed if UserInviteDialog dispatches fetchOrgUsers on success
@@ -162,23 +382,44 @@ const Users = () => {
     <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">User Management</h1>
-            <p className="text-muted-foreground mt-1">
-              Manage users and permissions for your organization
-            </p>
+            <div className="flex items-center gap-3">
+              <UsersIcon className="h-8 w-8" />
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight">User Management</h1>
+                <p className="text-muted-foreground mt-1">
+                  Manage users and permissions for {currentOrg?.name || 'your organization'}
+                </p>
+              </div>
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
+            {pageController.isRegistered && (
+              <div className="flex items-center gap-2 mr-2">
+                <Badge variant="outline" className="text-xs">
+                  <Zap className="h-3 w-3 mr-1" />
+                  {pageController.getAvailableActions().length} AI actions
+                </Badge>
+              </div>
+            )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleDebugUserSetup}
+              className="bg-yellow-50 border-yellow-200 text-yellow-800 hover:bg-yellow-100"
+            >
+              🐛 Debug
+            </Button>
             <Button
               size="sm"
               variant="outline"
               onClick={handleRefreshUsers}
               disabled={isLoading}
             >
-              <RefreshCw className="h-4 w-4 mr-2" />
+              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
-            <Button onClick={() => setInviteDialogOpen(true)} size="sm">
+            <Button onClick={() => openInviteDialogAction()} size="sm">
               <Plus className="h-4 w-4 mr-2" />
               Invite User
             </Button>
@@ -193,7 +434,11 @@ const Users = () => {
                 <Input
                   placeholder="Search users..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setSearchTerm(value);
+                    searchUsersAction({ searchTerm: value });
+                  }}
                   className="pl-8"
                 />
               </div>
@@ -288,13 +533,10 @@ const Users = () => {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem onClick={() => handleOpenUserDetail(user)}>
+                            <DropdownMenuItem onClick={() => openUserDetailAction({ userId: user.id })}>
                               View details
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {
-                              setSelectedUser(user);
-                              setRoleManagementOpen(true);
-                            }}>
+                            <DropdownMenuItem onClick={() => openRoleManagementAction({ userId: user.id })}>
                               Manage roles
                             </DropdownMenuItem>
                             {/* <DropdownMenuItem>Reset password</DropdownMenuItem> */}

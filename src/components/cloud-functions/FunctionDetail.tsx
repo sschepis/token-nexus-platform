@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Save, Play, Trash2 } from "lucide-react";
+import { ArrowLeft, Save, Play, Trash2, Copy, Download } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -28,6 +28,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { CloudFunction, FunctionLanguage, FunctionRuntime } from "@/types/cloud-functions";
+import CodeEditor from "./CodeEditor";
+import ExecuteFunctionDialog from "./ExecuteFunctionDialog";
+import { toast as sonnerToast } from "sonner";
 
 interface FunctionDetailProps {
   onBack: () => void;
@@ -39,6 +42,7 @@ const FunctionDetail = ({ onBack }: FunctionDetailProps) => {
   const { functions, selectedFunctionId } = useAppSelector((state) => state.cloudFunction);
   const cloudFunction = functions.find((f) => f.id === selectedFunctionId);
   const [code, setCode] = useState(cloudFunction?.code || "");
+  const [executeDialogOpen, setExecuteDialogOpen] = useState(false);
 
   const form = useForm({
     defaultValues: {
@@ -79,13 +83,74 @@ const FunctionDetail = ({ onBack }: FunctionDetailProps) => {
     });
   };
 
+  const validateCode = (code: string) => {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+
+    if (!code.trim()) {
+      errors.push('Function code cannot be empty');
+      return { isValid: false, errors, warnings };
+    }
+
+    // Basic Parse Cloud Code validation
+    if (!code.includes('Parse.Cloud.define')) {
+      errors.push('Function must use Parse.Cloud.define()');
+    }
+
+    // Security checks
+    if (code.includes('eval(')) {
+      errors.push('Use of eval() is not allowed for security reasons');
+    }
+
+    if (code.includes('require(') && !code.includes('// @allow-require')) {
+      warnings.push('Use of require() should be carefully reviewed');
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+      warnings
+    };
+  };
+
   const handleTestFunction = () => {
-    // In a real app, this would send the function to be executed in a serverless environment
-    toast({
-      title: "Function test initiated",
-      description: "Check the console for test results",
+    setExecuteDialogOpen(true);
+  };
+
+  const handleExecuteFunction = async (request: any) => {
+    // Mock execution for now - in real app this would call the actual cloud function
+    return new Promise<any>((resolve) => {
+      setTimeout(() => {
+        resolve({
+          success: true,
+          result: {
+            message: "Function executed successfully",
+            timestamp: new Date().toISOString(),
+            mockData: "This is a mock response"
+          },
+          executionTime: Math.floor(Math.random() * 500) + 50,
+          timestamp: new Date().toISOString()
+        });
+      }, 1000);
     });
-    console.log(`Testing function ${cloudFunction.name}...`);
+  };
+
+  const copyCode = () => {
+    navigator.clipboard.writeText(code);
+    sonnerToast.success('Code copied to clipboard');
+  };
+
+  const downloadCode = () => {
+    const blob = new Blob([code], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${cloudFunction?.name || 'function'}.${cloudFunction?.language || 'js'}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    sonnerToast.success('Code downloaded');
   };
 
   return (
@@ -233,14 +298,35 @@ const FunctionDetail = ({ onBack }: FunctionDetailProps) => {
                     <Save className="mr-2 h-4 w-4" />
                     Save Function
                   </Button>
-                  <Button 
-                    type="button" 
-                    variant="secondary" 
+                  <Button
+                    type="button"
+                    variant="secondary"
                     className="flex-1"
                     onClick={handleTestFunction}
                   >
                     <Play className="mr-2 h-4 w-4" />
                     Test Function
+                  </Button>
+                </div>
+                
+                <div className="flex space-x-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={copyCode}
+                  >
+                    <Copy className="mr-2 h-4 w-4" />
+                    Copy Code
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={downloadCode}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Download
                   </Button>
                 </div>
               </form>
@@ -256,27 +342,43 @@ const FunctionDetail = ({ onBack }: FunctionDetailProps) => {
           <CardHeader>
             <CardTitle>Function Code</CardTitle>
             <CardDescription>
-              Write your function code
+              Write your function code using the advanced code editor
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="relative min-h-[300px] rounded-md border">
-              <Textarea
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                className="min-h-[300px] font-mono text-sm"
-                placeholder="export default function myFunction(req, res) {
-  // Your code here
-  return { message: 'Hello World!' };
-}"
-              />
-            </div>
+            <CodeEditor
+              value={code}
+              onChange={setCode}
+              language={cloudFunction.language}
+              onValidate={validateCode}
+              placeholder={`Parse.Cloud.define("${cloudFunction.name}", async (request) => {
+  const { params, user } = request;
+  
+  // Your function logic here
+  try {
+    return {
+      success: true,
+      message: "Function executed successfully"
+    };
+  } catch (error) {
+    throw new Error(\`Function execution failed: \${error.message}\`);
+  }
+});`}
+            />
             <p className="mt-2 text-xs text-muted-foreground">
-              Functions should export a default function that takes request and response parameters.
+              Functions should use Parse.Cloud.define() and follow Parse Cloud Code conventions.
             </p>
           </CardContent>
         </Card>
       </div>
+
+      {/* Execute Function Dialog */}
+      <ExecuteFunctionDialog
+        open={executeDialogOpen}
+        onOpenChange={setExecuteDialogOpen}
+        cloudFunction={cloudFunction}
+        onExecuteFunction={handleExecuteFunction}
+      />
     </div>
   );
 };

@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { mockApis } from "@/services/api";
+import { apiService, mockApis } from "@/services/api";
 import { Token } from '@/store/slices/tokenSlice';
 import { DollarSign, ChevronUp, ChevronDown } from 'lucide-react';
 
@@ -16,7 +16,7 @@ export const TokenStatsWidget: React.FC<TokenStatsWidgetProps> = ({ id, config }
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await mockApis.getTokens();
+        const response = await apiService.getTokens();
         setTokens(response.data.tokens);
       } catch (error) {
         console.error("Failed to fetch tokens:", error);

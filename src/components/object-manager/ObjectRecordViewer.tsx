@@ -41,61 +41,39 @@ const ObjectRecordViewer: React.FC<ObjectRecordViewerProps> = ({
   const { data: records = [], isLoading } = useQuery({
     queryKey: ["objectRecords", objectId],
     queryFn: async () => {
-      // Mock data - in a real app this would fetch from the backend
-      if (objectApiName === "Customer__c") {
-        return [
-          { id: "rec-1", Name: "Acme Corp", Email__c: "contact@acme.com", Phone__c: "555-1234", Status__c: "Active" },
-          { id: "rec-2", Name: "Globex Inc", Email__c: "info@globex.com", Phone__c: "555-5678", Status__c: "Active" },
-          { id: "rec-3", Name: "Stark Industries", Email__c: "sales@stark.com", Phone__c: "555-9012", Status__c: "Inactive" },
-          { id: "rec-4", Name: "Wayne Enterprises", Email__c: "help@wayne.com", Phone__c: "555-3456", Status__c: "Active" },
-          { id: "rec-5", Name: "Umbrella Corp", Email__c: "info@umbrella.com", Phone__c: "555-7890", Status__c: "Pending" },
-        ];
-      } else if (objectApiName === "Project__c") {
-        return [
-          { id: "rec-6", Name: "Website Redesign", Customer__c: "Acme Corp", StartDate__c: "2023-01-15", EndDate__c: "2023-03-30" },
-          { id: "rec-7", Name: "Mobile App Development", Customer__c: "Globex Inc", StartDate__c: "2023-02-01", EndDate__c: "2023-06-30" },
-          { id: "rec-8", Name: "Database Migration", Customer__c: "Stark Industries", StartDate__c: "2023-03-10", EndDate__c: null },
-        ];
-      } else if (objectApiName === "Invoice__c") {
-        return [
-          { id: "rec-9", Name: "INV-001", Customer__c: "Acme Corp", Amount__c: 5000, Date__c: "2023-01-30", Status__c: "Paid" },
-          { id: "rec-10", Name: "INV-002", Customer__c: "Globex Inc", Amount__c: 7500, Date__c: "2023-02-15", Status__c: "Paid" },
-          { id: "rec-11", Name: "INV-003", Customer__c: "Stark Industries", Amount__c: 12000, Date__c: "2023-03-01", Status__c: "Pending" },
-          { id: "rec-12", Name: "INV-004", Customer__c: "Wayne Enterprises", Amount__c: 3000, Date__c: "2023-03-15", Status__c: "Unpaid" },
-        ];
+      try {
+        const result = await Parse.Cloud.run('fetchObjectsByClassName', {
+          className: objectApiName,
+          organizationId: null, // Assuming records may or may not be tied to an organization
+          searchFilters: {
+            // Apply search term here if needed for server-side filtering
+            // For now, client-side filtering handles it.
+          }
+        });
+        return result.success ? result.records : [];
+      } catch (error) {
+        console.error(`Error fetching records for ${objectApiName}:`, error);
+        return [];
       }
-      return [];
     }
   });
 
   const { data: fields = [] } = useQuery({
     queryKey: ["objectFields", objectId],
     queryFn: async () => {
-      // Mock data - in a real app would fetch the object's field definitions
-      if (objectApiName === "Customer__c") {
-        return [
-          { apiName: "Name", label: "Name", type: "text" },
-          { apiName: "Email__c", label: "Email", type: "email" },
-          { apiName: "Phone__c", label: "Phone", type: "phone" },
-          { apiName: "Status__c", label: "Status", type: "picklist" }
-        ];
-      } else if (objectApiName === "Project__c") {
-        return [
-          { apiName: "Name", label: "Name", type: "text" },
-          { apiName: "Customer__c", label: "Customer", type: "lookup" },
-          { apiName: "StartDate__c", label: "Start Date", type: "date" },
-          { apiName: "EndDate__c", label: "End Date", type: "date" }
-        ];
-      } else if (objectApiName === "Invoice__c") {
-        return [
-          { apiName: "Name", label: "Name", type: "text" },
-          { apiName: "Customer__c", label: "Customer", type: "lookup" },
-          { apiName: "Amount__c", label: "Amount", type: "number" },
-          { apiName: "Date__c", label: "Date", type: "date" },
-          { apiName: "Status__c", label: "Status", type: "picklist" }
-        ];
+      try {
+        const result = await Parse.Cloud.run('getAvailableObjects', {
+          organizationId: null // Assuming objects may or may not be tied to an organization
+        });
+        if (result.success) {
+          const targetObject = result.objects.find((obj: any) => obj.apiName === objectApiName);
+          return targetObject ? targetObject.fields : [];
+        }
+        return [];
+      } catch (error) {
+        console.error(`Error fetching fields for ${objectApiName}:`, error);
+        return [];
       }
-      return [];
     }
   });
 

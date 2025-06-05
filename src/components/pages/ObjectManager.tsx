@@ -1,8 +1,7 @@
-
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAppSelector } from "@/store/hooks";
-// import AppLayout from "@/components/layout/AppLayout"; // Removed AppLayout import
+import { objectManagerService } from "@/services/objectManagerService"; // Assumed to be imported or will be
 import { Button } from "@/components/ui/button";
 import { PlusCircle } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
@@ -24,39 +23,8 @@ const ObjectManager: React.FC = () => {
   const { data: objects = [], isLoading, refetch } = useQuery({
     queryKey: ["customObjects", currentOrg?.id],
     queryFn: async () => {
-      // Mock data for now
-      return [
-        {
-          id: "obj-123",
-          apiName: "Customer__c",
-          label: "Customer",
-          description: "Customer information",
-          fields: [
-            { id: "field-1", apiName: "Name", label: "Name", type: "text", required: true },
-            { id: "field-2", apiName: "Email__c", label: "Email", type: "email", required: true },
-            { id: "field-3", apiName: "Phone__c", label: "Phone", type: "phone", required: false },
-            { id: "field-4", apiName: "Status__c", label: "Status", type: "picklist", required: true, 
-              options: ["Active", "Inactive", "Pending"] }
-          ],
-          createdAt: "2023-04-15T10:30:00Z",
-          updatedAt: "2023-06-10T14:45:00Z",
-        },
-        {
-          id: "obj-456",
-          apiName: "Project__c",
-          label: "Project",
-          description: "Project management",
-          fields: [
-            { id: "field-5", apiName: "Name", label: "Name", type: "text", required: true },
-            { id: "field-6", apiName: "Customer__c", label: "Customer", type: "lookup", required: true, 
-              referenceTo: "Customer__c" },
-            { id: "field-7", apiName: "StartDate__c", label: "Start Date", type: "date", required: true },
-            { id: "field-8", apiName: "EndDate__c", label: "End Date", type: "date", required: false }
-          ],
-          createdAt: "2023-04-20T09:15:00Z",
-          updatedAt: "2023-06-12T11:30:00Z",
-        }
-      ] as CustomObject[];
+      const response = await objectManagerService.fetchObjects(currentOrg?.id || ''); // Call real backend service
+      return response; // objectManagerService.fetchObjects already returns CustomObject[]
     }
   });
 
@@ -72,8 +40,7 @@ const ObjectManager: React.FC = () => {
   };
 
   return (
-    // <AppLayout> // Removed AppLayout wrapper; _app.tsx handles it.
-    <> {/* Added React Fragment wrapper */}
+    <>
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
           <div>
@@ -133,8 +100,7 @@ const ObjectManager: React.FC = () => {
         onClose={() => setIsCreateModalOpen(false)}
         onSuccess={handleCreateSuccess}
       />
-    </> // Added React Fragment wrapper
-    // </AppLayout>
+    </>
   );
 };
 

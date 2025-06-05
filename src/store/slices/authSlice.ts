@@ -8,6 +8,7 @@ export interface User {
   lastName: string;
   avatarUrl?: string;
   isAdmin?: boolean; // Added isAdmin property
+  organizationId?: string; // Add organizationId to User interface
 }
 
 export interface AuthState {
@@ -41,13 +42,17 @@ export const authSlice = createSlice({
       state.isLoading = true;
       state.error = null;
     },
-    loginSuccess: (state, action: PayloadAction<{ user: User; token: string; orgId: string; permissions: string[]; isAdmin?: boolean }>) => {
+    loginSuccess: (state, action: PayloadAction<{ user: User; token: string; orgId: string | null; permissions: string[]; isAdmin?: boolean }>) => {
       state.isAuthenticated = true;
       state.isLoading = false;
-      state.user = { ...action.payload.user, isAdmin: action.payload.isAdmin || false }; // Set isAdmin, default to false
+      state.user = {
+        ...action.payload.user,
+        isAdmin: action.payload.isAdmin || false,
+        organizationId: action.payload.orgId // Set organizationId on user object (can be null)
+      };
       state.token = action.payload.token;
       state.orgId = action.payload.orgId;
-      state.permissions = action.payload.permissions;
+      state.permissions = action.payload.permissions || [];
       state.error = null;
     },
     loginFailed: (state, action: PayloadAction<string>) => {
@@ -69,6 +74,9 @@ export const authSlice = createSlice({
     },
     switchOrg: (state, action: PayloadAction<string>) => {
       state.orgId = action.payload;
+      if (state.user) {
+        state.user.organizationId = action.payload;
+      }
     },
     toggleDeveloperMode: (state, action: PayloadAction<boolean>) => {
       state.developerMode = action.payload;

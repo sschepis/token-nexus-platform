@@ -1,34 +1,42 @@
 import React from 'react';
-import { Routes, Route, useParams } from 'react-router-dom';
+import { useRouter } from 'next/router';
 import { useAppFramework } from '../../contexts/AppFrameworkContext';
 import { AppLayout } from './AppLayout';
 import { AppComponentRenderer } from './AppComponentRenderer';
 
 export const AppRouter: React.FC = () => {
+  const router = useRouter();
+  const { appId, ...rest } = router.query;
   const { registeredApps } = useAppFramework();
 
-  return (
-    <Routes>
-      {/* Admin routes for each app */}
-      <Route path="/apps/:appId/admin" element={<AppLayout type="admin" />}>
-        <Route index element={<AppDefaultAdminPage />} />
-        <Route path="*" element={<AppRouteRenderer type="admin" />} />
-      </Route>
+  // This component is now mainly for compatibility
+  // In Next.js, routing is handled by the file system
+  // This component can be used within specific app pages
+  
+  if (!appId || typeof appId !== 'string') {
+    return <div>Invalid app ID</div>;
+  }
 
-      {/* User routes for each app */}
-      <Route path="/apps/:appId" element={<AppLayout type="user" />}>
-        <Route index element={<AppDefaultUserPage />} />
-        <Route path="*" element={<AppRouteRenderer type="user" />} />
-      </Route>
-    </Routes>
+  const app = registeredApps.get(appId);
+  
+  if (!app) {
+    return <div>App not found</div>;
+  }
+
+  // Determine if this is an admin route based on the path
+  const isAdminRoute = router.pathname.includes('/admin');
+  
+  return (
+    <AppLayout type={isAdminRoute ? 'admin' : 'user'} appId={appId}>
+      <AppRouteRenderer appId={appId} type={isAdminRoute ? 'admin' : 'user'} />
+    </AppLayout>
   );
 };
 
-const AppDefaultAdminPage: React.FC = () => {
-  const { appId } = useParams<{ appId: string }>();
+export const AppDefaultAdminPage: React.FC<{ appId: string }> = ({ appId }) => {
   const { registeredApps } = useAppFramework();
   
-  const app = appId ? registeredApps.get(appId) : undefined;
+  const app = registeredApps.get(appId);
   
   if (!app?.manifest.adminUI?.routes?.length) {
     return (
@@ -41,16 +49,15 @@ const AppDefaultAdminPage: React.FC = () => {
     );
   }
 
-  // Redirect to first available route
+  // Show first available route
   const firstRoute = app.manifest.adminUI.routes[0];
-  return <AppComponentRenderer appId={appId!} route={firstRoute} />;
+  return <AppComponentRenderer appId={appId} route={firstRoute} />;
 };
 
-const AppDefaultUserPage: React.FC = () => {
-  const { appId } = useParams<{ appId: string }>();
+export const AppDefaultUserPage: React.FC<{ appId: string }> = ({ appId }) => {
   const { registeredApps } = useAppFramework();
   
-  const app = appId ? registeredApps.get(appId) : undefined;
+  const app = registeredApps.get(appId);
   
   if (!app?.manifest.userUI?.routes?.length) {
     return (
@@ -63,21 +70,21 @@ const AppDefaultUserPage: React.FC = () => {
     );
   }
 
-  // Redirect to first available route
+  // Show first available route
   const firstRoute = app.manifest.userUI.routes[0];
-  return <AppComponentRenderer appId={appId!} route={firstRoute} />;
+  return <AppComponentRenderer appId={appId} route={firstRoute} />;
 };
 
 interface AppRouteRendererProps {
+  appId: string;
   type: 'admin' | 'user';
 }
 
-const AppRouteRenderer: React.FC<AppRouteRendererProps> = ({ type }) => {
-  const { appId } = useParams<{ appId: string }>();
+const AppRouteRenderer: React.FC<AppRouteRendererProps> = ({ appId, type }) => {
   const { registeredApps } = useAppFramework();
-  const location = window.location;
+  const router = useRouter();
   
-  const app = appId ? registeredApps.get(appId) : undefined;
+  const app = registeredApps.get(appId);
   
   if (!app) {
     return <div>App not found</div>;
@@ -89,12 +96,15 @@ const AppRouteRenderer: React.FC<AppRouteRendererProps> = ({ type }) => {
     return <div>No routes configured for this app</div>;
   }
 
-  // Find matching route
-  const currentPath = location.pathname.replace(`/apps/${appId}${type === 'admin' ? '/admin' : ''}`, '');
+  // Extract the route path from Next.js router
+  const currentPath = router.asPath.replace(`/apps/${appId}${type === 'admin' ? '/admin' : ''}`, '') || '/';
   const matchingRoute = routes.find(route => route.path === currentPath);
   
   if (!matchingRoute) {
-    return <div>Route not found</div>;
+    // Show default page if no specific route matches
+    return type === 'admin' ?
+      <AppDefaultAdminPage appId={appId} /> :
+      <AppDefaultUserPage appId={appId} />;
   }
 
   return <AppComponentRenderer appId={appId} route={matchingRoute} />;

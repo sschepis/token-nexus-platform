@@ -44,7 +44,7 @@ type FormValues = z.infer<typeof formSchema>;
 interface CreateObjectModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (objectData: FormValues) => void;
 }
 
 const CreateObjectModal: React.FC<CreateObjectModalProps> = ({
@@ -76,8 +76,8 @@ const CreateObjectModal: React.FC<CreateObjectModalProps> = ({
         }, 500);
       });
     },
-    onSuccess: () => {
-      onSuccess();
+    onSuccess: (data) => {
+      onSuccess(form.getValues());
       form.reset();
     },
     onError: () => {

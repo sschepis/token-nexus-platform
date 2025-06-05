@@ -4,6 +4,120 @@ import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
 import Parse from 'parse';
 import { toast } from 'sonner';
 
+// Utility function to serialize Parse objects to plain objects
+const serializeParseObject = (obj: any): any => {
+  if (!obj) return obj;
+  
+  // Handle JSHandle objects (browser-specific objects that shouldn't be in Redux)
+  if (obj.constructor && obj.constructor.name === 'JSHandle') {
+    console.warn('JSHandle object detected in Redux state, converting to null:', obj);
+    return null;
+  }
+  
+  // Handle Date objects
+  if (obj instanceof Date) {
+    return obj.toISOString();
+  }
+  
+  // If it's a Parse Object, convert to plain object
+  if (obj.toJSON && typeof obj.toJSON === 'function') {
+    const serialized = obj.toJSON();
+    // Recursively serialize nested objects
+    Object.keys(serialized).forEach(key => {
+      if (serialized[key] instanceof Date) {
+        serialized[key] = serialized[key].toISOString();
+      } else if (serialized[key] && typeof serialized[key] === 'object') {
+        serialized[key] = serializeParseObject(serialized[key]);
+      }
+    });
+    return serialized;
+  }
+  
+  // If it's a Parse object with get method, extract data manually
+  if (obj.get && typeof obj.get === 'function') {
+    const serialized: any = {
+      objectId: obj.id || obj.get('objectId'),
+      id: obj.id || obj.get('objectId'),
+      className: obj.className,
+    };
+    
+    // Common fields to extract
+    const commonFields = ['email', 'username', 'name', 'createdAt', 'updatedAt'];
+    commonFields.forEach(field => {
+      try {
+        const value = obj.get(field);
+        if (value !== undefined) {
+          serialized[field] = value instanceof Date ? value.toISOString() : serializeParseObject(value);
+        }
+      } catch (error) {
+        // Ignore errors for fields that don't exist
+      }
+    });
+    
+    return serialized;
+  }
+  
+  // If it's already a plain object with Parse-like structure, extract relevant fields
+  if (obj.objectId || obj.id) {
+    const serialized = {
+      objectId: obj.objectId || obj.id,
+      id: obj.objectId || obj.id,
+      className: obj.className,
+      email: obj.email,
+      username: obj.username,
+      name: obj.name,
+      createdAt: obj.createdAt instanceof Date ? obj.createdAt.toISOString() : obj.createdAt,
+      updatedAt: obj.updatedAt instanceof Date ? obj.updatedAt.toISOString() : obj.updatedAt,
+    };
+    
+    // Remove undefined values
+    Object.keys(serialized).forEach(key => {
+      if (serialized[key as keyof typeof serialized] === undefined) {
+        delete serialized[key as keyof typeof serialized];
+      }
+    });
+    
+    return serialized;
+  }
+  
+  // For arrays, recursively serialize each element
+  if (Array.isArray(obj)) {
+    return obj.map(item => serializeParseObject(item));
+  }
+  
+  // For plain objects, recursively serialize properties
+  if (obj && typeof obj === 'object' && obj.constructor === Object) {
+    const serialized: any = {};
+    Object.keys(obj).forEach(key => {
+      serialized[key] = serializeParseObject(obj[key]);
+    });
+    return serialized;
+  }
+  
+  return obj;
+};
+
+// Utility function to serialize organization data
+const serializeOrganization = (orgJson: any): Organization => {
+  return {
+    id: orgJson.objectId || orgJson.id,
+    name: orgJson.name,
+    description: orgJson.description,
+    subdomain: orgJson.subdomain,
+    industry: orgJson.industry,
+    logo: orgJson.logo,
+    plan: orgJson.planType || orgJson.plan,
+    planType: orgJson.planType,
+    status: orgJson.status,
+    administrator: serializeParseObject(orgJson.administrator),
+    createdAt: orgJson.createdAt,
+    updatedAt: orgJson.updatedAt,
+    createdBy: serializeParseObject(orgJson.createdBy),
+    updatedBy: serializeParseObject(orgJson.updatedBy),
+    settings: orgJson.settings || {},
+  };
+};
+
 export interface Organization {
   id: string; // Mapped from objectId
   name: string;
@@ -16,16 +130,38 @@ export interface Organization {
   domain?: string; // Potentially part of 'settings.customDomain' (legacy or direct)
   
   // Fields from listOrganizationsForAdmin and for general use
-  // Parse Server returns pointers as objects with __type, className, objectId.
-  // .toJSON() often converts these. We need to handle the structure as returned by the cloud function.
-  administrator?: string | { objectId: string; className?: string; __type?: 'Pointer'; email?: string; username?: string; name?: string; get?: (key:string)=>any };
+  // All Parse objects are serialized to plain objects for Redux compatibility
+  administrator?: {
+    objectId: string;
+    id: string;
+    className?: string;
+    email?: string;
+    username?: string;
+    name?: string;
+    createdAt?: string;
+    updatedAt?: string;
+  };
   status?: string; // e.g., "Active", "Suspended"
   planType?: string; // This is what listOrganizationsForAdmin likely returns for 'plan'
   plan?: 'free' | 'standard' | 'enterprise' | string; // Keep original plan for flexibility
   createdAt: string; // ISO date string (Parse default)
   updatedAt: string; // ISO date string (Parse default)
-  createdBy?: { objectId: string; className?: string; __type?: 'Pointer'; username?: string; get?: (key:string)=>any };
-  updatedBy?: { objectId: string; className?: string; __type?: 'Pointer'; username?: string; get?: (key:string)=>any };
+  createdBy?: {
+    objectId: string;
+    id: string;
+    className?: string;
+    username?: string;
+    createdAt?: string;
+    updatedAt?: string;
+  };
+  updatedBy?: {
+    objectId: string;
+    id: string;
+    className?: string;
+    username?: string;
+    createdAt?: string;
+    updatedAt?: string;
+  };
   settings?: Record<string, any>;
 }
 
@@ -90,9 +226,13 @@ export const fetchCurrentOrgDetails = createAsyncThunk(
   'org/fetchCurrentOrgDetails',
   async (orgId: string, { rejectWithValue }) => {
     try {
-      const orgDetails: OrganizationDetails = await Parse.Cloud.run('getOrganizationSettings', { orgId });
-      // Transform OrganizationDetails (with objectId) to Organization (with id)
-      return { ...orgDetails, id: orgDetails.objectId } as Organization;
+      // Changed 'getOrganizationSettings' to 'getOrganizationProfile'
+      const profileResponse: any = await Parse.Cloud.run('getOrganizationProfile', { orgId });
+      if (!profileResponse.success || !profileResponse.organization) {
+        throw new Error(profileResponse.message || 'Failed to fetch organization profile.');
+      }
+      // The 'organization' field from getOrganizationProfile needs to be serialized
+      return serializeOrganization(profileResponse.organization);
     } catch (error: any) {
       toast.error(error.message || 'Failed to fetch organization details.');
       return rejectWithValue(error.message || 'Failed to fetch organization details.');
@@ -106,10 +246,76 @@ export const updateCurrentOrgSettings = createAsyncThunk(
     try {
       const updatedOrgData: OrganizationDetails = await Parse.Cloud.run('updateOrganizationSettings', params);
       toast.success('Organization settings updated successfully!');
-      return { ...updatedOrgData, id: updatedOrgData.objectId } as Organization;
+      return serializeOrganization({ ...updatedOrgData, id: updatedOrgData.objectId });
     } catch (error: any) {
       toast.error(error.message || 'Failed to update organization settings.');
       return rejectWithValue(error.message || 'Failed to update organization settings.');
+    }
+  }
+);
+
+// Fetch organizations for the current user with robust error handling
+export const fetchUserOrganizations = createAsyncThunk(
+  'org/fetchUserOrganizations',
+  async (_, { rejectWithValue, getState }) => {
+    try {
+      // Changed 'getUserOrganizations' to 'getUserDetails' and get current user ID
+      const state = getState() as { auth: { user: { id: string } | null } };
+      const currentUserId = state.auth.user?.id;
+
+      if (!currentUserId) {
+        console.warn('fetchUserOrganizations: No current user ID available.');
+        return rejectWithValue('No current user found to fetch organizations for.');
+      }
+
+      const userDetailsResponse: any = await Parse.Cloud.run('getUserDetails', { userId: currentUserId });
+      
+      if (!userDetailsResponse || !userDetailsResponse.organizations) {
+        console.warn('getUserDetails did not return expected organizations array:', userDetailsResponse);
+        return [] as Organization[];
+      }
+      
+      return userDetailsResponse.organizations.map((orgJson: any) => serializeOrganization(orgJson));
+    } catch (error: any) {
+      console.error('Failed to fetch user organizations:', error);
+      // Don't show toast for this as it might be called automatically
+      return rejectWithValue(error.message || 'Failed to fetch user organizations.');
+    }
+  }
+);
+
+// Set current organization with validation
+export const setCurrentOrganization = createAsyncThunk(
+  'org/setCurrentOrganization',
+  async (orgId: string, { rejectWithValue }) => {
+    try {
+      const result = await Parse.Cloud.run('setCurrentOrganization', {
+        // orgId removed - now handled by middleware
+      });
+      if (result.success) {
+        toast.success(`Switched to organization: ${result.orgName}`);
+        return serializeOrganization({
+          objectId: result.orgId,
+          id: result.orgId,
+          name: result.orgName,
+          description: result.orgDescription,
+          subdomain: result.orgSubdomain,
+          industry: result.orgIndustry,
+          logo: result.orgLogo,
+          plan: result.orgPlanType,
+          planType: result.orgPlanType,
+          status: result.orgStatus,
+          settings: result.orgSettings || {},
+          createdAt: result.orgCreatedAt || new Date().toISOString(),
+          updatedAt: result.orgUpdatedAt || new Date().toISOString(),
+        });
+      } else {
+        throw new Error(result.message || 'Failed to switch organization');
+      }
+    } catch (error: any) {
+      console.error('Failed to set current organization:', error);
+      toast.error(error.message || 'Failed to switch organization');
+      return rejectWithValue(error.message || 'Failed to switch organization');
     }
   }
 );
@@ -121,24 +327,7 @@ export const fetchAllOrganizationsAdmin = createAsyncThunk(
     try {
       const orgsFromCloud: any[] = await Parse.Cloud.run('listOrganizationsForAdmin');
       // Ensure mapping aligns with the comprehensive Organization interface
-      return orgsFromCloud.map(orgJson => ({
-        id: orgJson.objectId,
-        name: orgJson.name,
-        description: orgJson.description,
-        subdomain: orgJson.subdomain,
-        industry: orgJson.industry,
-        logo: orgJson.logo,
-        plan: orgJson.planType || orgJson.plan, // Prioritize planType if available
-        planType: orgJson.planType,
-        status: orgJson.status,
-        administrator: orgJson.administrator, // Cloud fn returns this (can be string or pointer-like)
-        createdAt: orgJson.createdAt,
-        updatedAt: orgJson.updatedAt,
-        createdBy: orgJson.createdBy,
-        updatedBy: orgJson.updatedBy,
-        settings: orgJson.settings || {},
-        // Map other fields if the cloud function returns them and they are in Organization interface
-      })) as Organization[];
+      return orgsFromCloud.map(orgJson => serializeOrganization(orgJson));
     } catch (error: any) {
       toast.error(error.message || 'Failed to fetch all organizations.');
       return rejectWithValue(error.message || 'Failed to fetch all organizations.');
@@ -154,21 +343,7 @@ export const createOrgByAdmin = createAsyncThunk(
       toast.success(`Organization "${params.name}" created successfully!`);
       dispatch(fetchAllOrganizationsAdmin());
       // Map the raw response to the Organization interface
-      return {
-        id: newOrgDataRaw.objectId,
-        name: newOrgDataRaw.name,
-        description: newOrgDataRaw.description,
-        subdomain: newOrgDataRaw.subdomain,
-        industry: newOrgDataRaw.industry,
-        planType: newOrgDataRaw.planType,
-        status: newOrgDataRaw.status,
-        administrator: newOrgDataRaw.administrator,
-        createdAt: newOrgDataRaw.createdAt,
-        updatedAt: newOrgDataRaw.updatedAt,
-        createdBy: newOrgDataRaw.createdBy,
-        updatedBy: newOrgDataRaw.updatedBy,
-        settings: newOrgDataRaw.settings || {},
-      } as Organization;
+      return serializeOrganization(newOrgDataRaw);
     } catch (error: any) {
       toast.error(error.message || 'Failed to create organization.');
       return rejectWithValue(error.message || 'Failed to create organization.');
@@ -182,22 +357,7 @@ export const suspendOrgByAdmin = createAsyncThunk(
     try {
       const updatedOrgDataRaw: any = await Parse.Cloud.run('suspendOrganization', { orgId });
       toast.success(`Organization suspended successfully!`);
-      return {
-        id: updatedOrgDataRaw.objectId,
-        name: updatedOrgDataRaw.name,
-        status: updatedOrgDataRaw.status, // Key field that changed
-        // Include all other fields to maintain Organization structure
-        description: updatedOrgDataRaw.description,
-        subdomain: updatedOrgDataRaw.subdomain,
-        industry: updatedOrgDataRaw.industry,
-        planType: updatedOrgDataRaw.planType,
-        administrator: updatedOrgDataRaw.administrator,
-        createdAt: updatedOrgDataRaw.createdAt,
-        updatedAt: updatedOrgDataRaw.updatedAt,
-        createdBy: updatedOrgDataRaw.createdBy,
-        updatedBy: updatedOrgDataRaw.updatedBy,
-        settings: updatedOrgDataRaw.settings || {},
-       } as Organization;
+      return serializeOrganization(updatedOrgDataRaw);
     } catch (error: any) {
       toast.error(error.message || 'Failed to suspend organization.');
       return rejectWithValue(error.message || 'Failed to suspend organization.');
@@ -211,21 +371,7 @@ export const activateOrgByAdmin = createAsyncThunk(
     try {
       const updatedOrgDataRaw: any = await Parse.Cloud.run('activateOrganization', { orgId });
       toast.success(`Organization activated successfully!`);
-      return {
-        id: updatedOrgDataRaw.objectId,
-        name: updatedOrgDataRaw.name,
-        status: updatedOrgDataRaw.status, // Key field that changed
-        description: updatedOrgDataRaw.description,
-        subdomain: updatedOrgDataRaw.subdomain,
-        industry: updatedOrgDataRaw.industry,
-        planType: updatedOrgDataRaw.planType,
-        administrator: updatedOrgDataRaw.administrator,
-        createdAt: updatedOrgDataRaw.createdAt,
-        updatedAt: updatedOrgDataRaw.updatedAt,
-        createdBy: updatedOrgDataRaw.createdBy,
-        updatedBy: updatedOrgDataRaw.updatedBy,
-        settings: updatedOrgDataRaw.settings || {},
-      } as Organization;
+      return serializeOrganization(updatedOrgDataRaw);
     } catch (error: any) {
       toast.error(error.message || 'Failed to activate organization.');
       return rejectWithValue(error.message || 'Failed to activate organization.');
@@ -246,7 +392,8 @@ export const orgSlice = createSlice({
       state.error = null;
     },
     fetchOrgsSuccess: (state, action: PayloadAction<Organization[]>) => {
-      state.userOrgs = action.payload;
+      // Serialize the organizations to ensure no ParseUser objects are stored in Redux
+      state.userOrgs = action.payload.map(org => serializeOrganization(org));
       state.isLoading = false;
       // Logic to set currentOrg from this list might change if fetchCurrentOrgDetails is primary.
       if (action.payload.length > 0 && !state.currentOrg) {
@@ -338,6 +485,44 @@ export const orgSlice = createSlice({
         }
       })
       .addCase(updateCurrentOrgSettings.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
+      // User organizations
+      .addCase(fetchUserOrganizations.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchUserOrganizations.fulfilled, (state, action: PayloadAction<Organization[]>) => {
+        state.isLoading = false;
+        state.userOrgs = action.payload;
+        
+        // If no current org is set but we have orgs, try to set one from auth state
+        if (!state.currentOrg && action.payload.length > 0) {
+          // This will be handled by the auth flow or explicit organization switching
+          console.log(`User has ${action.payload.length} organizations available`);
+        }
+      })
+      .addCase(fetchUserOrganizations.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
+      // Set current organization
+      .addCase(setCurrentOrganization.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(setCurrentOrganization.fulfilled, (state, action: PayloadAction<Organization>) => {
+        state.isLoading = false;
+        state.currentOrg = action.payload;
+        
+        // Update the organization in userOrgs if it exists there
+        const orgIndex = state.userOrgs.findIndex(org => org.id === action.payload.id);
+        if (orgIndex >= 0) {
+          state.userOrgs[orgIndex] = action.payload;
+        }
+      })
+      .addCase(setCurrentOrganization.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
       })

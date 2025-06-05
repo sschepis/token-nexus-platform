@@ -9,23 +9,61 @@ const initialState: CloudFunctionState = {
       id: uuidv4(),
       name: "getUser",
       description: "Gets user data by ID",
-      code: "export default function getUser(req, res) {\n  const { userId } = req.params;\n  // In a real app, this would fetch from a database\n  return { id: userId, name: 'Sample User', email: 'user@example.com' };\n}",
+      code: `Parse.Cloud.define("getUser", async (request) => {
+  const { params, user } = request;
+  const { userId } = params;
+  
+  try {
+    if (!user) {
+      throw new Error("User must be authenticated");
+    }
+    
+    // In a real app, this would fetch from a database
+    return {
+      success: true,
+      data: { id: userId, name: 'Sample User', email: 'user@example.com' }
+    };
+  } catch (error) {
+    throw new Error(\`Failed to get user: \${error.message}\`);
+  }
+});`,
       language: "javascript",
       runtime: "nodejs18.x",
       status: "active",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      category: "user-management"
     },
     {
       id: uuidv4(),
       name: "processPayment",
       description: "Processes a payment transaction",
-      code: "export default async function processPayment(req, res) {\n  const { amount, currency } = req.body;\n  // This would integrate with a payment provider in a real app\n  return { success: true, transactionId: 'tx_' + Math.random().toString(36).substr(2, 9) };\n}",
+      code: `Parse.Cloud.define("processPayment", async (request) => {
+  const { params, user } = request;
+  const { amount, currency } = params;
+  
+  try {
+    if (!user) {
+      throw new Error("User must be authenticated");
+    }
+    
+    // This would integrate with a payment provider in a real app
+    return {
+      success: true,
+      transactionId: 'tx_' + Math.random().toString(36).substr(2, 9),
+      amount,
+      currency
+    };
+  } catch (error) {
+    throw new Error(\`Payment processing failed: \${error.message}\`);
+  }
+});`,
       language: "javascript",
       runtime: "nodejs18.x",
       status: "active",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      category: "payments"
     }
   ],
   selectedFunctionId: null,

@@ -1,6 +1,6 @@
 // src/components/ai-assistant/AIChatPopup.tsx
 import React from 'react';
-import AIChatInterface from './AIChatInterface';
+import EnhancedAIChatInterface from './EnhancedAIChatInterface';
 import { X } from 'lucide-react';
 
 interface AIChatPopupProps {
@@ -31,7 +31,7 @@ const AIChatPopup: React.FC<AIChatPopupProps> = ({ isOpen, onClose }) => {
       </div>
       <div className="flex-grow p-0 overflow-hidden">
         {/* AIChatInterface might need its own theme adjustments if it uses inline styles */}
-        <AIChatInterface />
+        <EnhancedAIChatInterface />
       </div>
     </div>
   );

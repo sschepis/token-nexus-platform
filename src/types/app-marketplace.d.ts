@@ -88,15 +88,18 @@ export interface AppState {
 }
 
 export interface InstallAppParams {
-  appId: string;
-  permissions: string[];
+  appDefinitionId: string;
+  versionId?: string; // Optional - will use latest published version if not provided
+  appSpecificConfig?: Record<string, any>;
 }
 
 export interface UninstallAppParams {
-  appId: string;
+  appDefinitionId?: string; // Either this or orgAppInstallationId is required
+  orgAppInstallationId?: string;
 }
 
 export interface UpdateAppSettingsParams {
-  appId: string;
+  appDefinitionId?: string; // Either this or orgAppInstallationId is required
+  orgAppInstallationId?: string;
   settings: Record<string, any>;
 }

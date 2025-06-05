@@ -2,9 +2,9 @@
 import React, { useState, useEffect } from "react";
 import { useAppSelector } from "@/store/hooks";
 import { toast } from "@/hooks/use-toast";
-import { mockApis } from "@/services/api";
+import { apiService, mockApis } from "@/services/api";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { AnimatedButton } from "@/components/ui/animated-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2 } from "lucide-react";
+import { LoadingAnimation, TokenCreatedAnimation } from "@/components/animations";
 import { Badge } from "@/components/ui/badge";
 
 const TokenForm = () => {
@@ -29,6 +29,7 @@ const TokenForm = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [transactionStatus, setTransactionStatus] = useState<string | null>(null);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   // Check if user has permission to create tokens
   const canCreateTokens = permissions.includes("tokens:write");
@@ -101,7 +102,7 @@ const TokenForm = () => {
     
     try {
       // In a real app, we would call the actual API endpoint
-      await mockApis.createToken({ ...formData, orgId });
+      await apiService.createToken({ ...formData, orgId });
       
       setTransactionStatus("Pending");
       toast({
@@ -109,14 +110,23 @@ const TokenForm = () => {
         description: "Your token is being processed. You'll be notified when it's ready.",
       });
       
-      // Reset form after successful submission
-      setFormData({
-        name: "",
-        symbol: "",
-        type: "ERC3643",
-        blockchain: "Ethereum",
-        supply: 0,
-      });
+      // Show success animation after completion
+      setTimeout(() => {
+        setTransactionStatus("Confirmed");
+        setShowSuccess(true);
+        setTimeout(() => {
+          setShowSuccess(false);
+          // Reset form after successful submission
+          setFormData({
+            name: "",
+            symbol: "",
+            type: "ERC3643",
+            blockchain: "Ethereum",
+            supply: 0,
+          });
+          setTransactionStatus(null);
+        }, 3000);
+      }, 4000);
     } catch (err) {
       setError("Failed to create token. Please try again.");
       toast({
@@ -130,10 +140,20 @@ const TokenForm = () => {
   };
 
   return (
-    <Card className="w-full max-w-lg mx-auto">
-      <CardHeader>
-        <CardTitle>Create New Token</CardTitle>
-      </CardHeader>
+    <>
+      {showSuccess && (
+        <TokenCreatedAnimation
+          overlay={true}
+          title="Token Created Successfully!"
+          description={`Your ${formData.name} token has been deployed to the ${formData.blockchain} blockchain.`}
+          onComplete={() => setShowSuccess(false)}
+        />
+      )}
+      
+      <Card className="w-full max-w-lg mx-auto">
+        <CardHeader>
+          <CardTitle>Create New Token</CardTitle>
+        </CardHeader>
       
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">
@@ -149,9 +169,19 @@ const TokenForm = () => {
                 <p className="font-medium">Transaction Status</p>
                 <p>{transactionStatus}</p>
               </div>
-              <Badge variant="outline" className="ml-2">
-                {transactionStatus === "Confirmed" ? "✓" : <Loader2 className="h-3 w-3 animate-spin" />}
-              </Badge>
+              <div className="ml-2">
+                {transactionStatus === "Confirmed" ? (
+                  <Badge variant="outline" className="flex items-center">
+                    ✓ Complete
+                  </Badge>
+                ) : (
+                  <LoadingAnimation
+                    type="spinner"
+                    size="sm"
+                    className="w-6 h-6"
+                  />
+                )}
+              </div>
             </div>
           )}
           
@@ -236,23 +266,22 @@ const TokenForm = () => {
         </CardContent>
         
         <CardFooter>
-          <Button
+          <AnimatedButton
             type="submit"
             className="w-full"
             disabled={loading || !!transactionStatus || !canCreateTokens}
+            loadingAnimation={true}
+            successAnimation={true}
+            loadingText="Creating Token..."
+            successText="Token Created!"
+            successDuration={2000}
           >
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Creating...
-              </>
-            ) : (
-              "Create Token"
-            )}
-          </Button>
+            Create Token
+          </AnimatedButton>
         </CardFooter>
       </form>
     </Card>
+    </>
   );
 };
 

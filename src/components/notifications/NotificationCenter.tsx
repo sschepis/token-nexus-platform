@@ -1,10 +1,12 @@
 
 import React, { useEffect, useState } from "react";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
-import { 
-  fetchNotificationsStart, 
-  fetchNotificationsSuccess, 
-  markAsRead, 
+import {
+  fetchNotifications,
+  markNotificationAsReadAsync,
+  markAllNotificationsAsReadAsync,
+  deleteNotificationAsync,
+  markAsRead,
   markAllAsRead,
   deleteNotification,
   Notification,
@@ -36,71 +38,7 @@ const NotificationCenter = () => {
   // Fetch notifications
   useEffect(() => {
     if (isOpen && !notifications.length) {
-      dispatch(fetchNotificationsStart());
-      
-      // Mock notifications data - in a real app, this would be an API call
-      const mockNotifications: Notification[] = [
-        {
-          id: "notif-1",
-          type: "system",
-          title: "System Maintenance",
-          message: "Scheduled maintenance will occur tomorrow at 2:00 AM UTC.",
-          timestamp: new Date(Date.now() + 86400000).toISOString(),
-          isRead: false,
-          priority: "normal" as NotificationPriority,
-          userId: "user-123",
-        },
-        {
-          id: "notif-2",
-          type: "security",
-          title: "New Login Detected",
-          message: "A new login was detected from Chicago, USA.",
-          timestamp: new Date().toISOString(),
-          isRead: false,
-          priority: "high" as NotificationPriority,
-          userId: "user-123",
-          actionUrl: "/settings/security",
-          actionLabel: "Review Activity",
-        },
-        {
-          id: "notif-3",
-          type: "usage",
-          title: "API Usage 80% of Limit",
-          message: "Your API usage is approaching your monthly limit.",
-          timestamp: new Date(Date.now() - 3600000).toISOString(),
-          isRead: true,
-          priority: "high" as NotificationPriority,
-          userId: "user-123",
-          actionUrl: "/settings/billing",
-          actionLabel: "Upgrade Plan",
-        },
-        {
-          id: "notif-4",
-          type: "team",
-          title: "New Team Member",
-          message: "Jane Smith accepted your invitation to join the team.",
-          timestamp: new Date(Date.now() - 86400000).toISOString(),
-          isRead: true,
-          priority: "normal" as NotificationPriority,
-          userId: "user-123",
-        },
-        {
-          id: "notif-5",
-          type: "system",
-          title: "New Feature Available",
-          message: "Check out the new dashboard analytics features!",
-          timestamp: new Date(Date.now() - 172800000).toISOString(),
-          isRead: false,
-          priority: "low" as NotificationPriority,
-          userId: "user-123",
-          actionUrl: "/dashboard",
-          actionLabel: "View Dashboard",
-        },
-      ];
-      
-      setTimeout(() => {
-        dispatch(fetchNotificationsSuccess(mockNotifications));
-      }, 500);
+      dispatch(fetchNotifications({}));
     }
   }, [dispatch, isOpen, notifications.length]);
 
@@ -111,17 +49,17 @@ const NotificationCenter = () => {
 
   // Handle marking a notification as read
   const handleMarkAsRead = (id: string) => {
-    dispatch(markAsRead(id));
+    dispatch(markNotificationAsReadAsync(id));
   };
 
   // Handle marking all notifications as read
   const handleMarkAllAsRead = () => {
-    dispatch(markAllAsRead());
+    dispatch(markAllNotificationsAsReadAsync(undefined));
   };
 
   // Handle deleting a notification
   const handleDeleteNotification = (id: string) => {
-    dispatch(deleteNotification(id));
+    dispatch(deleteNotificationAsync(id));
   };
 
   // Get priority classes

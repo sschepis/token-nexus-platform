@@ -55,7 +55,14 @@ export const todoAppManifest: AppManifest = {
   },
   
   backend: {
-    cloudFunctions: ['createTodo', 'updateTodo', 'deleteTodo', 'getTodos'],
+    cloudFunctions: [
+      'createTodo',
+      'updateTodo',
+      'deleteTodo',
+      'getTodos',
+      'dailyTodoCleanup',
+      'generateWeeklyReport'
+    ],
     schemas: ['Todo'],
     webhooks: [
       {
@@ -65,6 +72,36 @@ export const todoAppManifest: AppManifest = {
       }
     ]
   },
+  
+  // NEW: Scheduled Jobs
+  scheduledJobs: [
+    {
+      id: 'daily-cleanup',
+      name: 'Daily Todo Cleanup',
+      description: 'Archive completed todos and send reminder emails',
+      schedule: '0 2 * * *', // Daily at 2 AM
+      function: 'dailyTodoCleanup',
+      enabled: true,
+      timezone: 'UTC',
+      params: {
+        archiveAfterDays: 7,
+        sendReminders: true
+      }
+    },
+    {
+      id: 'weekly-report',
+      name: 'Weekly Todo Report',
+      description: 'Generate and send weekly productivity reports',
+      schedule: '0 9 * * 1', // Monday at 9 AM
+      function: 'generateWeeklyReport',
+      enabled: true,
+      timezone: 'UTC',
+      params: {
+        includeStats: true,
+        emailReport: true
+      }
+    }
+  ],
   
   dependencies: {
     platform: '1.0.0',

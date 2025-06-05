@@ -3,7 +3,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { toast } from 'sonner';
 import Parse from 'parse';
-import { mockApis } from '@/services/api';
 import {
     App, AppCategory, AppState,
     InstallAppParams, UninstallAppParams, UpdateAppSettingsParams,
@@ -13,33 +12,25 @@ import {
 // Async thunks for user-facing marketplace
 export const fetchApps = createAsyncThunk('apps/fetchApps', async () => {
   try {
-    // Fetch published apps from the app store
-    const result = await Parse.Cloud.run('listAppsForAdmin', {
-      filterParams: { status: 'published' },
-      page: 1,
-      limit: 100 // Get all published apps
-    });
+    // Fetch published apps from the marketplace
+    const appDefinitions = await Parse.Cloud.run('fetchAppDefinitions', {});
     
-    if (result.success) {
-      // Transform AppDefinition data to App format for the UI
-      const apps: App[] = result.apps.map((appDef: any) => ({
-        id: appDef.id,
-        name: appDef.name,
-        description: appDef.description || '',
-        category: appDef.category || 'other',
-        icon: appDef.icon,
-        publisher: appDef.publisher || 'Unknown',
-        version: appDef.currentVersion?.version || '1.0.0',
-        pricing: appDef.pricing || 'free',
-        status: 'not_installed', // Will be updated based on installed apps
-        permissions: appDef.defaultPermissions || [],
-        settings: {}
-      }));
-      
-      return apps;
-    } else {
-      throw new Error('Failed to fetch apps');
-    }
+    // Transform AppDefinition data to App format for the UI
+    const apps: App[] = appDefinitions.map((appDef: any) => ({
+      id: appDef.id,
+      name: appDef.name,
+      description: appDef.description || '',
+      category: appDef.category || 'other',
+      icon: appDef.iconUrl,
+      publisher: appDef.publisherName || 'Unknown',
+      version: '1.0.0', // Will be updated with actual version info
+      pricing: 'free', // Default pricing
+      status: 'not_installed', // Will be updated based on installed apps
+      permissions: [], // Will be populated from app manifest
+      settings: {}
+    }));
+    
+    return apps;
   } catch (error) {
     console.error('Error fetching apps:', error);
     throw error;
@@ -57,45 +48,10 @@ export const fetchInstalledOrgApps = createAsyncThunk(
       return rejectWithValue('Organization ID is required.');
     }
     try {
-      const result = await Parse.Cloud.run('getInstalledAppsForOrg', {
+      const installations = await Parse.Cloud.run('fetchOrgAppInstallations', {
         organizationId: orgId
       });
-      
-      if (result.success) {
-        // Transform the installations data to match OrgAppInstallation interface
-        const installations: OrgAppInstallation[] = result.installations.map((inst: any) => ({
-          objectId: inst.id,
-          organization: {
-            objectId: orgId,
-            __type: 'Pointer',
-            className: 'Organization'
-          },
-          appDefinition: {
-            id: inst.appDefinition.id,
-            objectId: inst.appDefinition.id,
-            name: inst.appDefinition.name,
-            description: inst.appDefinition.description,
-            publisherName: inst.appDefinition.publisher || 'Unknown',
-            category: inst.appDefinition.category || 'other',
-            iconUrl: inst.appDefinition.icon
-          },
-          installedVersion: {
-            id: inst.installedVersion.id,
-            objectId: inst.installedVersion.id,
-            versionString: inst.installedVersion.version,
-            changelog: inst.installedVersion.changelog,
-            status: 'published'
-          },
-          installationDate: inst.installationDate,
-          status: inst.status,
-          appSpecificConfig: inst.configuration,
-          installedBy: inst.installedBy
-        }));
-        
-        return installations;
-      } else {
-        throw new Error('Failed to fetch installed apps');
-      }
+      return installations as OrgAppInstallation[];
     } catch (error: any) {
       console.error('Error fetching installed org apps:', error);
       return rejectWithValue(error.message || 'Failed to fetch installed apps for organization.');
@@ -115,20 +71,15 @@ export const installAppToOrg = createAsyncThunk(
   'apps/installAppToOrg',
   async (params: InstallAppToOrgParams, { rejectWithValue }) => {
     try {
-      const result = await Parse.Cloud.run('installAppInOrg', {
-        organizationId: params.orgId,
+      const result = await Parse.Cloud.run('installApp', {
         appDefinitionId: params.appDefinitionId,
         versionId: params.versionId,
-        configuration: params.appSpecificConfig || {}
+        appSpecificConfig: params.appSpecificConfig || {}
       });
       
-      if (result.success) {
-        toast.success(result.message || 'App installed successfully');
-        // Return the installation ID so we can refetch the installations
-        return { installationId: result.installationId };
-      } else {
-        throw new Error('Failed to install app');
-      }
+      toast.success('App installed successfully');
+      // Return the installation ID so we can refetch the installations
+      return { installationId: result.installationId };
     } catch (error: any) {
       console.error('Error installing app to org:', error);
       return rejectWithValue(error.message || 'Failed to install app.');
@@ -142,26 +93,14 @@ export interface UninstallOrgAppParams {
 
 export const uninstallOrgApp = createAsyncThunk(
   'apps/uninstallOrgApp',
-  async ({ orgAppInstallationId }: UninstallOrgAppParams, { getState, rejectWithValue }) => {
+  async ({ orgAppInstallationId }: UninstallOrgAppParams, { rejectWithValue }) => {
     try {
-      const state = getState() as { org: { currentOrg: { id: string } } };
-      const orgId = state.org.currentOrg?.id;
-      
-      if (!orgId) {
-        throw new Error('No organization selected');
-      }
-      
-      const result = await Parse.Cloud.run('uninstallAppFromOrg', {
-        organizationId: orgId,
-        installationId: orgAppInstallationId
+      await Parse.Cloud.run('uninstallApp', {
+        orgAppInstallationId: orgAppInstallationId
       });
       
-      if (result.success) {
-        toast.success(result.message || 'App uninstalled successfully');
-        return { orgAppInstallationId }; // Return ID for removal from state
-      } else {
-        throw new Error('Failed to uninstall app');
-      }
+      toast.success('App uninstalled successfully');
+      return { orgAppInstallationId }; // Return ID for removal from state
     } catch (error: any) {
       console.error('Error uninstalling org app:', error);
       return rejectWithValue(error.message || 'Failed to uninstall app.');
@@ -171,15 +110,10 @@ export const uninstallOrgApp = createAsyncThunk(
 
 export const updateAppSettings = createAsyncThunk(
   'apps/updateSettings',
-  async ({ appId, settings }: UpdateAppSettingsParams) => {
+  async (params: UpdateAppSettingsParams) => {
     try {
-      // In a real app, use this:
-      // const response = await api.post(`/apps/${appId}/settings`, { settings });
-      // return response.data;
-      
-      // For now, use mock data
-      const response = await mockApis.updateAppSettings({ appId, settings });
-      return { appId, settings: response.data.settings };
+      const response = await Parse.Cloud.run('updateAppSettings', params);
+      return response;
     } catch (error) {
       console.error('Error updating app settings:', error);
       throw error;

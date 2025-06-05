@@ -5,6 +5,7 @@ import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Checkbox } from '../../ui/checkbox';
 import { Trash2, Plus, Settings } from 'lucide-react';
+import { JobManager } from '../JobManager';
 
 interface Todo {
   id: string;
@@ -285,6 +286,9 @@ export const TodoAppSettings: React.FC<AppComponentProps> = ({
           </div>
         </CardContent>
       </Card>
+
+      {/* Scheduled Jobs Management */}
+      <JobManager appId={appId} />
     </div>
   );
 };

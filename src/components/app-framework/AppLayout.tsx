@@ -1,22 +1,25 @@
 import React from 'react';
-import { Outlet, useParams, useLocation } from 'react-router-dom';
+import { useRouter } from 'next/router';
+import Link from 'next/link';
 import { useAppFramework } from '../../contexts/AppFrameworkContext';
 import MainAppLayout from '../layout/AppLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { ArrowLeft, Settings, Info } from 'lucide-react';
-import { Link } from 'react-router-dom';
 
 interface AppLayoutProps {
   type: 'admin' | 'user';
+  children: React.ReactNode;
+  appId?: string;
 }
 
-export const AppLayout: React.FC<AppLayoutProps> = ({ type }) => {
-  const { appId } = useParams<{ appId: string }>();
-  const location = useLocation();
+export const AppLayout: React.FC<AppLayoutProps> = ({ type, children, appId }) => {
+  const router = useRouter();
   const { registeredApps } = useAppFramework();
   
-  const app = appId ? registeredApps.get(appId) : undefined;
+  // Get appId from props or router
+  const currentAppId = appId || (typeof router.query.appId === 'string' ? router.query.appId : undefined);
+  const app = currentAppId ? registeredApps.get(currentAppId) : undefined;
   
   if (!app) {
     return (
@@ -35,13 +38,13 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ type }) => {
             <CardContent>
               <div className="flex gap-2">
                 <Button asChild variant="outline">
-                  <Link to="/marketplace">
+                  <Link href="/marketplace">
                     <ArrowLeft className="h-4 w-4 mr-2" />
                     Back to Marketplace
                   </Link>
                 </Button>
                 <Button asChild variant="outline">
-                  <Link to="/dashboard">
+                  <Link href="/dashboard">
                     Go to Dashboard
                   </Link>
                 </Button>
@@ -70,13 +73,13 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ type }) => {
             <CardContent>
               <div className="flex gap-2">
                 <Button asChild variant="outline">
-                  <Link to="/marketplace">
+                  <Link href="/marketplace">
                     <ArrowLeft className="h-4 w-4 mr-2" />
                     Back to Marketplace
                   </Link>
                 </Button>
                 <Button asChild variant="outline">
-                  <Link to="/settings/apps">
+                  <Link href="/settings/apps">
                     <Settings className="h-4 w-4 mr-2" />
                     App Settings
                   </Link>
@@ -106,7 +109,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ type }) => {
             </CardHeader>
             <CardContent>
               <Button asChild variant="outline">
-                <Link to="/dashboard">
+                <Link href="/dashboard">
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Back to Dashboard
                 </Link>
@@ -126,7 +129,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ type }) => {
           <div className="container flex h-14 items-center">
             <div className="flex items-center gap-4">
               <Button asChild variant="ghost" size="sm">
-                <Link to={type === 'admin' ? '/system-admin' : '/dashboard'}>
+                <Link href={type === 'admin' ? '/system-admin' : '/dashboard'}>
                   <ArrowLeft className="h-4 w-4" />
                 </Link>
               </Button>
@@ -146,7 +149,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ type }) => {
             </div>
             <div className="ml-auto flex items-center gap-2">
               <Button asChild variant="outline" size="sm">
-                <Link to={`/settings/apps/${appId}`}>
+                <Link href={`/settings/apps/${currentAppId}`}>
                   <Settings className="h-4 w-4" />
                 </Link>
               </Button>
@@ -166,7 +169,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ type }) => {
                   return (
                     <Link
                       key={route.path}
-                      to={routePath}
+                      href={routePath}
                       className={`text-sm font-medium transition-colors hover:text-primary ${
                         isActive 
                           ? 'text-foreground border-b-2 border-primary' 
@@ -184,7 +187,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ type }) => {
 
         {/* App Content */}
         <div className="container py-6">
-          <Outlet />
+          {children}
         </div>
       </div>
     </MainAppLayout>

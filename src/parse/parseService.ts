@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Parse from 'parse';
+import { getCurrentOrganizationId as getOrgId, setGlobalOrganizationContext } from '@/utils/organizationUtils';
 
 // Define basic interfaces for Parse Objects (assuming common methods)
 export interface ParseObject {
@@ -385,19 +386,138 @@ export async function deleteAllSchemas(): Promise<void> {
 }
 
 /**
- * Checks if a SmartContract with the given name exists.
+ * Checks if a SmartContract with the given name exists using tenant-aware cloud function.
  * @param contractName The name of the smart contract to check for.
  *
  * @returns True if the smart contract exists, false otherwise.
  */
 export async function hasSmartContract(contractName: string): Promise<boolean> {
+  // Smart contracts are optional and may not be available yet
+  // This should not block basic platform functionality
+
+  // Check if Parse is initialized
+  if (!Parse.applicationId) {
+    console.warn('Parse not initialized, cannot check for smart contracts');
+    return false;
+  }
+
   try {
-    const query = new Parse.Query('SmartContract');
-    query.equalTo('name', contractName);
-    const count = await query.count();
-    return count > 0;
+    // Organization context is now automatically injected by middleware
+    const result = await Parse.Cloud.run('hasSmartContract', {
+      contractName
+      // organizationId removed - now handled by middleware
+    }, {
+      sessionToken: Parse.User.current()?.getSessionToken()
+    });
+    
+    return result.exists || false;
   } catch (error) {
     console.error(`Error checking for SmartContract ${contractName}:`, error);
+    
+    // Fallback to direct query if cloud function fails
+    try {
+      const query = new Parse.Query('SmartContract');
+      query.equalTo('name', contractName);
+      
+      const organizationId = getCurrentOrganizationId();
+      if (organizationId && organizationId !== 'default') {
+        query.equalTo('organization', organizationId);
+      }
+      
+      const count = await query.count();
+      return count > 0;
+    } catch (fallbackError) {
+      console.error(`Fallback query also failed for SmartContract ${contractName}:`, fallbackError);
+      return false;
+    }
+  }
+}
+
+/**
+ * Get current organization ID using the centralized utility
+ * This ensures consistency across the entire application
+ */
+function getCurrentOrganizationId(): string {
+  const orgId = getOrgId();
+  
+  // Set global context for cloud functions
+  setGlobalOrganizationContext(orgId);
+  
+  return orgId;
+}
+
+/**
+ * Get smart contracts for current tenant
+ */
+export async function getSmartContracts(): Promise<any[]> {
+  try {
+    const organizationId = getCurrentOrganizationId();
+    
+    // Set organization context globally before making the call
+    if (typeof window !== 'undefined') {
+      (window as any).currentOrganizationId = organizationId;
+    }
+    
+    const result = await Parse.Cloud.run('getSmartContracts', {
+      // organizationId removed - now handled by middleware
+    }, {
+      sessionToken: Parse.User.current()?.getSessionToken()
+    });
+    
+    return result.contracts || [];
+  } catch (error) {
+    console.error('Error getting smart contracts:', error);
+    
+    // Fallback to direct query
+    try {
+      const query = new Parse.Query('SmartContract');
+      const organizationId = getCurrentOrganizationId();
+      
+      if (organizationId && organizationId !== 'default') {
+        query.equalTo('organization', organizationId);
+      }
+      
+      query.equalTo('isActive', true);
+      const results = await query.find();
+      
+      return results.map(contract => ({
+        id: contract.id,
+        name: contract.get('name'),
+        address: contract.get('address'),
+        network: contract.get('network'),
+        abi: contract.get('abi'),
+        deployedAt: contract.get('deployedAt'),
+        organizationId: contract.get('organization')?.id
+      }));
+    } catch (fallbackError) {
+      console.error('Fallback query also failed for smart contracts:', fallbackError);
+      return [];
+    }
+  }
+}
+
+/**
+ * Import smart contract for current tenant
+ */
+export async function importSmartContract(contractData: {
+  name: string;
+  address: string;
+  network: string;
+  abi: any;
+  deployedAt?: Date;
+}): Promise<boolean> {
+  try {
+    // Organization context is now automatically injected by middleware
+    const result = await Parse.Cloud.run('importSmartContract', {
+      contractData
+      // organizationId removed - now handled by middleware
+    }, {
+      sessionToken: Parse.User.current()?.getSessionToken()
+    });
+    
+    return result.success || false;
+  } catch (error) {
+    console.error('Error importing smart contract:', error);
     return false;
   }
 }

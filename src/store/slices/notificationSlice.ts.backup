@@ -1,0 +1,137 @@
+import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import { apiService } from '@/services/api';
+
+export type NotificationType = 'system' | 'security' | 'usage' | 'team' | 'integration'; // Added 'integration' type
+export type NotificationPriority = 'low' | 'normal' | 'high' | 'urgent';
+
+export interface Notification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  createdAt: string; // Changed from timestamp to createdAt
+  isRead: boolean;
+  priority: NotificationPriority;
+  actionUrl?: string;
+  actionLabel?: string;
+  userId: string;
+  data?: Record<string, any>; // Added data field for arbitrary notification data
+}
+
+interface NotificationState {
+  notifications: Notification[];
+  unreadCount: number;
+  isLoading: boolean;
+  notificationError: string | null; // Renamed from 'error'
+}
+
+const initialState: NotificationState = {
+  notifications: [],
+  unreadCount: 0,
+  isLoading: false,
+  notificationError: null, // Renamed from 'error'
+};
+
+// Async thunks for API calls
+export const fetchNotifications = createAsyncThunk(
+  'notifications/fetchNotifications',
+  async (params?: { type?: string; unreadOnly?: boolean; limit?: number; skip?: number }) => {
+    const response = await apiService.getNotifications(params);
+    return response.data;
+  }
+);
+
+export const markNotificationAsReadAsync = createAsyncThunk(
+  'notifications/markAsRead',
+  async (notificationId: string) => {
+    const response = await apiService.markNotificationAsRead(notificationId);
+    return { notificationId, unreadCount: response.data.unreadCount };
+  }
+);
+
+export const markAllNotificationsAsReadAsync = createAsyncThunk(
+  'notifications/markAllAsRead',
+  async (type?: string) => { // Optional type parameter
+    const response = await apiService.markAllNotificationsAsRead(type);
+    return response.data;
+  }
+);
+
+export const deleteNotificationAsync = createAsyncThunk(
+  'notifications/deleteNotification',
+  async (notificationId: string) => {
+    const response = await apiService.deleteNotification(notificationId);
+    return { notificationId, unreadCount: response.data.unreadCount };
+  }
+);
+
+// Synchronous reducers now only contain non-async-thunk related state updates
+export const notificationSlice = createSlice({
+  name: 'notification',
+  initialState,
+  reducers: {
+    addNotification: (state, action: PayloadAction<Notification>) => {
+      state.notifications.unshift(action.payload);
+      if (!action.payload.isRead) {
+        state.unreadCount += 1;
+      }
+    },
+    clearNotificationErrors: (state) => { // New action to clear errors
+      state.notificationError = null;
+    },
+  },
+  extraReducers: (builder) => {
+    builder
+      // Fetch notifications
+      .addCase(fetchNotifications.pending, (state) => {
+        state.isLoading = true;
+        state.notificationError = null;
+      })
+      .addCase(fetchNotifications.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.notifications = action.payload.notifications;
+        state.unreadCount = action.payload.unreadCount;
+      })
+      .addCase(fetchNotifications.rejected, (state, action) => {
+        state.isLoading = false;
+        state.notificationError = action.error.message || 'Failed to fetch notifications';
+      })
+      // Mark notification as read
+      .addCase(markNotificationAsReadAsync.fulfilled, (state, action) => {
+        const notification = state.notifications.find(n => n.id === action.payload.notificationId);
+        if (notification && !notification.isRead) {
+          notification.isRead = true;
+          state.unreadCount = action.payload.unreadCount;
+        }
+      })
+      .addCase(markNotificationAsReadAsync.rejected, (state, action) => {
+        state.notificationError = action.error.message || 'Failed to mark notification as read';
+      })
+      // Mark all notifications as read
+      .addCase(markAllNotificationsAsReadAsync.fulfilled, (state, action) => {
+        state.notifications.forEach(n => { n.isRead = true; });
+        state.unreadCount = action.payload.unreadCount;
+      })
+      .addCase(markAllNotificationsAsReadAsync.rejected, (state, action) => {
+        state.notificationError = action.error.message || 'Failed to mark all notifications as read';
+      })
+      // Delete notification
+      .addCase(deleteNotificationAsync.fulfilled, (state, action) => {
+        const index = state.notifications.findIndex(n => n.id === action.payload.notificationId);
+        if (index !== -1) {
+          state.notifications.splice(index, 1);
+          state.unreadCount = action.payload.unreadCount;
+        }
+      })
+      .addCase(deleteNotificationAsync.rejected, (state, action) => {
+        state.notificationError = action.error.message || 'Failed to delete notification';
+      });
+  },
+});
+
+export const {
+  addNotification,
+  clearNotificationErrors,
+} = notificationSlice.actions;
+
+export default notificationSlice.reducer;

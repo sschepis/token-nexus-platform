@@ -1,0 +1,199 @@
+import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import { apiService } from '../../services/api';
+
+export type TokenStatus = 'pending' | 'confirmed' | 'failed';
+export type TokenType = 'ERC3643' | 'Stellar' | 'ERC20' | 'ERC721';
+
+export interface Token {
+  id: string;
+  name: string;
+  symbol: string;
+  type: TokenType;
+  blockchain: string;
+  supply: number;
+  status: TokenStatus;
+  createdAt: string;
+  createdBy: string;
+  contractAddress?: string;
+  orgId?: string; // Add orgId to Token interface
+}
+
+export interface Transaction {
+  id: string;
+  tokenId: string;
+  from: string;
+  to: string;
+  amount: number;
+  status: TokenStatus;
+  timestamp: string;
+}
+
+interface TokenState {
+  tokens: Token[];
+  transactions: Transaction[];
+  isLoadingTokens: boolean;
+  isDeletingToken: boolean;
+  isCreatingToken: boolean;
+  isLoadingTokenDetails: boolean; // New state for loading single token details
+  isUpdatingTokenStatus: boolean; // New state for updating token status
+  selectedToken: Token | null;   // New state to store selected token details
+  tokenError: string | null;
+}
+
+const initialState: TokenState = {
+  tokens: [],
+  transactions: [],
+  isLoadingTokens: false,
+  isDeletingToken: false,
+  isCreatingToken: false,
+  isLoadingTokenDetails: false,  // Initialize new state
+  isUpdatingTokenStatus: false,  // Initialize new state
+  selectedToken: null,           // Initialize new state
+  tokenError: null,
+};
+
+// Async Thunks
+export const fetchTokens = createAsyncThunk(
+  'token/fetchTokens',
+  async (params?: { limit?: number; skip?: number; status?: TokenStatus; type?: TokenType; }) => {
+    const response = await apiService.getTokens(params);
+    return response.data.tokens;
+  }
+);
+
+export const createToken = createAsyncThunk(
+  'token/createToken',
+  async (params: { name: string; symbol: string; type: TokenType; blockchain: string; supply: number; }) => {
+    const response = await apiService.createToken(params);
+    return response.data.token;
+  }
+);
+
+export const deleteToken = createAsyncThunk(
+  'token/deleteToken',
+  async (tokenId: string) => {
+    await apiService.deleteToken(tokenId);
+    return tokenId; // Return the ID of the deleted token
+  }
+);
+
+export const getTokenDetails = createAsyncThunk(
+  'token/getTokenDetails',
+  async (tokenId: string) => {
+    const response = await apiService.getTokenDetails(tokenId);
+    return response.data.token;
+  }
+);
+
+export const updateTokenStatus = createAsyncThunk(
+  'token/updateTokenStatus',
+  async ({ tokenId, status }: { tokenId: string; status: TokenStatus }) => {
+    const response = await apiService.updateTokenStatus(tokenId, status);
+    return response.data.token;
+  }
+);
+
+export const tokenSlice = createSlice({
+  name: 'token',
+  initialState,
+  reducers: {
+    // Synchronous reducers for now, will be replaced with async thunks later if needed
+    fetchTransactionsSuccess: (state, action: PayloadAction<Transaction[]>) => {
+      state.transactions = action.payload;
+    },
+    updateTokenStatus: (state, action: PayloadAction<{ tokenId: string; status: TokenStatus }>) => {
+      const token = state.tokens.find(t => t.id === action.payload.tokenId);
+      if (token) {
+        token.status = action.payload.status;
+      }
+    },
+    clearTokenErrors: (state) => {
+      state.tokenError = null;
+    },
+  },
+  extraReducers: (builder) => {
+    builder
+      // Handle fetchTokens
+      .addCase(fetchTokens.pending, (state) => {
+        state.isLoadingTokens = true;
+        state.tokenError = null;
+      })
+      .addCase(fetchTokens.fulfilled, (state, action) => {
+        state.isLoadingTokens = false;
+        state.tokens = action.payload;
+      })
+      .addCase(fetchTokens.rejected, (state, action) => {
+        state.isLoadingTokens = false;
+        state.tokenError = action.error.message || 'Failed to fetch tokens';
+      })
+      // Handle createToken
+      .addCase(createToken.pending, (state) => {
+        state.isCreatingToken = true;
+        state.tokenError = null;
+      })
+      .addCase(createToken.fulfilled, (state, action) => {
+        state.isCreatingToken = false;
+        state.tokens.push(action.payload);
+      })
+      .addCase(createToken.rejected, (state, action) => {
+        state.isCreatingToken = false;
+        state.tokenError = action.error.message || 'Failed to create token';
+      })
+      // Handle deleteToken
+      .addCase(deleteToken.pending, (state) => {
+        state.isDeletingToken = true;
+        state.tokenError = null;
+      })
+      .addCase(deleteToken.fulfilled, (state, action) => {
+        state.isDeletingToken = false;
+        state.tokens = state.tokens.filter(token => token.id !== action.payload);
+      })
+      .addCase(deleteToken.rejected, (state, action) => {
+        state.isDeletingToken = false;
+        state.tokenError = action.error.message || 'Failed to delete token';
+      })
+      // Handle getTokenDetails
+      .addCase(getTokenDetails.pending, (state) => {
+        state.isLoadingTokenDetails = true;
+        state.tokenError = null;
+        state.selectedToken = null; // Clear previous token details
+      })
+      .addCase(getTokenDetails.fulfilled, (state, action) => {
+        state.isLoadingTokenDetails = false;
+        state.selectedToken = action.payload;
+      })
+      .addCase(getTokenDetails.rejected, (state, action) => {
+        state.isLoadingTokenDetails = false;
+        state.tokenError = action.error.message || 'Failed to fetch token details';
+      })
+      // Handle updateTokenStatus
+      .addCase(updateTokenStatus.pending, (state) => {
+        state.isUpdatingTokenStatus = true;
+        state.tokenError = null;
+      })
+      .addCase(updateTokenStatus.fulfilled, (state, action) => {
+        state.isUpdatingTokenStatus = false;
+        if (state.selectedToken && state.selectedToken.id === action.payload.id) {
+          state.selectedToken.status = action.payload.status; // Update status of selected token
+        }
+        // Optionally update the token in the main tokens array as well
+        const index = state.tokens.findIndex(token => token.id === action.payload.id);
+        if (index !== -1) {
+          state.tokens[index].status = action.payload.status;
+        }
+      })
+      .addCase(updateTokenStatus.rejected, (state, action) => {
+        state.isUpdatingTokenStatus = false;
+        state.tokenError = action.error.message || 'Failed to update token status';
+      });
+  },
+});
+
+export const {
+  fetchTransactionsSuccess,
+  updateTokenStatus: updateTokenStatusSync, // Renaming to avoid conflict with thunk
+  clearTokenErrors,
+} = tokenSlice.actions;
+
+
+export default tokenSlice.reducer;

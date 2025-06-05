@@ -1,23 +1,28 @@
 import React from "react";
-import { 
-  Sheet, 
-  SheetContent, 
-  SheetTrigger 
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger
 } from "@/components/ui/sheet";
-import { Menu } from "lucide-react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger
+} from "@/components/ui/collapsible";
+import { Menu, ChevronDown, ChevronRight } from "lucide-react";
 import { ModeToggle } from "./ModeToggle";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAppSelector } from "@/store/hooks";
-import { Link } from "react-router-dom";
+import Link from "next/link";
+import { useRouter } from "next/router";
 import { Button } from "@/components/ui/button";
-import { 
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger, 
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { logout } from "@/store/slices/authSlice";
 import { resetOrgState } from "@/store/slices/orgSlice"; // Corrected import
@@ -43,9 +48,15 @@ import {
   FileJson,
   Layers,
   Wrench,
-  Cog, // Add Cog directly
+  Cog,
   Shield,
-  MessageSquare // Added for AI Assistant
+  MessageSquare,
+  Building2,
+  Users,
+  Rocket,
+  Link as LinkIcon,
+  Server,
+  HardDrive
 } from "lucide-react";
  
 interface SidebarProps {
@@ -63,9 +74,11 @@ interface NavItem {
 
 const Sidebar = ({ isSidebarOpen, closeSidebar }: SidebarProps) => {
   const { user, developerMode, permissions } = useAppSelector(state => state.auth);
-  const navigate = useNavigate();
+  const router = useRouter();
   const dispatch = useDispatch();
   const [mounted, setMounted] = React.useState(false);
+  const [navigationOpen, setNavigationOpen] = React.useState(true);
+  const [systemAdminOpen, setSystemAdminOpen] = React.useState(false);
 
   // Fix hydration mismatch by ensuring server and client render the same initially
   React.useEffect(() => {
@@ -78,7 +91,7 @@ const Sidebar = ({ isSidebarOpen, closeSidebar }: SidebarProps) => {
   const handleLogout = () => {
     dispatch(logout());
     dispatch(resetOrgState()); // Corrected usage
-    navigate('/login');
+    router.push('/login');
   };
 
   // Get the first letter of the first name for the avatar fallback
@@ -94,7 +107,7 @@ const Sidebar = ({ isSidebarOpen, closeSidebar }: SidebarProps) => {
 
   const userName = mounted && user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || "User" : "User";
 
-  const navItems: NavItem[] = [ // Apply NavItem type
+  const navItems: NavItem[] = [
     {
       name: "Dashboard",
       path: "/dashboard",
@@ -133,7 +146,7 @@ const Sidebar = ({ isSidebarOpen, closeSidebar }: SidebarProps) => {
     {
       name: "Integrations",
       path: "/integrations",
-      icon: <LayoutDashboard className="h-5 w-5" />
+      icon: <LinkIcon className="h-5 w-5" />
     },
     {
       name: "Marketplace",
@@ -154,29 +167,62 @@ const Sidebar = ({ isSidebarOpen, closeSidebar }: SidebarProps) => {
       name: "Tokens",
       path: "/tokens",
       icon: <Key className="h-5 w-5" />
-        },
-        {
-          name: "AI Assistant",
-          path: "/ai-assistant",
-          icon: <MessageSquare className="h-5 w-5" />
-        },
-        // Add System Admin link - conditionally rendered later
-        {
-          name: "System Admin",
-          path: "/system-admin",
-          icon: <Cog className="h-5 w-5" />, // Use Cog directly
-          role: "system_admin" // Keep role for future RBAC
-        }
-      ];
+    },
+    {
+      name: "AI Assistant",
+      path: "/ai-assistant",
+      icon: <MessageSquare className="h-5 w-5" />
+    }
+  ];
 
-  // Add System Admin item if user has permission
-  if (hasSystemAdminAccess) {
-    navItems.push({
-      name: "System Admin",
-      path: "/system-admin",
+  // System Admin navigation items
+  const systemAdminItems: NavItem[] = [
+    {
+      name: "Organizations",
+      path: "/system-admin/orgs",
+      icon: <Building2 className="h-5 w-5" />
+    },
+    {
+      name: "Global Users",
+      path: "/system-admin/users",
+      icon: <Users className="h-5 w-5" />
+    },
+    {
+      name: "Contract Deploy",
+      path: "/system-admin/deploy",
+      icon: <Rocket className="h-5 w-5" />
+    },
+    {
+      name: "Contract Import",
+      path: "/system-admin/import",
+      icon: <FileText className="h-5 w-5" />
+    },
+    {
+      name: "Chain Config",
+      path: "/system-admin/chains",
+      icon: <LinkIcon className="h-5 w-5" />
+    },
+    {
+      name: "App Store",
+      path: "/system-admin/store",
+      icon: <Store className="h-5 w-5" />
+    },
+    {
+      name: "Deployment Status",
+      path: "/system-admin/status",
+      icon: <Server className="h-5 w-5" />
+    },
+    {
+      name: "DFNS Management",
+      path: "/system-admin/dfns",
       icon: <Shield className="h-5 w-5" />
-    });
-  }
+    },
+    {
+      name: "SSH Management",
+      path: "/system-admin/ssh",
+      icon: <Terminal className="h-5 w-5" />
+    }
+  ];
 
   // Developer tools menu items
   const devItems: NavItem[] = [ // Apply NavItem type
@@ -239,7 +285,7 @@ const Sidebar = ({ isSidebarOpen, closeSidebar }: SidebarProps) => {
 
   const SidebarContent = () => (
     <div className="h-full flex flex-col gap-4 p-4 bg-background border-r">
-      <Link to="/dashboard" className="font-bold text-xl">
+      <Link href="/dashboard" className="font-bold text-xl">
         Logo
       </Link>
 
@@ -255,13 +301,13 @@ const Sidebar = ({ isSidebarOpen, closeSidebar }: SidebarProps) => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <Link to="/settings/profile">
+            <Link href="/settings/profile">
               <DropdownMenuItem>
                 <User className="mr-2 h-4 w-4" />
                 <span>Profile</span>
               </DropdownMenuItem>
             </Link>
-            <Link to="/settings/account">
+            <Link href="/settings/account">
               <DropdownMenuItem>
                 <SettingsIcon className="mr-2 h-4 w-4" />
                 <span>Settings</span>
@@ -276,46 +322,88 @@ const Sidebar = ({ isSidebarOpen, closeSidebar }: SidebarProps) => {
         </DropdownMenu>
       </div>
 
-      <div className="flex-1">
-        <ul className="space-y-1">
-          {navItems.map((item) => (
-            // TODO: Implement RBAC here. Check if user exists and user.role === item.role
-            // For now, render all items.
-            <li key={item.name}>
+      <div className="flex-1 overflow-y-auto">
+        {/* Navigation Section */}
+        <Collapsible open={navigationOpen} onOpenChange={setNavigationOpen}>
+          <CollapsibleTrigger asChild>
+            <Button
+              variant="ghost"
+              className="w-full justify-between p-2 h-auto font-semibold text-sm text-muted-foreground hover:bg-secondary"
+            >
+              <span>NAVIGATION</span>
+              {navigationOpen ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronRight className="h-4 w-4" />
+              )}
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-1 mt-2">
+            {navItems.map((item) => (
               <Link
-                to={item.path}
-                className="flex items-center space-x-2 rounded-md p-2 hover:bg-secondary"
-                // TODO: Add active state highlighting if needed
+                key={item.name}
+                href={item.path}
+                className="flex items-center space-x-2 rounded-md p-2 hover:bg-secondary transition-colors"
               >
                 {item.icon}
                 <span>{item.name}</span>
               </Link>
-            </li>
-          ))}
-        </ul>
+            ))}
+          </CollapsibleContent>
+        </Collapsible>
+
+        {/* System Administration Section - only visible if user has permission */}
+        {hasSystemAdminAccess && (
+          <Collapsible open={systemAdminOpen} onOpenChange={setSystemAdminOpen} className="mt-4">
+            <CollapsibleTrigger asChild>
+              <Button
+                variant="ghost"
+                className="w-full justify-between p-2 h-auto font-semibold text-sm text-muted-foreground hover:bg-secondary"
+              >
+                <span>SYSTEM ADMINISTRATION</span>
+                {systemAdminOpen ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-1 mt-2">
+              {systemAdminItems.map((item) => (
+                <Link
+                  key={item.name}
+                  href={item.path}
+                  className="flex items-center space-x-2 rounded-md p-2 hover:bg-secondary transition-colors"
+                >
+                  {item.icon}
+                  <span>{item.name}</span>
+                </Link>
+              ))}
+            </CollapsibleContent>
+          </Collapsible>
+        )}
         
         {/* Developer section - only visible when developer mode is enabled */}
         {developerMode && (
-          <>
-            <div className="mt-6 mb-2">
+          <div className="mt-4">
+            <div className="mb-2">
               <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
                 DEVELOPER TOOLS
               </div>
             </div>
-            <ul className="space-y-1">
+            <div className="space-y-1">
               {devItems.map((item) => (
-                <li key={item.name}>
-                  <Link
-                    to={item.path}
-                    className="flex items-center space-x-2 rounded-md p-2 hover:bg-secondary"
-                  >
-                    {item.icon}
-                    <span>{item.name}</span>
-                  </Link>
-                </li>
+                <Link
+                  key={item.name}
+                  href={item.path}
+                  className="flex items-center space-x-2 rounded-md p-2 hover:bg-secondary transition-colors"
+                >
+                  {item.icon}
+                  <span>{item.name}</span>
+                </Link>
               ))}
-            </ul>
-          </>
+            </div>
+          </div>
         )}
       </div>
 

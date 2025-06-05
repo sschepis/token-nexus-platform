@@ -71,7 +71,19 @@ const AppSettings: React.FC<AppSettingsProps> = ({ appId, onBack }) => {
   };
 
   const saveSettings = () => {
-    dispatch(updateAppSettings({ appId, settings }));
+    // Find the specific installation of this app for the current organization
+    const installation = installedOrgApps.find(
+      (inst) => inst.appDefinition?.objectId === appId && inst.organization?.objectId === currentOrg?.id
+    );
+
+    if (installation && installation.objectId) {
+      dispatch(updateAppSettings({
+        orgAppInstallationId: installation.objectId,
+        settings
+      }));
+    } else {
+      console.error("Could not find installation ID for app:", appId, "and org:", currentOrg?.id);
+    }
   };
  
   const renderSettingField = (key: string, value: unknown) => { // Changed any to unknown

@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Coins, ExternalLink, Loader2, AlertCircle } from 'lucide-react';
 import { useAppSelector } from '@/store/hooks';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/router';
 import Parse from 'parse';
 
 interface RecentTokensWidgetProps {
@@ -29,7 +29,7 @@ interface Token {
 
 export const RecentTokensWidget: React.FC<RecentTokensWidgetProps> = ({ id, config }) => {
   const { currentOrg } = useAppSelector((state) => state.org);
-  const navigate = useNavigate();
+  const router = useRouter();
   const [tokens, setTokens] = useState<Token[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -100,11 +100,11 @@ export const RecentTokensWidget: React.FC<RecentTokensWidgetProps> = ({ id, conf
   };
 
   const handleTokenClick = (tokenId: string) => {
-    navigate(`/tokens/${tokenId}`);
+    router.push(`/tokens/${tokenId}`);
   };
 
   const viewAllTokens = () => {
-    navigate('/tokens');
+    router.push('/tokens');
   };
 
   if (isLoading) {
@@ -135,7 +135,7 @@ export const RecentTokensWidget: React.FC<RecentTokensWidgetProps> = ({ id, conf
           </p>
         </div>
         <button
-          onClick={() => navigate('/tokens/create')}
+          onClick={() => router.push('/tokens/create')}
           className="text-xs text-primary hover:underline"
         >
           Create Token

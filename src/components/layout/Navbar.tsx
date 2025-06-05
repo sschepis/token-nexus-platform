@@ -28,6 +28,7 @@ import {
 import { ModeToggle } from "./ModeToggle";
 import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
 import { GlobalSearch } from "@/components/search/GlobalSearch";
+import { OrganizationSelector } from "./OrganizationSelector";
 import {
   Settings,
   User,
@@ -156,6 +157,11 @@ const Navbar = ({ openSidebar }: NavbarProps) => {
               </NavigationMenuItem>
             </NavigationMenuList>
           </NavigationMenu>
+        </div>
+
+        {/* Center section - Organization selector */}
+        <div className="flex-1 flex justify-center">
+          <OrganizationSelector className="max-w-[200px]" />
         </div>
 
         {/* Right section - Actions and user menu */}

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import Link from "next/link";
 import { Route, HttpMethod, RouteHandler } from "@/types/routes";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { Button } from "@/components/ui/button";
@@ -114,7 +114,7 @@ const RouteDetail: React.FC<RouteDetailProps> = ({ route, onClose }) => {
           {isEditing ? "Edit Route" : "Route"} : {route.path}
         </CardTitle>
         <Button variant="ghost" size="sm" asChild>
-          <Link to="/routes">
+          <Link href="/routes">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back
           </Link>
