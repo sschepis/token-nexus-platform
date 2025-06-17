@@ -1,4 +1,5 @@
 import { ActionContext } from '../types/ActionTypes';
+import { ParseQueryBuilder } from '../../utils/parseUtils';
 
 export async function getNotificationTypes(params: Record<string, unknown>, context: ActionContext) {
   const orgId = context.user.organizationId || context.organization?.id;
@@ -9,22 +10,20 @@ export async function getNotificationTypes(params: Record<string, unknown>, cont
 
   try {
     // Query for distinct notification types used in this organization
-    const query = new Parse.Query('Notification');
-    query.equalTo('organizationId', orgId);
-    query.select('type');
-    query.limit(1000); // Get a large sample to find all types
-    
-    const notifications = await query.find();
+    const notifications = await new ParseQueryBuilder('Notification')
+      .equalTo('organizationId', orgId)
+      .select('type')
+      .limit(1000) // Get a large sample to find all types
+      .find();
     const usedTypes = Array.from(new Set(notifications.map(n => n.get('type')).filter(Boolean)));
 
     // Also get system-defined notification types from a configuration object
     let systemTypes: string[] = [];
     try {
-      const configQuery = new Parse.Query('NotificationConfig');
-      configQuery.equalTo('configType', 'notification_types');
-      configQuery.equalTo('organizationId', orgId);
-      
-      const config = await configQuery.first();
+      const config = await new ParseQueryBuilder('NotificationConfig')
+        .equalTo('configType', 'notification_types')
+        .equalTo('organizationId', orgId)
+        .first();
       if (config) {
         systemTypes = config.get('types') || [];
       }

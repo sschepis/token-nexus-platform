@@ -1,5 +1,5 @@
 import { ActionDefinition, ActionContext, ActionResult } from '../../types/ActionTypes';
-import Parse from 'parse';
+import { ParseQueryBuilder } from '../../../utils/parseUtils';
 
 export const getReportCategoriesAction: ActionDefinition = {
   id: 'getReportCategories',
@@ -25,11 +25,12 @@ export const getReportCategoriesAction: ActionDefinition = {
         };
       }
 
-      const query = new Parse.Query('Report');
-      query.equalTo('organizationId', orgId);
-      query.select('category');
-
-      const reports = await query.find();
+      // Build query using ParseQueryBuilder utility
+      const reports = await new ParseQueryBuilder('Report')
+        .equalTo('organizationId', orgId)
+        .select('category')
+        .find();
+        
       const categorySet = new Set(reports.map(r => r.get('category')).filter(Boolean));
       const categories = Array.from(categorySet);
 

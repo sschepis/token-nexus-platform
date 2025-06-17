@@ -1,5 +1,5 @@
 import { ActionDefinition, ActionContext, ActionResult } from '../../types/ActionTypes';
-import Parse from 'parse';
+import { deleteParseObject } from '../../../utils/parseUtils';
 
 export const deleteReportAction: ActionDefinition = {
   id: 'deleteReport',
@@ -42,12 +42,14 @@ export const deleteReportAction: ActionDefinition = {
         };
       }
 
-      const query = new Parse.Query('Report');
-      query.equalTo('objectId', reportId);
-      query.equalTo('organizationId', orgId);
+      // Delete report using utility function with security filters
+      const deleted = await deleteParseObject(
+        'Report',
+        reportId as string,
+        { organizationId: orgId } // Security filter
+      );
 
-      const report = await query.first();
-      if (!report) {
+      if (!deleted) {
         return {
           success: false,
           error: 'Report not found',
@@ -59,8 +61,6 @@ export const deleteReportAction: ActionDefinition = {
           }
         };
       }
-
-      await report.destroy();
 
       return {
         success: true,

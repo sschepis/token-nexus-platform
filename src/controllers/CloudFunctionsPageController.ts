@@ -5,6 +5,8 @@ import {
   ActionResult,
   PageContext
 } from './types/ActionTypes';
+import Parse from 'parse';
+import { ParseQueryBuilder } from '../utils/parseUtils';
 
 export class CloudFunctionsPageController implements PageController {
   pageId = 'cloud-functions';
@@ -576,10 +578,9 @@ export class CloudFunctionsPageController implements PageController {
   private async getFunctionsFromSystem(): Promise<any[]> {
     try {
       // Query CloudFunction objects from Parse database
-      const query = new Parse.Query('CloudFunction');
-      query.ascending('name');
-      
-      const results = await query.find();
+      const results = await new ParseQueryBuilder('CloudFunction')
+        .ascending('name')
+        .find();
       
       return results.map(func => ({
         id: func.id,
@@ -690,10 +691,9 @@ export class CloudFunctionsPageController implements PageController {
   private async updateFunctionInSystem(functionName: string, updateData: any): Promise<any> {
     try {
       // Find the function by name
-      const query = new Parse.Query('CloudFunction');
-      query.equalTo('name', functionName);
-      
-      const cloudFunction = await query.first();
+      const cloudFunction = await new ParseQueryBuilder('CloudFunction')
+        .equalTo('name', functionName)
+        .first();
       if (!cloudFunction) {
         throw new Error(`Function ${functionName} not found`);
       }
@@ -739,10 +739,9 @@ export class CloudFunctionsPageController implements PageController {
   private async deleteFunctionFromSystem(functionName: string): Promise<void> {
     try {
       // Find the function by name
-      const query = new Parse.Query('CloudFunction');
-      query.equalTo('name', functionName);
-      
-      const cloudFunction = await query.first();
+      const cloudFunction = await new ParseQueryBuilder('CloudFunction')
+        .equalTo('name', functionName)
+        .first();
       if (!cloudFunction) {
         throw new Error(`Function ${functionName} not found`);
       }
@@ -759,10 +758,9 @@ export class CloudFunctionsPageController implements PageController {
 
   private async getFunctionByName(functionName: string): Promise<any | null> {
     try {
-      const query = new Parse.Query('CloudFunction');
-      query.equalTo('name', functionName);
-      
-      const cloudFunction = await query.first();
+      const cloudFunction = await new ParseQueryBuilder('CloudFunction')
+        .equalTo('name', functionName)
+        .first();
       if (!cloudFunction) {
         return null;
       }

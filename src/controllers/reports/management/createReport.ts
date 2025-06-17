@@ -1,5 +1,5 @@
 import { ActionDefinition, ActionContext, ActionResult } from '../../types/ActionTypes';
-import Parse from 'parse';
+import { createParseObject } from '../../../utils/parseUtils';
 
 export const createReportAction: ActionDefinition = {
   id: 'createReport',
@@ -44,24 +44,22 @@ export const createReportAction: ActionDefinition = {
         };
       }
 
-      const Report = Parse.Object.extend('Report');
-      const report = new Report();
-
-      report.set('name', name);
-      report.set('description', description || '');
-      report.set('category', category);
-      report.set('dataSource', dataSource);
-      report.set('visualization', visualization);
-      report.set('filters', filters);
-      report.set('schedule', schedule || null);
-      report.set('isPublic', isPublic);
-      report.set('organizationId', orgId);
-      report.set('createdBy', context.user.userId);
-      report.set('isActive', true);
-      report.set('runCount', 0);
-      report.set('lastRun', null);
-
-      const savedReport = await report.save();
+      // Create report using utility function
+      const savedReport = await createParseObject('Report', {
+        name,
+        description: description || '',
+        category,
+        dataSource,
+        visualization,
+        filters,
+        schedule: schedule || null,
+        isPublic,
+        organizationId: orgId,
+        createdBy: context.user.userId,
+        isActive: true,
+        runCount: 0,
+        lastRun: null
+      });
 
       return {
         success: true,

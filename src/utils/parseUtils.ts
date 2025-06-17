@@ -1,17 +1,227 @@
 import Parse from 'parse';
 
 /**
- * Generic Parse query builder with common patterns
+ * Utility function to safely call Parse cloud functions with initialization checks
+ * @param functionName - Name of the cloud function to call
+ * @param params - Parameters to pass to the cloud function
+ * @param retries - Number of retries if Parse isn't ready (default: 3)
+ * @param retryDelay - Delay between retries in ms (default: 100)
+ * @returns Promise with the cloud function result
+ */
+export async function safeParseCloudRun<T = any>(
+  functionName: string,
+  params: Record<string, any> = {},
+  retries: number = 3,
+  retryDelay: number = 100
+): Promise<T> {
+  const checkParseReady = (): boolean => {
+    return !!(Parse.applicationId && Parse.Installation.currentInstallation);
+  };
+
+  const attemptCloudRun = async (attempt: number): Promise<T> => {
+    if (!checkParseReady()) {
+      if (attempt < retries) {
+        console.warn(`[safeParseCloudRun] Parse not ready for ${functionName}, retrying in ${retryDelay}ms (attempt ${attempt + 1}/${retries})`);
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+        return attemptCloudRun(attempt + 1);
+      } else {
+        throw new Error(`Parse SDK not ready after ${retries} attempts. Cannot call cloud function: ${functionName}`);
+      }
+    }
+
+    try {
+      return await Parse.Cloud.run(functionName, params);
+    } catch (error) {
+      // If it's a Parse initialization error, retry
+      if (error instanceof Error && error.message.includes('currentInstallationId')) {
+        if (attempt < retries) {
+          console.warn(`[safeParseCloudRun] Parse installation error for ${functionName}, retrying in ${retryDelay}ms (attempt ${attempt + 1}/${retries})`);
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+          return attemptCloudRun(attempt + 1);
+        }
+      }
+      throw error;
+    }
+  };
+
+  return attemptCloudRun(0);
+}
+
+/**
+ * Check if Parse SDK is properly initialized
+ * @returns boolean indicating if Parse is ready for cloud function calls
+ */
+export function isParseReady(): boolean {
+  return !!(Parse.applicationId && Parse.Installation.currentInstallation);
+}
+
+/**
+ * Wait for Parse SDK to be ready
+ * @param timeout - Maximum time to wait in ms (default: 5000)
+ * @param checkInterval - How often to check in ms (default: 100)
+ * @returns Promise that resolves when Parse is ready or rejects on timeout
+ */
+export function waitForParseReady(timeout: number = 5000, checkInterval: number = 100): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const startTime = Date.now();
+    
+    const check = () => {
+      if (isParseReady()) {
+        resolve();
+        return;
+      }
+      
+      if (Date.now() - startTime > timeout) {
+        reject(new Error(`Parse SDK not ready after ${timeout}ms timeout`));
+        return;
+      }
+      
+      setTimeout(check, checkInterval);
+    };
+    
+    check();
+  });
+}
+
+/**
+ * Create a new Parse object with the given data
+ * @param className - Parse class name
+ * @param data - Object data to set
+ * @returns Promise with the saved Parse object
+ */
+export async function createParseObject(className: string, data: Record<string, any>): Promise<Parse.Object> {
+  const ParseClass = Parse.Object.extend(className);
+  const object = new ParseClass();
+  
+  // Set all the data fields
+  Object.keys(data).forEach(key => {
+    object.set(key, data[key]);
+  });
+  
+  return await object.save();
+}
+
+/**
+ * Update an existing Parse object with the given data
+ * @param className - Parse class name
+ * @param objectId - Object ID to update
+ * @param data - Object data to update
+ * @param additionalFilters - Additional query filters for security
+ * @returns Promise with the updated Parse object
+ */
+export async function updateParseObject(
+  className: string,
+  objectId: string,
+  data: Record<string, any>,
+  additionalFilters?: Record<string, any>
+): Promise<Parse.Object | null> {
+  let queryBuilder = new ParseQueryBuilder(className)
+    .equalTo('objectId', objectId);
+  
+  // Add additional filters for security (e.g., organizationId)
+  if (additionalFilters) {
+    Object.entries(additionalFilters).forEach(([key, value]) => {
+      queryBuilder = queryBuilder.equalTo(key, value);
+    });
+  }
+  
+  const object = await queryBuilder.first();
+  if (!object) {
+    return null;
+  }
+  
+  // Update all the data fields
+  Object.entries(data).forEach(([key, value]) => {
+    if (value !== undefined) {
+      object.set(key, value);
+    }
+  });
+  
+  return await object.save();
+}
+
+/**
+ * Delete a Parse object with security filters
+ * @param className - Parse class name
+ * @param objectId - Object ID to delete
+ * @param additionalFilters - Additional query filters for security
+ * @returns Promise with boolean indicating success
+ */
+export async function deleteParseObject(
+  className: string,
+  objectId: string,
+  additionalFilters?: Record<string, any>
+): Promise<boolean> {
+  let queryBuilder = new ParseQueryBuilder(className)
+    .equalTo('objectId', objectId);
+  
+  // Add additional filters for security (e.g., organizationId)
+  if (additionalFilters) {
+    Object.entries(additionalFilters).forEach(([key, value]) => {
+      queryBuilder = queryBuilder.equalTo(key, value);
+    });
+  }
+  
+  const object = await queryBuilder.first();
+  if (!object) {
+    return false;
+  }
+  
+  await object.destroy();
+  return true;
+}
+
+/**
+ * Upsert a Parse object (update if exists, create if not)
+ * @param className - Parse class name
+ * @param searchFilters - Filters to find existing object
+ * @param createData - Data to set when creating new object
+ * @param updateData - Data to set when updating existing object
+ * @returns Promise with the saved Parse object
+ */
+export async function upsertParseObject(
+  className: string,
+  searchFilters: Record<string, any>,
+  createData: Record<string, any>,
+  updateData: Record<string, any>
+): Promise<Parse.Object> {
+  // Try to find existing object
+  let queryBuilder = new ParseQueryBuilder(className);
+  
+  Object.entries(searchFilters).forEach(([key, value]) => {
+    queryBuilder = queryBuilder.equalTo(key, value);
+  });
+  
+  let object = await queryBuilder.first();
+  
+  if (!object) {
+    // Create new object
+    object = await createParseObject(className, { ...searchFilters, ...createData });
+  } else {
+    // Update existing object
+    Object.entries(updateData).forEach(([key, value]) => {
+      if (value !== undefined) {
+        object!.set(key, value);
+      }
+    });
+    object = await object.save();
+  }
+  
+  return object;
+}
+
+/**
+ * Parse Query Builder for common query patterns
  */
 export class ParseQueryBuilder {
   private query: any;
 
   constructor(className: string) {
-    this.query = new (Parse.Query as any)(className);
+    this.query = new Parse.Query(className);
   }
 
   /**
-   * Add organization filter - most common pattern in the codebase
+   * Add organization filter
    */
   forOrganization(orgId: string): this {
     this.query.equalTo('organizationId', orgId);
@@ -19,18 +229,10 @@ export class ParseQueryBuilder {
   }
 
   /**
-   * Add user filter
+   * Add recipient filter
    */
-  forUser(userId: string): this {
-    this.query.equalTo('userId', userId);
-    return this;
-  }
-
-  /**
-   * Add recipient filter (for notifications)
-   */
-  forRecipient(userId: string): this {
-    this.query.equalTo('recipientId', userId);
+  forRecipient(recipientId: string): this {
+    this.query.equalTo('recipientId', recipientId);
     return this;
   }
 
@@ -67,51 +269,7 @@ export class ParseQueryBuilder {
   }
 
   /**
-   * Add date range filter
-   */
-  dateRange(field: string, startDate?: Date, endDate?: Date): this {
-    if (startDate) {
-      this.query.greaterThanOrEqualTo(field, startDate);
-    }
-    if (endDate) {
-      this.query.lessThanOrEqualTo(field, endDate);
-    }
-    return this;
-  }
-
-  /**
-   * Add search filter (case-insensitive contains)
-   */
-  search(field: string, searchTerm: string): this {
-    this.query.matches(field, new RegExp(searchTerm, 'i'));
-    return this;
-  }
-
-  /**
-   * Add pagination
-   */
-  paginate(limit: number, skip: number = 0): this {
-    this.query.limit(limit);
-    if (skip > 0) {
-      this.query.skip(skip);
-    }
-    return this;
-  }
-
-  /**
-   * Add sorting
-   */
-  sortBy(field: string, ascending: boolean = true): this {
-    if (ascending) {
-      this.query.ascending(field);
-    } else {
-      this.query.descending(field);
-    }
-    return this;
-  }
-
-  /**
-   * Add multiple object IDs filter
+   * Add ID filter
    */
   withIds(ids: string[]): this {
     this.query.containedIn('objectId', ids);
@@ -119,88 +277,137 @@ export class ParseQueryBuilder {
   }
 
   /**
-   * Add single object ID filter
+   * Add general equalTo filter
    */
-  withId(id: string): this {
-    this.query.equalTo('objectId', id);
+  equalTo(field: string, value: any): this {
+    this.query.equalTo(field, value);
     return this;
   }
 
   /**
-   * Include related objects
+   * Add contains filter for substring matching
    */
-  include(fields: string[]): this {
-    fields.forEach(field => this.query.include(field));
+  contains(field: string, value: string): this {
+    this.query.contains(field, value);
     return this;
   }
 
   /**
-   * Select specific fields
+   * Select specific fields to return
    */
-  select(fields: string[]): this {
-    this.query.select(fields);
+  select(...fields: string[]): this {
+    this.query.select(...fields);
     return this;
   }
 
   /**
-   * Get the underlying Parse.Query
+   * Add greaterThan filter
    */
-  getQuery(): Parse.Query {
+  greaterThan(field: string, value: any): this {
+    this.query.greaterThan(field, value);
+    return this;
+  }
+
+  /**
+   * Add lessThan filter
+   */
+  lessThan(field: string, value: any): this {
+    this.query.lessThan(field, value);
+    return this;
+  }
+
+  /**
+   * Add notEqualTo filter
+   */
+  notEqualTo(field: string, value: any): this {
+    this.query.notEqualTo(field, value);
+    return this;
+  }
+
+  /**
+   * Add containedIn filter
+   */
+  containedIn(field: string, values: any[]): this {
+    this.query.containedIn(field, values);
+    return this;
+  }
+
+  /**
+   * Create OR query with multiple ParseQueryBuilders
+   */
+  static or(...queries: ParseQueryBuilder[]): ParseQueryBuilder {
+    const parseQueries = queries.map(q => q.getQuery());
+    const orQuery = (Parse.Query as any).or(...parseQueries);
+    
+    // Create a new ParseQueryBuilder with the OR query
+    const result = Object.create(ParseQueryBuilder.prototype);
+    result.query = orQuery;
+    return result;
+  }
+
+  /**
+   * Add limit
+   */
+  limit(limit: number): this {
+    this.query.limit(limit);
+    return this;
+  }
+
+  /**
+   * Add skip
+   */
+  skip(skip: number): this {
+    this.query.skip(skip);
+    return this;
+  }
+
+  /**
+   * Add descending sort
+   */
+  descending(field: string): this {
+    this.query.descending(field);
+    return this;
+  }
+
+  /**
+   * Add ascending sort
+   */
+  ascending(field: string): this {
+    this.query.ascending(field);
+    return this;
+  }
+
+  /**
+   * Get the built query
+   */
+  getQuery(): Parse.Query<Parse.Object> {
     return this.query;
   }
 
   /**
-   * Execute find with error handling
+   * Execute find
    */
   async find(): Promise<Parse.Object[]> {
-    try {
-      return await this.query.find();
-    } catch (error) {
-      console.error('Parse query find error:', error);
-      return [];
-    }
+    return this.query.find();
   }
 
   /**
-   * Execute first with error handling
-   */
-  async first(): Promise<Parse.Object | undefined> {
-    try {
-      const result = await this.query.first();
-      return result || undefined;
-    } catch (error) {
-      console.error('Parse query first error:', error);
-      return undefined;
-    }
-  }
-
-  /**
-   * Execute count with error handling
+   * Execute count
    */
   async count(): Promise<number> {
-    try {
-      return await this.query.count();
-    } catch (error) {
-      console.error('Parse query count error:', error);
-      return 0;
-    }
+    return this.query.count();
   }
 
   /**
-   * Execute get with error handling
+   * Execute first
    */
-  async get(id: string): Promise<Parse.Object | undefined> {
-    try {
-      return await this.query.get(id);
-    } catch (error) {
-      console.error('Parse query get error:', error);
-      return undefined;
-    }
+  async first(): Promise<Parse.Object | undefined> {
+    return this.query.first();
   }
 }
 
 /**
- * Factory function for creating query builders
+ * Factory function to create a query builder
  */
 export function createQuery(className: string): ParseQueryBuilder {
   return new ParseQueryBuilder(className);
@@ -211,89 +418,82 @@ export function createQuery(className: string): ParseQueryBuilder {
  */
 export class CommonQueries {
   /**
-   * Create user/org combined query for notifications (very common pattern)
+   * Create a query for user-specific and organization-specific data
    */
-  static createUserOrgQuery(className: string, userId: string, orgId: string): Parse.Query {
+  static createUserOrgQuery(className: string, userId: string, orgId: string): any {
     const userQuery = new Parse.Query(className);
     userQuery.equalTo('recipientId', userId);
 
     const orgQuery = new Parse.Query(className);
     orgQuery.equalTo('organizationId', orgId);
 
-    return (Parse.Query as any).or(userQuery, orgQuery);
+    return Parse.Query.or(userQuery, orgQuery);
   }
 
   /**
-   * Create user/created-by combined query (for deletions)
+   * Create a query for user-created items
    */
-  static createUserCreatedQuery(className: string, userId: string): Parse.Query {
-    const userQuery = new Parse.Query(className);
-    userQuery.equalTo('recipientId', userId);
-
-    const createdQuery = new Parse.Query(className);
-    createdQuery.equalTo('createdBy', userId);
-
-    return (Parse.Query as any).or(userQuery, createdQuery);
+  static createUserCreatedQuery(className: string, userId: string): any{
+    const query = new Parse.Query(className);
+    query.equalTo('createdBy', userId);
+    return query;
   }
 
   /**
-   * Create organization-scoped query with common filters
+   * Create a query for organization items
    */
-  static createOrgScopedQuery(
-    className: string,
-    orgId: string,
-    options: {
-      status?: string;
-      type?: string;
-      limit?: number;
-      sortField?: string;
-      sortAscending?: boolean;
-    } = {}
-  ): ParseQueryBuilder {
-    const builder = createQuery(className).forOrganization(orgId);
+  static createOrgQuery(className: string, orgId: string): any {
+    const query = new Parse.Query(className);
+    query.equalTo('organizationId', orgId);
+    return query;
+  }
 
-    if (options.status) {
-      builder.withStatus(options.status);
-    }
-    if (options.type) {
-      builder.withType(options.type);
-    }
-    if (options.limit) {
-      builder.paginate(options.limit);
-    }
-    if (options.sortField) {
-      builder.sortBy(options.sortField, options.sortAscending !== false);
-    }
+  /**
+   * Create a query for active items (not archived/deleted)
+   */
+  static createActiveQuery(className: string): any {
+    const query = new Parse.Query(className);
+    query.notContainedIn('status', ['archived', 'deleted']);
+    return query;
+  }
 
-    return builder;
+  /**
+   * Create a paginated query
+   */
+  static createPaginatedQuery(className: string, page: number = 1, limit: number = 50): any {
+    const query = new Parse.Query(className);
+    query.limit(limit);
+    query.skip((page - 1) * limit);
+    query.descending('createdAt');
+    return query;
   }
 }
 
 /**
- * Utility for batch operations on Parse objects
+ * Batch utilities for Parse operations
  */
 export class ParseBatchUtils {
   /**
-   * Batch save objects with error handling
+   * Batch save objects
    */
-  static async batchSave(objects: any[]): Promise<{
-    saved: any[];
-    errors: Array<{ object: any; error: Error }>;
+  static async batchSave(objects: Parse.Object[]): Promise<{
+    saved: Parse.Object[];
+    errors: Array<{ object: Parse.Object; error: Error }>;
   }> {
-    const saved: any[] = [];
-    const errors: Array<{ object: any; error: Error }> = [];
+    const saved: Parse.Object[] = [];
+    const errors: Array<{ object: Parse.Object; error: Error }> = [];
 
     try {
-      const results = await (Parse.Object as any).saveAll(objects);
-      saved.push(...results);
+      const results = await Parse.Object.saveAll(objects as any);
+      saved.push(...(results as Parse.Object[]));
     } catch (error: any) {
-      // If batch save fails, try individual saves
+      // Handle individual errors if batch fails
       for (const obj of objects) {
         try {
           const result = await obj.save();
           saved.push(result);
-        } catch (individualError: any) {
-          errors.push({ object: obj, error: individualError });
+        } catch (saveError: any) {
+          errors.push({ object: obj, error: saveError });
         }
       }
     }
@@ -302,47 +502,16 @@ export class ParseBatchUtils {
   }
 
   /**
-   * Batch destroy objects with error handling
+   * Batch update objects with new data
    */
-  static async batchDestroy(objects: any[]): Promise<{
-    destroyed: any[];
-    errors: Array<{ object: any; error: Error }>;
-  }> {
-    const destroyed: any[] = [];
-    const errors: Array<{ object: any; error: Error }> = [];
-
-    try {
-      await (Parse.Object as any).destroyAll(objects);
-      destroyed.push(...objects);
-    } catch (error: any) {
-      // If batch destroy fails, try individual destroys
-      for (const obj of objects) {
-        try {
-          await obj.destroy();
-          destroyed.push(obj);
-        } catch (individualError: any) {
-          errors.push({ object: obj, error: individualError });
-        }
-      }
-    }
-
-    return { destroyed, errors };
-  }
-
-  /**
-   * Batch update objects with the same field values
-   */
-  static async batchUpdate(
-    objects: any[],
-    updates: Record<string, any>
-  ): Promise<{
-    updated: any[];
-    errors: Array<{ object: any; error: Error }>;
+  static async batchUpdate(objects: Parse.Object[], updates: Record<string, any>): Promise<{
+    updated: Parse.Object[];
+    errors: Array<{ object: Parse.Object; error: Error }>;
   }> {
     // Apply updates to all objects
     objects.forEach(obj => {
-      Object.entries(updates).forEach(([key, value]) => {
-        obj.set(key, value);
+      Object.keys(updates).forEach(key => {
+        obj.set(key, updates[key]);
       });
     });
 
@@ -351,5 +520,33 @@ export class ParseBatchUtils {
       updated: result.saved,
       errors: result.errors
     };
+  }
+
+  /**
+   * Batch destroy objects
+   */
+  static async batchDestroy(objects: Parse.Object[]): Promise<{
+    destroyed: Parse.Object[];
+    errors: Array<{ object: Parse.Object; error: Error }>;
+  }> {
+    const destroyed: Parse.Object[] = [];
+    const errors: Array<{ object: Parse.Object; error: Error }> = [];
+
+    try {
+      await Parse.Object.destroyAll(objects as any);
+      destroyed.push(...objects);
+    } catch (error: any) {
+      // Handle individual errors if batch fails
+      for (const obj of objects) {
+        try {
+          await obj.destroy();
+          destroyed.push(obj);
+        } catch (destroyError: any) {
+          errors.push({ object: obj, error: destroyError });
+        }
+      }
+    }
+
+    return { destroyed, errors };
   }
 }

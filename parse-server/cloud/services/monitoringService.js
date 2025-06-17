@@ -1,10 +1,11 @@
 /* eslint-disable require-await */
-const configService = require('./configService');
 
 module.exports = Parse => {
   class MonitoringService {
     constructor() {
       this.alertCache = new Map();
+      // Initialize configService properly with Parse instance
+      this.configService = require('./configService')(Parse);
       this.startMonitoring();
     }
 
@@ -21,7 +22,7 @@ module.exports = Parse => {
         const organizations = await this.getActiveOrganizations();
 
         for (const org of organizations) {
-          const config = await configService(Parse).getOrganizationConfig(org.id);
+          const config = await this.configService.getOrganizationConfig(org.id);
 
           if (!config.monitoring.enabled) continue;
 
@@ -141,7 +142,7 @@ module.exports = Parse => {
       this.alertCache.set(cacheKey, Date.now());
 
       // Send notification if enabled
-      const config = await configService(Parse).getOrganizationConfig(org.id);
+      const config = await this.configService.getOrganizationConfig(org.id);
 
       if (config.monitoring.notifications) {
         await this.sendNotification(org, alert);

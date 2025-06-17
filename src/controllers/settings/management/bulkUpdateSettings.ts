@@ -1,5 +1,5 @@
 import { ActionDefinition, ActionContext, ActionResult } from '../../types/ActionTypes';
-import Parse from 'parse';
+import { upsertParseObject } from '../../../utils/parseUtils';
 
 export const bulkUpdateSettingsAction: ActionDefinition = {
   id: 'bulkUpdateSettings',
@@ -35,39 +35,32 @@ export const bulkUpdateSettingsAction: ActionDefinition = {
       for (const [key, value] of Object.entries(settingsObj)) {
         const promise = (async () => {
           try {
-            // Find existing setting
-            const query = new Parse.Query('Setting');
-            query.equalTo('organizationId', orgId);
-            query.equalTo('key', key);
+            // Upsert setting with permission validation
+            const savedSetting = await upsertParseObject(
+              'Setting',
+              { organizationId: orgId, key },
+              {
+                category,
+                createdBy: context.user.userId
+              },
+              {
+                value,
+                updatedBy: context.user.userId,
+                updatedAt: new Date()
+              }
+            );
 
-            let setting = await query.first();
-
-            if (!setting) {
-              // Create new setting
-              const Setting = Parse.Object.extend('Setting');
-              setting = new Setting();
-              setting.set('key', key);
-              setting.set('organizationId', orgId);
-              setting.set('category', category);
-              setting.set('createdBy', context.user.userId);
-            }
-
-            // Check permissions for system settings
-            if (setting.get('isSystem') && !context.user.permissions?.includes('admin:settings')) {
+            // Check permissions for system settings after upsert
+            if (savedSetting.get('isSystem') && !context.user.permissions?.includes('admin:settings')) {
               throw new Error(`Insufficient permissions to modify system setting: ${key}`);
             }
 
-            setting.set('value', value);
-            setting.set('updatedBy', context.user.userId);
-            setting.set('updatedAt', new Date());
-
-            const savedSetting = await setting.save();
             return { key, success: true, setting: savedSetting.toJSON() };
           } catch (error) {
-            return { 
-              key, 
-              success: false, 
-              error: error instanceof Error ? error.message : 'Unknown error' 
+            return {
+              key,
+              success: false,
+              error: error instanceof Error ? error.message : 'Unknown error'
             };
           }
         })();

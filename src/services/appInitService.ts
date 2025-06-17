@@ -11,12 +11,6 @@ import { initializeControllers } from '../controllers/registerControllers';
 // This function orchestrates the creation or retrieval and update of the Parse Installation object.
 async function ensureParseInstallation(): Promise<void> {
   try {
-    // Skip installation setup during development to avoid errors
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[DEBUG] Skipping Parse Installation setup in development mode');
-      return;
-    }
-
     let installation = await Parse.Installation.currentInstallation();
 
     // If currentInstallation() returned null or undefined, create a new one.

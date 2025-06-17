@@ -1,5 +1,5 @@
 import { ActionDefinition, ActionContext, ActionResult } from '../../types/ActionTypes';
-import Parse from 'parse';
+import { ParseQueryBuilder } from '../../../utils/parseUtils';
 
 // Default settings configuration
 const getDefaultSettings = (): Record<string, any> => {
@@ -60,15 +60,15 @@ export const resetSettingsAction: ActionDefinition = {
         };
       }
 
-      const query = new Parse.Query('Setting');
-      query.equalTo('organizationId', orgId);
-      query.notEqualTo('isSystem', true); // Don't reset system settings
+      let queryBuilder = new ParseQueryBuilder('Setting')
+        .equalTo('organizationId', orgId)
+        .notEqualTo('isSystem', true); // Don't reset system settings
 
       if (category) {
-        query.equalTo('category', category);
+        queryBuilder = queryBuilder.equalTo('category', category);
       }
 
-      const settings = await query.find();
+      const settings = await queryBuilder.find();
       
       // Get default values for settings
       const defaultValues = getDefaultSettings();

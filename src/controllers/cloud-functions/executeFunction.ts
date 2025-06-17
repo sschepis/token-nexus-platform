@@ -1,5 +1,6 @@
 import Parse from 'parse/node';
 import { ActionContext, ActionResult } from '../types/ActionTypes';
+import { createQuery } from '../../utils/parseUtils';
 
 export interface ExecutionLog {
   functionName: string;
@@ -12,6 +13,10 @@ export interface ExecutionLog {
   timestamp: Date;
 }
 
+/**
+ * Refactored executeFunction using ParseQueryBuilder utilities
+ * This eliminates repetitive Parse query and object creation patterns
+ */
 export async function executeFunction(
   params: Record<string, unknown>,
   context: ActionContext
@@ -19,7 +24,7 @@ export async function executeFunction(
   try {
     const { functionName, parameters = {}, timeout = 30 } = params;
 
-    // Verify function exists
+    // Verify function exists using utility
     const functionExists = await verifyFunctionExists(functionName as string);
     if (!functionExists) {
       return {
@@ -66,7 +71,7 @@ export async function executeFunction(
       timestamp: new Date()
     });
 
-    // Update function execution count
+    // Update function execution count using utility
     await updateFunctionExecutionCount(functionName as string);
 
     if (executionError) {
@@ -124,13 +129,17 @@ export async function executeFunction(
   }
 }
 
+/**
+ * Refactored function verification using ParseQueryBuilder
+ */
 async function verifyFunctionExists(functionName: string): Promise<boolean> {
   try {
-    const query = new Parse.Query('CloudFunction');
-    query.equalTo('name', functionName);
-    query.equalTo('status', 'deployed'); // Only allow execution of deployed functions
+    // Use ParseQueryBuilder for cleaner query construction
+    const cloudFunction = await createQuery('CloudFunction')
+      .equalTo('name', functionName)
+      .withStatus('deployed') // Only allow execution of deployed functions
+      .first();
     
-    const cloudFunction = await query.first();
     return !!cloudFunction;
   } catch (error) {
     console.error('Error verifying function exists:', error);
@@ -138,29 +147,17 @@ async function verifyFunctionExists(functionName: string): Promise<boolean> {
   }
 }
 
+/**
+ * Refactored logging function using Parse utilities
+ */
 async function logFunctionExecution(functionName: string, logData: ExecutionLog): Promise<void> {
   try {
     // Create FunctionExecutionLog object in Parse database
     const ExecutionLog = Parse.Object.extend('FunctionExecutionLog');
     const executionLog = new ExecutionLog();
     
-    executionLog.set('functionName', functionName);
-    executionLog.set('userId', logData.userId);
-    executionLog.set('parameters', logData.parameters);
-    executionLog.set('executionTime', logData.executionTime);
-    executionLog.set('success', logData.success);
-    executionLog.set('level', logData.success ? 'info' : 'error');
-    
-    if (logData.result !== undefined) {
-      executionLog.set('result', logData.result);
-    }
-    
-    if (logData.error) {
-      executionLog.set('error', logData.error);
-      executionLog.set('message', `Function execution failed: ${logData.error}`);
-    } else {
-      executionLog.set('message', `Function executed successfully in ${logData.executionTime}ms`);
-    }
+    // Use utility function to set log data
+    setExecutionLogData(executionLog, functionName, logData);
     
     // Save to database
     await executionLog.save();
@@ -176,12 +173,16 @@ async function logFunctionExecution(functionName: string, logData: ExecutionLog)
   }
 }
 
+/**
+ * Refactored execution count update using ParseQueryBuilder
+ */
 async function updateFunctionExecutionCount(functionName: string): Promise<void> {
   try {
-    const query = new Parse.Query('CloudFunction');
-    query.equalTo('name', functionName);
+    // Use ParseQueryBuilder to find the function
+    const cloudFunction = await createQuery('CloudFunction')
+      .equalTo('name', functionName)
+      .first();
     
-    const cloudFunction = await query.first();
     if (cloudFunction) {
       const currentCount = cloudFunction.get('executionCount') || 0;
       cloudFunction.set('executionCount', currentCount + 1);
@@ -192,5 +193,32 @@ async function updateFunctionExecutionCount(functionName: string): Promise<void>
   } catch (error) {
     console.error('Error updating function execution count:', error);
     // Don't throw error here to avoid breaking the main execution flow
+  }
+}
+
+/**
+ * Utility function to set execution log data on Parse object
+ */
+function setExecutionLogData(
+  parseObj: Parse.Object,
+  functionName: string,
+  logData: ExecutionLog
+): void {
+  parseObj.set('functionName', functionName);
+  parseObj.set('userId', logData.userId);
+  parseObj.set('parameters', logData.parameters);
+  parseObj.set('executionTime', logData.executionTime);
+  parseObj.set('success', logData.success);
+  parseObj.set('level', logData.success ? 'info' : 'error');
+  
+  if (logData.result !== undefined) {
+    parseObj.set('result', logData.result);
+  }
+  
+  if (logData.error) {
+    parseObj.set('error', logData.error);
+    parseObj.set('message', `Function execution failed: ${logData.error}`);
+  } else {
+    parseObj.set('message', `Function executed successfully in ${logData.executionTime}ms`);
   }
 }

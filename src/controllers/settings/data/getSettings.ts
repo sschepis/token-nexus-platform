@@ -1,5 +1,5 @@
 import { ActionDefinition, ActionContext, ActionResult } from '../../types/ActionTypes';
-import Parse from 'parse';
+import { ParseQueryBuilder } from '../../../utils/parseUtils';
 
 export const getSettingsAction: ActionDefinition = {
   id: 'getSettings',
@@ -29,18 +29,18 @@ export const getSettingsAction: ActionDefinition = {
         };
       }
 
-      const query = new Parse.Query('Setting');
-      query.equalTo('organizationId', orgId);
+      let queryBuilder = new ParseQueryBuilder('Setting')
+        .equalTo('organizationId', orgId);
 
       if (category) {
-        query.equalTo('category', category);
+        queryBuilder = queryBuilder.equalTo('category', category);
       }
 
       if (!includeSystem) {
-        query.notEqualTo('isSystem', true);
+        queryBuilder = queryBuilder.notEqualTo('isSystem', true);
       }
 
-      const settings = await query.find();
+      const settings = await queryBuilder.find();
       const settingsData = settings.map(setting => {
         const data = setting.toJSON();
         // Mask sensitive values

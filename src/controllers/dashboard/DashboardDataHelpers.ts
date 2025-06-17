@@ -1,8 +1,24 @@
 import Parse from 'parse';
 import { ActionContext } from '../types/ActionTypes';
 import { BasePageController } from '../base/BasePageController';
+import { ParseQueryBuilder, safeParseCloudRun } from '../../utils/parseUtils';
+
+// Circuit breaker and retry state management
+interface RetryState {
+  count: number;
+  lastAttempt: number;
+  circuitOpen: boolean;
+  consecutiveFailures: number;
+  cachedValue?: number;
+}
 
 export class DashboardDataHelpers extends BasePageController {
+  private static retryStates: Map<string, RetryState> = new Map();
+  private static readonly MAX_RETRIES = 3;
+  private static readonly CIRCUIT_BREAKER_THRESHOLD = 5;
+  private static readonly CIRCUIT_BREAKER_TIMEOUT = 60000; // 1 minute
+  private static readonly BASE_DELAY = 1000; // 1 second
+
   constructor() {
     super({
       pageId: 'dashboard-helpers',
@@ -18,15 +34,117 @@ export class DashboardDataHelpers extends BasePageController {
     // No actions to initialize for helpers
   }
 
+  private getRetryState(key: string): RetryState {
+    if (!DashboardDataHelpers.retryStates.has(key)) {
+      DashboardDataHelpers.retryStates.set(key, {
+        count: 0,
+        lastAttempt: 0,
+        circuitOpen: false,
+        consecutiveFailures: 0,
+        cachedValue: undefined
+      });
+    }
+    return DashboardDataHelpers.retryStates.get(key)!;
+  }
+
+  private resetRetryState(key: string): void {
+    const state = this.getRetryState(key);
+    state.count = 0;
+    state.consecutiveFailures = 0;
+    state.circuitOpen = false;
+  }
+
+  private shouldAttemptCall(state: RetryState): boolean {
+    const now = Date.now();
+    
+    // Check if circuit breaker is open
+    if (state.circuitOpen) {
+      // Check if timeout has passed to attempt reset
+      if (now - state.lastAttempt > DashboardDataHelpers.CIRCUIT_BREAKER_TIMEOUT) {
+        console.log('[DEBUG DashboardDataHelpers] Circuit breaker timeout passed, attempting reset');
+        state.circuitOpen = false;
+        state.count = 0;
+        return true;
+      }
+      return false;
+    }
+
+    // Check retry limits
+    if (state.count >= DashboardDataHelpers.MAX_RETRIES) {
+      const timeSinceLastAttempt = now - state.lastAttempt;
+      const backoffDelay = DashboardDataHelpers.BASE_DELAY * Math.pow(2, state.count - 1);
+      
+      if (timeSinceLastAttempt < backoffDelay) {
+        return false;
+      }
+      
+      // Reset count after backoff period
+      state.count = 0;
+    }
+
+    return true;
+  }
+
+  private handleCallSuccess(key: string, value: number): void {
+    const state = this.getRetryState(key);
+    this.resetRetryState(key);
+    state.cachedValue = value;
+    console.log(`[DEBUG DashboardDataHelpers] ${key} call succeeded, cached value: ${value}`);
+  }
+
+  private handleCallFailure(key: string, error: any): void {
+    const state = this.getRetryState(key);
+    state.count++;
+    state.consecutiveFailures++;
+    state.lastAttempt = Date.now();
+
+    // Open circuit breaker if too many consecutive failures
+    if (state.consecutiveFailures >= DashboardDataHelpers.CIRCUIT_BREAKER_THRESHOLD) {
+      state.circuitOpen = true;
+      console.warn(`[DEBUG DashboardDataHelpers] Circuit breaker opened for ${key} after ${state.consecutiveFailures} consecutive failures`);
+    }
+
+    // Log different error types
+    if (error?.message?.includes('Invalid function')) {
+      console.warn(`[DEBUG DashboardDataHelpers] ${key} function not found on Parse Server - likely registration issue`);
+    } else {
+      console.warn(`[DEBUG DashboardDataHelpers] ${key} call failed (attempt ${state.count}/${DashboardDataHelpers.MAX_RETRIES}):`, error);
+    }
+  }
+
   public async getUserCount(orgId: string): Promise<number> {
+    const stateKey = `getUserCount_${orgId}`;
+    const state = this.getRetryState(stateKey);
+
+    // Check if we should attempt the call
+    if (!this.shouldAttemptCall(state)) {
+      const fallbackValue = state.cachedValue ?? 0;
+      if (state.circuitOpen) {
+        console.warn(`[DEBUG DashboardDataHelpers] Circuit breaker open for getUserCount, returning cached/fallback value: ${fallbackValue}`);
+      } else {
+        console.warn(`[DEBUG DashboardDataHelpers] getUserCount retry limit reached, returning cached/fallback value: ${fallbackValue}`);
+      }
+      return fallbackValue;
+    }
+
     try {
-      const result = await Parse.Cloud.run('getUserCount', {
+      console.log(`[DEBUG DashboardDataHelpers] Attempting getUserCount call (attempt ${state.count + 1}/${DashboardDataHelpers.MAX_RETRIES})`);
+      
+      const result = await safeParseCloudRun('getUserCount', {
         organizationId: orgId
       });
-      return result.success ? result.count : 0;
+      
+      const count = result.success ? result.count : 0;
+      this.handleCallSuccess(stateKey, count);
+      return count;
+      
     } catch (error) {
-      console.warn('[DEBUG DashboardDataHelpers] Failed to get user count:', error);
-      return 0;
+      this.handleCallFailure(stateKey, error);
+      
+      // Return cached value or fallback
+      const fallbackValue = state.cachedValue ?? 0;
+      console.warn(`[DEBUG DashboardDataHelpers] getUserCount failed, returning fallback value: ${fallbackValue}`);
+      return fallbackValue;
     }
   }
 
@@ -47,15 +165,15 @@ export class DashboardDataHelpers extends BasePageController {
       for (const schema of schemas.slice(0, 5)) { 
         if (!schema.className.startsWith('_')) {
           try {
-            const query = new Parse.Query(schema.className);
+            const queryBuilder = new ParseQueryBuilder(schema.className);
             if (schema.fields && ('organizationId' in schema.fields || 'organization' in schema.fields)) {
               if ('organizationId' in schema.fields) {
-                query.equalTo('organizationId', orgId);
+                queryBuilder.equalTo('organizationId', orgId);
               } else if ('organization' in schema.fields) {
-                query.equalTo('organization', orgId);
+                queryBuilder.equalTo('organization', orgId);
               }
             }
-            const count = await query.count({ useMasterKey: true });
+            const count = await queryBuilder.getQuery().count({ useMasterKey: true });
             totalRecords += count;
           } catch (error) {
             console.warn(`[DEBUG DashboardDataHelpers] Failed to count records for ${schema.className}:`, error);
@@ -72,8 +190,8 @@ export class DashboardDataHelpers extends BasePageController {
 
   public async getFunctionCount(): Promise<number> {
     try {
-      const query = new Parse.Query('CloudFunction');
-      const count = await query.count({ useMasterKey: true });
+      const count = await new ParseQueryBuilder('CloudFunction')
+        .getQuery().count({ useMasterKey: true });
       console.log(`[DEBUG DashboardDataHelpers] Fetched function count: ${count}`);
       return count;
     } catch (error) {
@@ -84,8 +202,8 @@ export class DashboardDataHelpers extends BasePageController {
 
   public async getIntegrationCount(): Promise<number> {
     try {
-      const query = new Parse.Query('Integration');
-      const count = await query.count({ useMasterKey: true });
+      const count = await new ParseQueryBuilder('Integration')
+        .getQuery().count({ useMasterKey: true });
       console.log(`[DEBUG DashboardDataHelpers] Fetched integration count: ${count}`);
       return count;
     } catch (error) {
@@ -121,24 +239,23 @@ export class DashboardDataHelpers extends BasePageController {
 
   public async getRecentActivity(timeRange: string, limit: number = 10, activityType?: string): Promise<any[]> {
     try {
-      const query = new Parse.Query('AuditLog');
+      const queryBuilder = new ParseQueryBuilder('AuditLog');
       if (activityType) {
-        query.equalTo('type', activityType);
+        queryBuilder.equalTo('type', activityType);
       }
 
       const now = new Date();
       if (timeRange === '24h') {
-        query.greaterThanOrEqualTo('createdAt', new Date(now.getTime() - 24 * 60 * 60 * 1000));
+        queryBuilder.greaterThan('createdAt', new Date(now.getTime() - 24 * 60 * 60 * 1000));
       } else if (timeRange === '7d') {
-        query.greaterThanOrEqualTo('createdAt', new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000));
+        queryBuilder.greaterThan('createdAt', new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000));
       } else if (timeRange === '30d') {
-        query.greaterThanOrEqualTo('createdAt', new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000));
+        queryBuilder.greaterThan('createdAt', new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000));
       }
 
-      query.descending('createdAt');
-      query.limit(limit);
+      queryBuilder.descending('createdAt').limit(limit);
 
-      const activities = await query.find({ useMasterKey: true });
+      const activities = await queryBuilder.getQuery().find({ useMasterKey: true });
       return activities.map(activity => ({
         id: activity.id,
         type: activity.get('type'),
@@ -255,8 +372,8 @@ export class DashboardDataHelpers extends BasePageController {
         },
       } as any); // Type assertion to allow adding to the pipeline
 
-      const query = new Parse.Query(Parse.User);
-      const results = await (query as any).aggregate(pipeline, { useMasterKey: true });
+      const query = new ParseQueryBuilder('_User');
+      const results = await (query.getQuery() as any).aggregate(pipeline, { useMasterKey: true });
       return results;
     } catch (error) {
       console.warn('[DEBUG DashboardDataHelpers] Failed to get user growth chart:', error);
@@ -329,8 +446,8 @@ export class DashboardDataHelpers extends BasePageController {
       }
 
       (pipeline[0] as any).$match.createdAt = { $gte: startDate };
-      const query = new Parse.Query('AuditLog');
-      const results = await (query as any).aggregate(pipeline, { useMasterKey: true });
+      const query = new ParseQueryBuilder('AuditLog');
+      const results = await (query.getQuery() as any).aggregate(pipeline, { useMasterKey: true });
       return results;
     } catch (error) {
       console.warn('[DEBUG DashboardDataHelpers] Failed to get record activity chart:', error);
@@ -384,8 +501,8 @@ export class DashboardDataHelpers extends BasePageController {
       }
 
       (pipeline[0] as any).$match.createdAt = { $gte: startDate };
-      const query = new Parse.Query('AuditLog');
-      const results = await (query as any).aggregate(pipeline, { useMasterKey: true });
+      const query = new ParseQueryBuilder('AuditLog');
+      const results = await (query.getQuery() as any).aggregate(pipeline, { useMasterKey: true });
       return results;
     } catch (error) {
       console.warn('[DEBUG DashboardDataHelpers] Failed to get function usage chart:', error);

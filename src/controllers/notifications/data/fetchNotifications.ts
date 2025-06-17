@@ -1,5 +1,5 @@
 import { ActionDefinition, ActionContext, ActionResult } from '../../types/ActionTypes';
-import Parse from 'parse';
+import { ParseQueryBuilder } from '../../../utils/parseUtils';
 
 export const fetchNotificationsAction: ActionDefinition = {
   id: 'fetchNotifications',
@@ -32,52 +32,50 @@ export const fetchNotificationsAction: ActionDefinition = {
         };
       }
 
-      const query = new Parse.Query('Notification');
+      // Build user and organization queries using ParseQueryBuilder
+      const userQuery = new ParseQueryBuilder('Notification')
+        .equalTo('recipientId', context.user.userId);
       
-      // Filter by user or organization
-      const userQuery = new Parse.Query('Notification');
-      userQuery.equalTo('recipientId', context.user.userId);
+      const orgQuery = new ParseQueryBuilder('Notification')
+        .equalTo('organizationId', orgId)
+        .equalTo('recipientType', 'organization');
       
-      const orgQuery = new Parse.Query('Notification');
-      orgQuery.equalTo('organizationId', orgId);
-      orgQuery.equalTo('recipientType', 'organization');
-      
-      const combinedQuery = Parse.Query.or(userQuery, orgQuery);
+      // Create OR query and apply filters
+      let combinedQuery = ParseQueryBuilder.or(userQuery, orgQuery);
 
       if (!includeArchived) {
-        combinedQuery.notEqualTo('status', 'archived');
+        combinedQuery = combinedQuery.notEqualTo('status', 'archived');
       }
 
       if (type) {
-        combinedQuery.equalTo('type', type);
+        combinedQuery = combinedQuery.equalTo('type', type);
       }
 
       if (status) {
-        combinedQuery.equalTo('status', status);
+        combinedQuery = combinedQuery.equalTo('status', status);
       }
 
       if (priority) {
-        combinedQuery.equalTo('priority', priority);
+        combinedQuery = combinedQuery.equalTo('priority', priority);
       }
 
-      combinedQuery.descending('createdAt');
-      combinedQuery.limit(limit as number);
-
-      const notifications = await combinedQuery.find();
+      const notifications = await combinedQuery
+        .descending('createdAt')
+        .limit(limit as number)
+        .find();
       const notificationData = notifications.map(notification => notification.toJSON());
 
-      // Count unread notifications
-      const unreadQuery = new Parse.Query('Notification');
-      const userUnreadQuery = new Parse.Query('Notification');
-      userUnreadQuery.equalTo('recipientId', context.user.userId);
-      userUnreadQuery.equalTo('status', 'unread');
+      // Count unread notifications using ParseQueryBuilder
+      const userUnreadQuery = new ParseQueryBuilder('Notification')
+        .equalTo('recipientId', context.user.userId)
+        .equalTo('status', 'unread');
       
-      const orgUnreadQuery = new Parse.Query('Notification');
-      orgUnreadQuery.equalTo('organizationId', orgId);
-      orgUnreadQuery.equalTo('recipientType', 'organization');
-      orgUnreadQuery.equalTo('status', 'unread');
+      const orgUnreadQuery = new ParseQueryBuilder('Notification')
+        .equalTo('organizationId', orgId)
+        .equalTo('recipientType', 'organization')
+        .equalTo('status', 'unread');
       
-      const unreadCombinedQuery = Parse.Query.or(userUnreadQuery, orgUnreadQuery);
+      const unreadCombinedQuery = ParseQueryBuilder.or(userUnreadQuery, orgUnreadQuery);
       const unreadCount = await unreadCombinedQuery.count();
 
       return {

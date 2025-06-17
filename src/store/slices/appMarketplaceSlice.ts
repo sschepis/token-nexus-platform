@@ -1,4 +1,10 @@
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { 
+  AsyncThunkFactory, 
+  AsyncReducerBuilder, 
+  createAsyncInitialState,
+  ExtendedAsyncState 
+} from '../utils/createAsyncSliceUtils';
 import {
   AppCategory,
   AppDefinitionForMarketplace,
@@ -7,18 +13,32 @@ import {
   InstallAppParams,
   UninstallAppParams,
   UpdateAppSettingsParams,
-} from '@/types/app-marketplace';
-import { appMarketplaceApi } from '@/services/api/appMarketplace';
+} from '../../types/app-marketplace';
 
-interface AppMarketplaceState {
+/**
+ * Refactored App Marketplace slice using AsyncThunkFactory utilities
+ * This eliminates all the repetitive createAsyncThunk and error handling patterns
+ */
+
+// Parameter interfaces for async thunks
+export interface FetchAppDefinitionsParams {
+  category?: string;
+  search?: string;
+  [key: string]: unknown; // Add index signature for Record<string, unknown> compatibility
+}
+
+export interface FetchOrgAppInstallationsParams {
+  organizationId?: string;
+  [key: string]: unknown;
+}
+
+interface AppMarketplaceState extends ExtendedAsyncState {
   appDefinitions: AppDefinitionForMarketplace[];
   appVersions: AppVersionForMarketplace[]; // For displaying versions of a selected app
   orgAppInstallations: OrgAppInstallation[];
   categories: AppCategory[];
   selectedCategory: AppCategory | 'all';
   searchQuery: string;
-  isLoading: boolean;
-  error: string | null;
   // Specific loading/error states for actions
   isInstalling: boolean;
   installError: string | null;
@@ -28,130 +48,96 @@ interface AppMarketplaceState {
   updateSettingsError: string | null;
 }
 
-const initialState: AppMarketplaceState = {
+// Create async thunks using the factory
+const appMarketplaceThunks = {
+  fetchAppDefinitions: AsyncThunkFactory.create<FetchAppDefinitionsParams | undefined, AppDefinitionForMarketplace[]>({
+    name: 'appMarketplace/fetchAppDefinitions',
+    cloudFunction: 'fetchAppDefinitions',
+    transformParams: (params) => (params || {}) as Record<string, unknown>,
+    transformResponse: (response: any) => response.data || response,
+    errorMessage: 'Failed to fetch app definitions'
+  }),
+
+  fetchAppVersionsForDefinition: AsyncThunkFactory.create<string, AppVersionForMarketplace[]>({
+    name: 'appMarketplace/fetchAppVersionsForDefinition',
+    cloudFunction: 'fetchAppVersionsForDefinition',
+    transformParams: (appDefinitionId: string) => ({ appDefinitionId }),
+    transformResponse: (response: any) => response.data || response,
+    errorMessage: 'Failed to fetch app versions'
+  }),
+
+  fetchOrgAppInstallations: AsyncThunkFactory.create<FetchOrgAppInstallationsParams | undefined, OrgAppInstallation[]>({
+    name: 'appMarketplace/fetchOrgAppInstallations',
+    cloudFunction: 'fetchOrgAppInstallations',
+    transformParams: (params) => (params || {}) as Record<string, unknown>,
+    transformResponse: (response: any) => response.data || response,
+    errorMessage: 'Failed to fetch installed apps'
+  }),
+
+  installApp: AsyncThunkFactory.create<InstallAppParams, OrgAppInstallation>({
+    name: 'appMarketplace/installApp',
+    cloudFunction: 'installApp',
+    transformParams: (params) => ({
+      appDefinitionId: params.appDefinitionId,
+      versionId: params.versionId,
+      appSpecificConfig: params.appSpecificConfig
+    }),
+    transformResponse: (response: any) => response.data || response,
+    errorMessage: 'Failed to install app'
+  }),
+
+  uninstallApp: AsyncThunkFactory.create<UninstallAppParams, { success: boolean; orgAppInstallationId: string }>({
+    name: 'appMarketplace/uninstallApp',
+    cloudFunction: 'uninstallApp',
+    transformParams: (params) => ({
+      appDefinitionId: params.appDefinitionId,
+      orgAppInstallationId: params.orgAppInstallationId
+    }),
+    transformResponse: (response: any) => ({
+      success: response.success || true,
+      orgAppInstallationId: response.orgAppInstallationId || response.id
+    }),
+    errorMessage: 'Failed to uninstall app'
+  }),
+
+  updateAppSettings: AsyncThunkFactory.create<UpdateAppSettingsParams, OrgAppInstallation>({
+    name: 'appMarketplace/updateAppSettings',
+    cloudFunction: 'updateAppSettings',
+    transformParams: (params) => ({
+      appDefinitionId: params.appDefinitionId,
+      orgAppInstallationId: params.orgAppInstallationId,
+      settings: params.settings
+    }),
+    transformResponse: (response: any) => response.data || response,
+    errorMessage: 'Failed to update app settings'
+  })
+};
+
+// Export thunks for backward compatibility
+export const {
+  fetchAppDefinitions,
+  fetchAppVersionsForDefinition,
+  fetchOrgAppInstallations,
+  installApp,
+  uninstallApp,
+  updateAppSettings
+} = appMarketplaceThunks;
+
+const initialState: AppMarketplaceState = createAsyncInitialState({
   appDefinitions: [],
   appVersions: [],
   orgAppInstallations: [],
   categories: [], // Populate this dynamically or from a static list
-  selectedCategory: 'all',
+  selectedCategory: 'all' as AppCategory | 'all',
   searchQuery: '',
-  isLoading: false,
-  error: null,
+  // Specific loading/error states for actions
   isInstalling: false,
   installError: null,
   isUninstalling: false,
   uninstallError: null,
   isUpdatingSettings: false,
   updateSettingsError: null,
-};
-
-// Async Thunks
-/**
- * Thunk to fetch all app definitions from the marketplace, with optional filtering.
- */
-export const fetchAppDefinitions = createAsyncThunk(
-  'appMarketplace/fetchAppDefinitions',
-  async (params: { category?: string; search?: string } = {}, { rejectWithValue }) => {
-    try {
-      const response = await appMarketplaceApi.fetchAppDefinitions(params);
-      return response;
-    } catch (error: any) {
-      return rejectWithValue(error.message || 'Failed to fetch app definitions');
-    }
-  }
-);
-
-/**
- * Thunk to fetch all versions for a given app definition ID.
- */
-export const fetchAppVersionsForDefinition = createAsyncThunk(
-  'appMarketplace/fetchAppVersionsForDefinition',
-  async (appDefinitionId: string, { rejectWithValue }) => {
-    try {
-      const response = await appMarketplaceApi.fetchAppVersionsForDefinition(appDefinitionId);
-      return response;
-    } catch (error: any) {
-      return rejectWithValue(error.message || 'Failed to fetch app versions');
-    }
-  }
-);
-
-/**
- * Thunk to fetch all installed apps for the current organization.
- */
-export const fetchOrgAppInstallations = createAsyncThunk(
-  'appMarketplace/fetchOrgAppInstallations',
-  async (_, { rejectWithValue }) => {
-    try {
-      // Assuming organization ID is handled by the API itself or context
-      const response = await appMarketplaceApi.fetchOrgAppInstallations();
-      return response;
-    } catch (error: any) {
-      return rejectWithValue(error.message || 'Failed to fetch installed apps');
-    }
-  }
-);
-
-/**
- * Thunk to install an app for the current organization.
- */
-export const installApp = createAsyncThunk(
-  'appMarketplace/installApp',
-  async (params: InstallAppParams, { rejectWithValue }) => {
-    try {
-      const response = await appMarketplaceApi.installApp(params);
-      return response;
-    } catch (error: any) {
-      return rejectWithValue(error.message || 'Failed to install app');
-    }
-  }
-);
-
-/**
- * Thunk to uninstall an app from the current organization.
- */
-export const uninstallApp = createAsyncThunk(
-  'appMarketplace/uninstallApp',
-  async (params: UninstallAppParams, { rejectWithValue }) => {
-    try {
-      await appMarketplaceApi.uninstallApp(params);
-      return params.orgAppInstallationId || params.appDefinitionId; // Return the ID to update state
-    } catch (error: any) {
-      return rejectWithValue(error.message || 'Failed to uninstall app');
-    }
-  }
-);
-
-/**
- * Thunk to update settings for an installed app.
- */
-export const updateAppSettings = createAsyncThunk(
-  'appMarketplace/updateAppSettings',
-  async (params: UpdateAppSettingsParams, { rejectWithValue }) => {
-    try {
-      const response = await appMarketplaceApi.updateAppSettings(params);
-      return response;
-    } catch (error: any) {
-      return rejectWithValue(error.message || 'Failed to update app settings');
-    }
-  }
-);
-
-/**
- * Thunk for fetching details for a specific app installation.
- */
-export const getAppInstallationDetails = createAsyncThunk(
-  'appMarketplace/getAppInstallationDetails',
-  async (appInstallationId: string, { rejectWithValue }) => {
-    try {
-      const response = await appMarketplaceApi.getAppInstallationDetails(appInstallationId);
-      return response;
-    } catch (error: any) {
-      return rejectWithValue(error.message || 'Failed to fetch app installation details');
-    }
-  }
-);
-
+}, { includeExtended: true });
 
 const appMarketplaceSlice = createSlice({
   name: 'appMarketplace',
@@ -160,142 +146,152 @@ const appMarketplaceSlice = createSlice({
     setSelectedCategory: (state, action: PayloadAction<AppCategory | 'all'>) => {
       state.selectedCategory = action.payload;
     },
+    
     setSearchQuery: (state, action: PayloadAction<string>) => {
       state.searchQuery = action.payload;
     },
-    clearAppMarketplaceErrors: (state) => {
+    
+    clearAppVersions: (state) => {
+      state.appVersions = [];
+    },
+    
+    clearInstallError: (state) => {
+      state.installError = null;
+    },
+    
+    clearUninstallError: (state) => {
+      state.uninstallError = null;
+    },
+    
+    clearUpdateSettingsError: (state) => {
+      state.updateSettingsError = null;
+    },
+    
+    clearAllErrors: (state) => {
       state.error = null;
       state.installError = null;
       state.uninstallError = null;
       state.updateSettingsError = null;
     },
-  },
-  extraReducers: (builder) => {
-    builder
-      // fetchAppDefinitions
-      .addCase(fetchAppDefinitions.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addCase(fetchAppDefinitions.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.appDefinitions = action.payload;
-        // Also derive categories if not static
-        const uniqueCategories = Array.from(new Set(action.payload.map(app => app.category)));
-        state.categories = ['all', ...uniqueCategories].sort() as AppCategory[]; // Assuming 'all' is a valid filter
-      })
-      .addCase(fetchAppDefinitions.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = action.payload as string;
-      })
-
-      // fetchAppVersionsForDefinition
-      .addCase(fetchAppVersionsForDefinition.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addCase(fetchAppVersionsForDefinition.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.appVersions = action.payload;
-      })
-      .addCase(fetchAppVersionsForDefinition.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = action.payload as string;
-      })
-
-      // fetchOrgAppInstallations
-      .addCase(fetchOrgAppInstallations.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addCase(fetchOrgAppInstallations.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.orgAppInstallations = action.payload;
-      })
-      .addCase(fetchOrgAppInstallations.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = action.payload as string;
-      })
-
-      // installApp
-      .addCase(installApp.pending, (state) => {
-        state.isInstalling = true;
-        state.installError = null;
-      })
-      .addCase(installApp.fulfilled, (state, action) => {
-        state.isInstalling = false;
-        // Optionally update appDefinitions or orgAppInstallations
+    
+    // Manual state updates for optimistic UI updates
+    addAppInstallation: (state, action: PayloadAction<OrgAppInstallation>) => {
+      const existingIndex = state.orgAppInstallations.findIndex(
+        installation => installation.objectId === action.payload.objectId
+      );
+      if (existingIndex === -1) {
         state.orgAppInstallations.push(action.payload);
-        // Update the status of the app definition in appDefinitions
-        const appDef = state.appDefinitions.find(def => def.id === action.payload.appDefinition.id);
-        if (appDef) {
-          appDef.status = 'installed'; // Assuming AppDefinition has a status property to indicate installation
-        }
-      })
-      .addCase(installApp.rejected, (state, action) => {
-        state.isInstalling = false;
+      }
+    },
+    
+    removeAppInstallation: (state, action: PayloadAction<string>) => {
+      state.orgAppInstallations = state.orgAppInstallations.filter(
+        installation => installation.objectId !== action.payload
+      );
+    },
+    
+    updateAppInstallation: (state, action: PayloadAction<OrgAppInstallation>) => {
+      const index = state.orgAppInstallations.findIndex(
+        installation => installation.objectId === action.payload.objectId
+      );
+      if (index !== -1) {
+        state.orgAppInstallations[index] = action.payload;
+      }
+    }
+  },
+  
+  extraReducers: (builder) => {
+    // Fetch app definitions using AsyncReducerBuilder
+    AsyncReducerBuilder.addAsyncCase(builder, appMarketplaceThunks.fetchAppDefinitions, {
+      loadingFlag: 'isFetching',
+      onFulfilled: (state, action) => {
+        state.appDefinitions = action.payload;
+        // Extract categories from app definitions
+        const categorySet = new Set<AppCategory>();
+        action.payload.forEach(app => {
+          if (app.category) {
+            categorySet.add(app.category);
+          }
+        });
+        state.categories = Array.from(categorySet);
+      }
+    });
+
+    // Fetch app versions for definition
+    AsyncReducerBuilder.addAsyncCase(builder, appMarketplaceThunks.fetchAppVersionsForDefinition, {
+      loadingFlag: 'isFetching',
+      onFulfilled: (state, action) => {
+        state.appVersions = action.payload;
+      }
+    });
+
+    // Fetch organization app installations
+    AsyncReducerBuilder.addAsyncCase(builder, appMarketplaceThunks.fetchOrgAppInstallations, {
+      loadingFlag: 'isFetching',
+      onFulfilled: (state, action) => {
+        state.orgAppInstallations = action.payload;
+      }
+    });
+
+    // Install app
+    AsyncReducerBuilder.addAsyncCase(builder, appMarketplaceThunks.installApp, {
+      loadingFlag: 'isInstalling',
+      onFulfilled: (state, action) => {
+        // Add the new installation to the list
+        state.orgAppInstallations.push(action.payload);
+        state.installError = null;
+      },
+      onRejected: (state, action) => {
         state.installError = action.payload as string;
-      })
+      }
+    });
 
-      // uninstallApp
-      .addCase(uninstallApp.pending, (state) => {
-        state.isUninstalling = true;
-        state.uninstallError = null;
-      })
-      .addCase(uninstallApp.fulfilled, (state, action) => {
-        state.isUninstalling = false;
-        const uninstalledAppId = action.payload; // appId returned from thunk
+    // Uninstall app
+    AsyncReducerBuilder.addAsyncCase(builder, appMarketplaceThunks.uninstallApp, {
+      loadingFlag: 'isUninstalling',
+      onFulfilled: (state, action) => {
+        // Remove the installation from the list
         state.orgAppInstallations = state.orgAppInstallations.filter(
-          (inst) => inst.appDefinition.id !== uninstalledAppId
+          installation => installation.objectId !== action.payload.orgAppInstallationId
         );
-        // Update the status of the app definition in appDefinitions
-        const appDef = state.appDefinitions.find(def => def.id === uninstalledAppId);
-        if (appDef) {
-          appDef.status = 'not_installed'; // Assuming AppDefinition has a status property
-        }
-      })
-      .addCase(uninstallApp.rejected, (state, action) => {
-        state.isUninstalling = false;
+        state.uninstallError = null;
+      },
+      onRejected: (state, action) => {
         state.uninstallError = action.payload as string;
-      })
+      }
+    });
 
-      // updateAppSettings
-      .addCase(updateAppSettings.pending, (state) => {
-        state.isUpdatingSettings = true;
-        state.updateSettingsError = null;
-      })
-      .addCase(updateAppSettings.fulfilled, (state, action) => {
-        state.isUpdatingSettings = false;
-        // Update the specific orgAppInstallation with new settings
+    // Update app settings
+    AsyncReducerBuilder.addAsyncCase(builder, appMarketplaceThunks.updateAppSettings, {
+      loadingFlag: 'isUpdatingSettings',
+      onFulfilled: (state, action) => {
+        // Update the installation in the list
         const index = state.orgAppInstallations.findIndex(
-          (inst) => inst.objectId === action.payload.objectId
+          installation => installation.objectId === action.payload.objectId
         );
         if (index !== -1) {
-          state.orgAppInstallations[index] = action.payload; // Replace with updated object
+          state.orgAppInstallations[index] = action.payload;
         }
-      })
-      .addCase(updateAppSettings.rejected, (state, action) => {
-        state.isUpdatingSettings = false;
+        state.updateSettingsError = null;
+      },
+      onRejected: (state, action) => {
         state.updateSettingsError = action.payload as string;
-      })
-
-      // getAppInstallationDetails
-      .addCase(getAppInstallationDetails.pending, (state) => {
-        state.isLoading = true; // Use general loading for details fetch
-        state.error = null;
-      })
-      .addCase(getAppInstallationDetails.fulfilled, (state, action) => {
-        state.isLoading = false;
-        // Optionally update the orgAppInstallations array or display details
-        // For simplicity, we might just store the last fetched detail or not at all
-      })
-      .addCase(getAppInstallationDetails.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = action.payload as string;
-      });
-  },
+      }
+    });
+  }
 });
 
-export const { setSelectedCategory, setSearchQuery, clearAppMarketplaceErrors } = appMarketplaceSlice.actions;
+export const {
+  setSelectedCategory,
+  setSearchQuery,
+  clearAppVersions,
+  clearInstallError,
+  clearUninstallError,
+  clearUpdateSettingsError,
+  clearAllErrors,
+  addAppInstallation,
+  removeAppInstallation,
+  updateAppInstallation
+} = appMarketplaceSlice.actions;
 
 export default appMarketplaceSlice.reducer;

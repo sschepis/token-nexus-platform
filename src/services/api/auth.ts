@@ -1,6 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Parse from 'parse';
 import { apiService, mockResponse } from './base'; // Import apiService and mockResponse
+import { callCloudFunction } from '../../utils/apiUtils';
+
+/**
+ * Refactored Auth API using the new utility functions
+ * This eliminates repetitive error handling and Parse.Cloud.run patterns
+ * while maintaining Parse initialization and installation setup
+ */
 
 // Helper function to ensure Parse SDK is initialized
 async function ensureParseInitialized(): Promise<void> {
@@ -102,16 +109,23 @@ const authApi = {
       // Ensure Parse Installation is properly set up before making cloud function calls
       await ensureParseInstallation();
       
-      // Call the custom Parse Cloud function
-      const result = await Parse.Cloud.run('customUserLogin', {
-        username: credentials.email, // Parse uses 'username' for email by default
-        password: credentials.password
-      });
+      // Call the custom Parse Cloud function using our utility
+      const result = await callCloudFunction<{ user: any; token: string; orgId: string; permissions: string[]; isAdmin?: boolean }>(
+        'customUserLogin',
+        {
+          username: credentials.email, // Parse uses 'username' for email by default
+          password: credentials.password
+        },
+        {
+          errorMessage: 'Login failed via cloud function'
+        }
+      );
+      
       // The cloud function should return data in the format expected by loginSuccess action
       // including the isAdmin flag.
       // Example expected structure from cloud function:
       // { user: { id, email, firstName, lastName, avatarUrl }, token, orgId, permissions, isAdmin }
-      return result as { user: any; token: string; orgId: string; permissions: string[]; isAdmin?: boolean };
+      return result.data!;
     } catch (error: any) {
       console.debug('[Auth API] Error calling customUserLogin cloud function:', error);
       throw new Error(error.message || 'Login failed via cloud function');
@@ -131,13 +145,19 @@ const authApi = {
       // Ensure Parse Installation is properly set up before making cloud function calls
       await ensureParseInstallation();
       
-      // Call the existing Parse Cloud function
-      const organizations = await Parse.Cloud.run('getUserOrganizations');
+      // Call the existing Parse Cloud function using our utility
+      const result = await callCloudFunction<any[]>(
+        'getUserOrganizations',
+        {},
+        {
+          errorMessage: 'Failed to fetch user organizations'
+        }
+      );
       
       // Transform the response to match the expected mock API structure
       return {
         data: {
-          orgs: organizations || []
+          orgs: result.data || []
         }
       };
     } catch (error: any) {

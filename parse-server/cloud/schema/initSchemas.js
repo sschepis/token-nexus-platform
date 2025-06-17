@@ -7,6 +7,7 @@ const OrganizationSchema = require('./Organization'); // Import OrganizationSche
 const OrgIntegrationConfigSchema = require('./OrgIntegrationConfig'); // Import OrgIntegrationConfigSchema if needed
 const PlatformConfigSchema = require('./PlatformConfig'); // Import PlatformConfigSchema
 const AppFrameworkSchema = require('./AppFramework'); // Import AppFrameworkSchema
+const { WorkflowSchema, WorkflowExecutionSchema, NodeExecutionSchema, WorkflowTemplateSchema } = require('./workflowSchema');
 const ErrorFormatter = require('../utils/errorFormatter');
 
 async function initializeSchema(schemaDefinitions, options = {}) {
@@ -182,9 +183,27 @@ async function initializeApplicationSchemas(options = {}) {
   return results;
 }
 
+async function initializeWorkflowSchemas(options = {}) {
+  const workflowSchemas = {
+    Workflow: WorkflowSchema,
+    WorkflowExecution: WorkflowExecutionSchema,
+    NodeExecution: NodeExecutionSchema,
+    WorkflowTemplate: WorkflowTemplateSchema
+  };
+
+  const results = await initializeSchema(workflowSchemas, options);
+  
+  if (results.failed.length > 0) {
+    throw new Error(`Failed to initialize ${results.failed.length} workflow schemas: ${results.failed.join(', ')}`);
+  }
+  
+  return results;
+}
+
 module.exports = {
   initializeAISchemas,
   initializeApplicationSchemas,
+  initializeWorkflowSchemas,
   initializeSchema,
 };
 
@@ -197,6 +216,11 @@ async function initializeCoreSchemas(options = {}) {
     OrgIntegrationConfig: OrgIntegrationConfigSchema,
     PlatformConfig: PlatformConfigSchema,
     AppFramework: AppFrameworkSchema, // if PlatformConfig is used by AppFrameworkSchemas
+    // Workflow System Schemas
+    Workflow: WorkflowSchema,
+    WorkflowExecution: WorkflowExecutionSchema,
+    NodeExecution: NodeExecutionSchema,
+    WorkflowTemplate: WorkflowTemplateSchema,
     // Add other core schemas explicitly if they need specific initialization or extensions
   };
 

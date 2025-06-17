@@ -442,6 +442,23 @@ Parse.Cloud.define('createAuditEntry', async (request) => {
   }
 });
 
+Parse.Cloud.define('getUserCount', async (request) => {
+  // Optional: Add permission checks if only certain users should access this
+  // const { user } = request;
+  // if (!user || !user.get('isAdmin')) { // Example: only admins
+  //   throw new Error('Insufficient permissions.');
+  // }
+
+  try {
+    const query = new Parse.Query(Parse.User);
+    const count = await query.count({ useMasterKey: true }); // Use masterKey if necessary for permissions
+    return { success: true, count };
+  } catch (error) {
+    console.error('Error in getUserCount:', error);
+    throw new Error(`Failed to get user count: ${error.message}`);
+  }
+});
+
 // Scheduled job for cleanup
 Parse.Cloud.job('cleanupExpiredVerifications', async (request) => {
   const { message } = request;

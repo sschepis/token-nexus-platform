@@ -10,6 +10,7 @@ import { PageTransition } from '@/components/ui/animated-container'; // Assuming
 import AppLayout from '@/components/layout/AppLayout'; // Added AppLayout import
 import '../styles/globals.css';
 import { initializeApp, PlatformStatus } from '@/services/appInitService'; // Path updated
+import { initializeControllers } from '@/controllers/registerControllers'; // Import controller initializer
 import { useEffect, useState } from 'react'; // For initializeApp
 import { useRouter } from 'next/router';
 import { useTheme } from '@/hooks/useTheme';
@@ -64,6 +65,7 @@ function MyApp({ Component, pageProps }: AppProps) {
 
         if (platformStatus.status === 'OPERATIONAL' || platformStatus.status === 'PARENT_ORG_CREATED') {
             sessionStorage.setItem('appInitialized', 'true');
+            initializeControllers(); // Initialize controllers after app init and before routing
             // If platform is operational and user is authenticated, redirect to dashboard
             if (currentIsAuthenticated) {
               setInitStep('Platform operational and authenticated, redirecting to dashboard...');
@@ -87,11 +89,13 @@ function MyApp({ Component, pageProps }: AppProps) {
             // If platform is in a setup phase, redirect to appropriate setup page
             if (platformStatus.status === 'PRISTINE' || platformStatus.status === 'CORE_ARTIFACTS_IMPORTED') {
               setInitStep('Redirecting to bootstrap login...');
+              initializeControllers(); // Also initialize here for setup paths if needed
               setIsInitialized(true); // Allow navigation to proceed
               router.replace('/setup/bootstrap-login');
               return;
             } else if (platformStatus.status === 'PARENT_ORG_CREATING') {
               setInitStep('Redirecting to create org admin...');
+              initializeControllers(); // And here
               setIsInitialized(true); // Allow navigation to proceed
               router.replace('/setup/create-org-admin');
               return;
@@ -99,6 +103,10 @@ function MyApp({ Component, pageProps }: AppProps) {
         }
 
         setInitStep('Initialization complete!');
+        // Ensure controllers are initialized if no specific redirect happened but app is proceeding
+        if (!sessionStorage.getItem('appInitialized')) { // Fallback if not set earlier
+            initializeControllers();
+        }
         setIsInitialized(true);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);

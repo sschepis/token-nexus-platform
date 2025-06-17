@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { fetchUserOrganizations, fetchCurrentOrgDetails } from '@/store/slices/orgSlice';
+import { isParseReady } from '@/utils/parseUtils';
 
 /**
  * Hook to ensure organization context is properly initialized after authentication
@@ -10,24 +11,40 @@ export const useOrganizationContext = () => {
   const dispatch = useAppDispatch();
   const { isAuthenticated, orgId } = useAppSelector((state) => state.auth);
   const { currentOrg, userOrgs, isLoading, error } = useAppSelector((state) => state.org);
+  const [parseReady, setParseReady] = useState(false);
+
+  // Check if Parse is ready
+  useEffect(() => {
+    const checkParseReadyStatus = () => {
+      const ready = isParseReady();
+      setParseReady(ready);
+      
+      if (!ready) {
+        // If Parse isn't ready, check again in 100ms
+        setTimeout(checkParseReadyStatus, 100);
+      }
+    };
+    
+    checkParseReadyStatus();
+  }, []);
 
   useEffect(() => {
-    // Only fetch organization data if user is authenticated and we don't have org data
+    // Only fetch organization data if Parse is ready, user is authenticated and we don't have org data
     // Also check if there's no error to prevent infinite retries on failed requests
-    if (isAuthenticated && userOrgs.length === 0 && !isLoading && !error) {
+    if (parseReady && isAuthenticated && userOrgs.length === 0 && !isLoading && !error) {
       console.log('[OrganizationContext] Fetching user organizations after authentication');
       dispatch(fetchUserOrganizations());
     }
-  }, [isAuthenticated, userOrgs.length, isLoading, error, dispatch]);
+  }, [parseReady, isAuthenticated, userOrgs.length, isLoading, error, dispatch]);
 
   useEffect(() => {
-    // Fetch detailed organization info if we have an orgId but no current org details
+    // Fetch detailed organization info if Parse is ready, we have an orgId but no current org details
     // Also check if there's no error to prevent infinite retries on failed requests
-    if (isAuthenticated && orgId && !currentOrg && !isLoading && !error) {
+    if (parseReady && isAuthenticated && orgId && !currentOrg && !isLoading && !error) {
       console.log('[OrganizationContext] Fetching current organization details:', orgId);
       dispatch(fetchCurrentOrgDetails(orgId));
     }
-  }, [isAuthenticated, orgId, currentOrg, isLoading, error, dispatch]);
+  }, [parseReady, isAuthenticated, orgId, currentOrg, isLoading, error, dispatch]);
 
   return {
     currentOrg,

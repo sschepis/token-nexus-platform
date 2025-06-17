@@ -5,6 +5,8 @@ import {
   ActionResult,
   PageContext
 } from './types/ActionTypes';
+import Parse from 'parse';
+import { ParseQueryBuilder } from '../utils/parseUtils';
 
 export class ReportsPageController implements PageController {
   pageId = 'reports';
@@ -235,11 +237,10 @@ export class ReportsPageController implements PageController {
             };
           }
 
-          const query = new Parse.Query('Report');
-          query.equalTo('objectId', reportId);
-          query.equalTo('organizationId', orgId);
-
-          const report = await query.first();
+          const report = await new ParseQueryBuilder('Report')
+            .equalTo('objectId', reportId)
+            .equalTo('organizationId', orgId)
+            .first();
           if (!report) {
             return {
               success: false,
@@ -371,11 +372,10 @@ export class ReportsPageController implements PageController {
             };
           }
 
-          const query = new Parse.Query('Report');
-          query.equalTo('objectId', reportId);
-          query.equalTo('organizationId', orgId);
-
-          const report = await query.first();
+          const report = await new ParseQueryBuilder('Report')
+            .equalTo('objectId', reportId)
+            .equalTo('organizationId', orgId)
+            .first();
           if (!report) {
             return {
               success: false,
@@ -467,11 +467,10 @@ export class ReportsPageController implements PageController {
             };
           }
 
-          const query = new Parse.Query('Report');
-          query.equalTo('objectId', reportId);
-          query.equalTo('organizationId', orgId);
-
-          const report = await query.first();
+          const report = await new ParseQueryBuilder('Report')
+            .equalTo('objectId', reportId)
+            .equalTo('organizationId', orgId)
+            .first();
           if (!report) {
             return {
               success: false,
@@ -538,11 +537,10 @@ export class ReportsPageController implements PageController {
             };
           }
 
-          const query = new Parse.Query('Report');
-          query.equalTo('organizationId', orgId);
-          query.select('category');
-
-          const reports = await query.find();
+          const reports = await new ParseQueryBuilder('Report')
+            .equalTo('organizationId', orgId)
+            .select('category')
+            .find();
           const categorySet = new Set(reports.map(r => r.get('category')).filter(Boolean));
           const categories = Array.from(categorySet);
 

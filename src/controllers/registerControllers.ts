@@ -4,7 +4,7 @@ import { controllerRegistry } from './ControllerRegistry';
 
 // Import all page controllers
 import { objectManagerPageController } from './ObjectManagerPageController';
-import { dashboardPageController } from './dashboard/DashboardPageController';
+import { dashboardPageController } from './DashboardPageController';
 import { routesPageController } from './RoutesPageController';
 import { cloudFunctionsPageController } from './CloudFunctionsPageController';
 import { pageBuilderPageController } from './PageBuilderPageController';
@@ -50,13 +50,28 @@ export function registerAllControllers(): void {
 
   for (const { name, controller } of controllers) {
     try {
-      console.log(`Registering ${name}...`);
+      console.log(`[DEBUG] Registering ${name}...`);
       const controllerInstance = controller();
+      console.log(`[DEBUG] ${name} instance:`, controllerInstance);
+      console.log(`[DEBUG] ${name} pageId:`, controllerInstance.pageId);
+      console.log(`[DEBUG] ${name} actions:`, Array.from(controllerInstance.actions.keys()));
+      
+      // Special debug for dashboard controller
+      if (name === 'dashboardPageController') {
+        console.log(`[DEBUG] Dashboard controller details:`, {
+          pageId: controllerInstance.pageId,
+          actionCount: controllerInstance.actions.size,
+          actionKeys: Array.from(controllerInstance.actions.keys()),
+          hasGetDashboardOverview: controllerInstance.actions.has('getDashboardOverview')
+        });
+      }
+      
       controllerRegistry.registerPageController(controllerInstance);
-      console.log(`✓ ${name} registered successfully`);
+      console.log(`[DEBUG] ✓ ${name} registered successfully with ${controllerInstance.actions.size} actions`);
       registeredCount++;
     } catch (error) {
-      console.error(`❌ Failed to register ${name}:`, error);
+      console.error(`[DEBUG] ❌ Failed to register ${name}:`, error);
+      console.error(`[DEBUG] Error stack:`, error instanceof Error ? error.stack : 'No stack trace');
       failedControllers.push(name);
       // Continue with other controllers instead of failing completely
     }

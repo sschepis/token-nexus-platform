@@ -1,4 +1,5 @@
 import { ActionContext } from '../types/ActionTypes';
+import { ParseQueryBuilder } from '../../utils/parseUtils';
 
 export async function deleteNotifications(params: Record<string, unknown>, context: ActionContext) {
   const { notificationIds, confirmDelete } = params;
@@ -11,21 +12,21 @@ export async function deleteNotifications(params: Record<string, unknown>, conte
     throw new Error('Notification IDs array is required');
   }
 
-  const query = new Parse.Query('Notification');
-  query.containedIn('objectId', notificationIds as string[]);
+  // Create OR query for user notifications and notifications they created
+  const userQuery = new ParseQueryBuilder('Notification')
+    .equalTo('recipientId', context.user.userId);
   
-  // Ensure user can only delete their own notifications or org notifications they created
-  const userQuery = new Parse.Query('Notification');
-  userQuery.equalTo('recipientId', context.user.userId);
+  const createdQuery = new ParseQueryBuilder('Notification')
+    .equalTo('createdBy', context.user.userId);
   
-  const createdQuery = new Parse.Query('Notification');
-  createdQuery.equalTo('createdBy', context.user.userId);
+  const accessibleQuery = ParseQueryBuilder.or(userQuery, createdQuery);
   
-  // Note: Parse.Query.or and matchesQuery will be handled at runtime
-  const combinedQuery = (Parse.Query as any).or(userQuery, createdQuery);
-  (query as any).matchesQuery('objectId', combinedQuery);
-
-  const notifications = await query.find();
+  // Filter by notification IDs and ensure user access
+  const notifications = await new ParseQueryBuilder('Notification')
+    .containedIn('objectId', notificationIds as string[])
+    .getQuery()
+    .matchesQuery('objectId', accessibleQuery.getQuery())
+    .find();
   
   // Delete notifications
   const deletePromises = notifications.map(notification => notification.destroy());

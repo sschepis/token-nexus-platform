@@ -1,5 +1,5 @@
 import { ActionDefinition, ActionContext, ActionResult } from '../../types/ActionTypes';
-import Parse from 'parse';
+import { updateParseObject } from '../../../utils/parseUtils';
 
 export const updateReportAction: ActionDefinition = {
   id: 'updateReport',
@@ -35,12 +35,18 @@ export const updateReportAction: ActionDefinition = {
         };
       }
 
-      const query = new Parse.Query('Report');
-      query.equalTo('objectId', reportId);
-      query.equalTo('organizationId', orgId);
+      // Update report using utility function with security filters
+      const savedReport = await updateParseObject(
+        'Report',
+        reportId as string,
+        {
+          ...updateData,
+          updatedBy: context.user.userId
+        },
+        { organizationId: orgId } // Security filter
+      );
 
-      const report = await query.first();
-      if (!report) {
+      if (!savedReport) {
         return {
           success: false,
           error: 'Report not found',
@@ -52,16 +58,6 @@ export const updateReportAction: ActionDefinition = {
           }
         };
       }
-
-      // Update fields
-      Object.entries(updateData).forEach(([key, value]) => {
-        if (value !== undefined) {
-          report.set(key, value);
-        }
-      });
-
-      report.set('updatedBy', context.user.userId);
-      const savedReport = await report.save();
 
       return {
         success: true,

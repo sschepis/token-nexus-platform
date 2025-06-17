@@ -1,5 +1,5 @@
 import { ActionDefinition, ActionContext, ActionResult } from '../../types/ActionTypes';
-import Parse from 'parse';
+import { ParseQueryBuilder } from '../../../utils/parseUtils';
 
 export const fetchIntegrationsAction: ActionDefinition = {
   id: 'fetchIntegrations',
@@ -30,23 +30,24 @@ export const fetchIntegrationsAction: ActionDefinition = {
         };
       }
 
-      const query = new Parse.Query('Integration');
-      query.equalTo('organizationId', orgId);
+      let queryBuilder = new ParseQueryBuilder('Integration')
+        .equalTo('organizationId', orgId);
 
       if (!includeInactive) {
-        query.equalTo('isActive', true);
+        queryBuilder = queryBuilder.equalTo('isActive', true);
       }
 
       if (category) {
-        query.equalTo('category', category);
+        queryBuilder = queryBuilder.equalTo('category', category);
       }
 
       if (status) {
-        query.equalTo('status', status);
+        queryBuilder = queryBuilder.equalTo('status', status);
       }
 
-      query.descending('updatedAt');
-      const integrations = await query.find();
+      const integrations = await queryBuilder
+        .descending('updatedAt')
+        .find();
       const integrationData = integrations.map(integration => {
         const data = integration.toJSON();
         // Remove sensitive data like API keys from response

@@ -21,13 +21,22 @@ export const GridLayout: React.FC<GridLayoutProps> = ({ isEditing }) => {
     }
   };
 
-  // Convert our layout to the format expected by react-grid-layout
+  // Create responsive layouts that respect column constraints
+  const createResponsiveLayout = (baseLayouts: any[], maxCols: number) => {
+    return baseLayouts.map(layout => ({
+      ...layout,
+      w: Math.min(layout.w, maxCols), // Ensure width doesn't exceed available columns
+      minW: Math.min(layout.minW || 1, maxCols), // Ensure minW doesn't exceed available columns
+      maxW: layout.maxW ? Math.min(layout.maxW, maxCols) : maxCols
+    }));
+  };
+
   const gridLayouts = {
-    lg: layouts,
-    md: layouts,
-    sm: layouts,
-    xs: layouts,
-    xxs: layouts,
+    lg: layouts, // 12 columns - use original layouts
+    md: createResponsiveLayout(layouts, 10), // 10 columns
+    sm: createResponsiveLayout(layouts, 6),  // 6 columns
+    xs: createResponsiveLayout(layouts, 4),  // 4 columns
+    xxs: createResponsiveLayout(layouts, 2), // 2 columns
   };
   
   return (

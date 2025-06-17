@@ -5,6 +5,8 @@ import {
   ActionResult,
   PageContext
 } from './types/ActionTypes';
+import Parse from 'parse';
+import { ParseQueryBuilder } from '../utils/parseUtils';
 
 export class NotificationsPageController implements PageController {
   pageId = 'notifications';
@@ -103,17 +105,16 @@ export class NotificationsPageController implements PageController {
           const notificationData = notifications.map(notification => notification.toJSON());
 
           // Count unread notifications
-          const unreadQuery = new Parse.Query('Notification');
-          const userUnreadQuery = new Parse.Query('Notification');
-          userUnreadQuery.equalTo('recipientId', context.user.userId);
-          userUnreadQuery.equalTo('status', 'unread');
-          
-          const orgUnreadQuery = new Parse.Query('Notification');
-          orgUnreadQuery.equalTo('organizationId', orgId);
-          orgUnreadQuery.equalTo('recipientType', 'organization');
-          orgUnreadQuery.equalTo('status', 'unread');
-          
-          const unreadCombinedQuery = Parse.Query.or(userUnreadQuery, orgUnreadQuery);
+          const userUnreadQuery = new ParseQueryBuilder('Notification')
+            .equalTo('recipientId', context.user.userId)
+            .equalTo('status', 'unread');
+
+          const orgUnreadQuery = new ParseQueryBuilder('Notification')
+            .equalTo('organizationId', orgId)
+            .equalTo('recipientType', 'organization')
+            .equalTo('status', 'unread');
+
+          const unreadCombinedQuery = ParseQueryBuilder.or(userUnreadQuery, orgUnreadQuery);
           const unreadCount = await unreadCombinedQuery.count();
 
           return {

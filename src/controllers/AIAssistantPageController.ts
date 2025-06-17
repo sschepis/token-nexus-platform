@@ -5,6 +5,8 @@ import {
   ActionResult,
   PageContext
 } from './types/ActionTypes';
+import Parse from 'parse';
+import { ParseQueryBuilder } from '../utils/parseUtils';
 
 export class AIAssistantPageController implements PageController {
   pageId = 'ai-assistant';
@@ -228,12 +230,11 @@ export class AIAssistantPageController implements PageController {
           }
 
           // Verify conversation exists and user has access
-          const convQuery = new Parse.Query('AIConversation');
-          convQuery.equalTo('objectId', conversationId);
-          convQuery.equalTo('organizationId', orgId);
-          convQuery.equalTo('userId', context.user.userId);
-
-          const conversation = await convQuery.first();
+          const conversation = await new ParseQueryBuilder('AIConversation')
+            .equalTo('objectId', conversationId)
+            .equalTo('organizationId', orgId)
+            .equalTo('userId', context.user.userId)
+            .first();
           if (!conversation) {
             return {
               success: false,
@@ -346,12 +347,11 @@ export class AIAssistantPageController implements PageController {
           }
 
           // Verify conversation access
-          const convQuery = new Parse.Query('AIConversation');
-          convQuery.equalTo('objectId', conversationId);
-          convQuery.equalTo('organizationId', orgId);
-          convQuery.equalTo('userId', context.user.userId);
-
-          const conversation = await convQuery.first();
+          const conversation = await new ParseQueryBuilder('AIConversation')
+            .equalTo('objectId', conversationId)
+            .equalTo('organizationId', orgId)
+            .equalTo('userId', context.user.userId)
+            .first();
           if (!conversation) {
             return {
               success: false,
@@ -432,12 +432,11 @@ export class AIAssistantPageController implements PageController {
             };
           }
 
-          const query = new Parse.Query('AIConversation');
-          query.equalTo('objectId', conversationId);
-          query.equalTo('organizationId', orgId);
-          query.equalTo('userId', context.user.userId);
-
-          const conversation = await query.first();
+          const conversation = await new ParseQueryBuilder('AIConversation')
+            .equalTo('objectId', conversationId)
+            .equalTo('organizationId', orgId)
+            .equalTo('userId', context.user.userId)
+            .first();
           if (!conversation) {
             return {
               success: false,
@@ -526,9 +525,9 @@ export class AIAssistantPageController implements PageController {
           };
 
           // Try to get organization-specific configuration
-          const configQuery = new Parse.Query('AIConfiguration');
-          configQuery.equalTo('organizationId', orgId);
-          const config = await configQuery.first();
+          const config = await new ParseQueryBuilder('AIConfiguration')
+            .equalTo('organizationId', orgId)
+            .first();
 
           const finalConfig = config ? { ...defaultConfig, ...config.toJSON() } : defaultConfig;
 

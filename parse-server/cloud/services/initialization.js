@@ -34,10 +34,10 @@ async function initializeServices() {
     configService = require('./configService')(Parse);
 
     // Initialize all cloud functions
-    require('../functions/ai')(Parse);
+    // require('../functions/ai')(Parse); // DISABLED - file does not exist, causes "require(...) is not a function" error
     
     // Load our new setup functions
-    require('../functions/setupFunctions');
+    // require('../functions/setupFunctions'); // DISABLED - file does not exist, causes "Cannot find module" error
 
     // Initialize services
     await configService.initializeCache();

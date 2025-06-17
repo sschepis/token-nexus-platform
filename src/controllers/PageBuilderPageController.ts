@@ -5,6 +5,8 @@ import {
   ActionResult,
   PageContext
 } from './types/ActionTypes';
+import Parse from 'parse';
+import { ParseQueryBuilder } from '../utils/parseUtils';
 
 export class PageBuilderPageController implements PageController {
   pageId = 'page-builder';
@@ -220,11 +222,10 @@ export class PageBuilderPageController implements PageController {
             };
           }
 
-          const query = new Parse.Query('CustomPage');
-          query.equalTo('objectId', pageId);
-          query.equalTo('organizationId', orgId);
-
-          const page = await query.first();
+          const page = await new ParseQueryBuilder('CustomPage')
+            .equalTo('objectId', pageId)
+            .equalTo('organizationId', orgId)
+            .first();
           if (!page) {
             return {
               success: false,
@@ -316,11 +317,10 @@ export class PageBuilderPageController implements PageController {
             };
           }
 
-          const query = new Parse.Query('CustomPage');
-          query.equalTo('objectId', pageId);
-          query.equalTo('organizationId', orgId);
-
-          const page = await query.first();
+          const page = await new ParseQueryBuilder('CustomPage')
+            .equalTo('objectId', pageId)
+            .equalTo('organizationId', orgId)
+            .first();
           if (!page) {
             return {
               success: false,
@@ -391,11 +391,10 @@ export class PageBuilderPageController implements PageController {
             };
           }
 
-          const query = new Parse.Query('CustomPage');
-          query.equalTo('objectId', pageId);
-          query.equalTo('organizationId', orgId);
-
-          const page = await query.first();
+          const page = await new ParseQueryBuilder('CustomPage')
+            .equalTo('objectId', pageId)
+            .equalTo('organizationId', orgId)
+            .first();
           if (!page) {
             return {
               success: false,

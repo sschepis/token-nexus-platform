@@ -1,6 +1,6 @@
 // src/contexts/PageControllerContext.tsx
 
-import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode, useRef } from 'react';
 import { useRouter } from 'next/router';
 import {
   PageController,
@@ -65,6 +65,11 @@ export const PageControllerProvider: React.FC<PageControllerProviderProps> = ({
 }) => {
   const router = useRouter();
   const [currentPageController, setCurrentPageController] = useState<PageController | null>(null);
+  const currentPageControllerRef = useRef(currentPageController);
+
+  useEffect(() => {
+    currentPageControllerRef.current = currentPageController;
+  }, [currentPageController]);
   
   // Get user context from Redux store
   const { user, orgId, permissions } = useAppSelector((state) => state.auth);
@@ -95,13 +100,17 @@ export const PageControllerProvider: React.FC<PageControllerProviderProps> = ({
       registry.unregisterPageController(pageId);
       
       // Clear current if it was the unregistered controller
-      if (currentPageController?.pageId === pageId) {
-        setCurrentPageController(null);
-      }
+      // Use functional update to avoid dependency on currentPageController
+      setCurrentPageController(current => {
+        if (current?.pageId === pageId) {
+          return null;
+        }
+        return current;
+      });
     } catch (error) {
       console.error('Failed to unregister page controller:', error);
     }
-  }, [registry, currentPageController]);
+  }, [registry]); // Removed currentPageController from dependencies
 
   /**
    * Register an action to a page controller
@@ -185,7 +194,9 @@ export const PageControllerProvider: React.FC<PageControllerProviderProps> = ({
       breadcrumbs: generateBreadcrumbs(router.asPath)
     };
 
-    const pageContext: PageContext = currentPageController?.context || {
+    // Use ref for currentPageController to ensure executeAction callback stability
+    const currentPcFromRef = currentPageControllerRef.current;
+    const pageContext: PageContext = currentPcFromRef?.context || {
       pageId: 'unknown',
       pageName: 'Unknown Page',
       state: {},
@@ -206,7 +217,7 @@ export const PageControllerProvider: React.FC<PageControllerProviderProps> = ({
     };
 
     return registry.executeAction(actionId, params, context);
-  }, [registry, user, orgId, permissions, currentOrg, router, currentPageController]);
+  }, [registry, user, orgId, permissions, currentOrg, router]); // Removed currentPageController state from dependencies
 
   /**
    * Get available actions for a page or all pages
@@ -250,18 +261,27 @@ export const PageControllerProvider: React.FC<PageControllerProviderProps> = ({
    * Update page context
    */
   const updatePageContext = useCallback((pageId: string, contextUpdate: Partial<PageContext>) => {
-    const pageController = registry.getPageController(pageId);
-    if (pageController) {
-      pageController.context = {
-        ...pageController.context,
+    const controllerInRegistry = registry.getPageController(pageId);
+    if (controllerInRegistry) {
+      // Directly update the context of the controller instance in the registry
+      const newContext = {
+        ...controllerInRegistry.context,
         ...contextUpdate
       };
+      controllerInRegistry.context = newContext; // Mutate the registry's copy
 
-      if (currentPageController?.pageId === pageId) {
-        setCurrentPageController({ ...pageController });
-      }
+      // Now, if this is the currentPageController, we need to update the state
+      // to trigger re-renders for consumers of currentPageController.
+      setCurrentPageController(current => {
+        if (current?.pageId === pageId) {
+          // Return a new object based on the (now mutated) controllerInRegistry
+          // to ensure React detects a state change.
+          return { ...controllerInRegistry }; // Spread the updated controller from registry
+        }
+        return current; // Not the current page, so no change to currentPageController state
+      });
     }
-  }, [registry, currentPageController]);
+  }, [registry]); // currentPageController removed from dependencies
 
   /**
    * Get current action context
@@ -296,7 +316,9 @@ export const PageControllerProvider: React.FC<PageControllerProviderProps> = ({
     };
 
     // Build page context
-    const pageContext: PageContext = currentPageController?.context || {
+    // Use ref for currentPageController to ensure getActionContext callback stability
+    const currentPcFromRefForGet = currentPageControllerRef.current;
+    const pageContext: PageContext = currentPcFromRefForGet?.context || {
       pageId: 'unknown',
       pageName: 'Unknown Page',
       state: {},
@@ -315,7 +337,7 @@ export const PageControllerProvider: React.FC<PageControllerProviderProps> = ({
       navigation: navigationContext,
       timestamp: new Date()
     };
-  }, [user, orgId, permissions, currentOrg, router, currentPageController]);
+  }, [user, orgId, permissions, currentOrg, router]); // Removed currentPageController state from dependencies
 
   /**
    * Handle route changes to update current page controller

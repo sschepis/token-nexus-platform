@@ -1,5 +1,6 @@
 import Parse from 'parse/node';
 import { ActionContext, ActionResult } from '../types/ActionTypes';
+import { createQuery } from '../../utils/parseUtils';
 
 export interface DeploymentResult {
   deploymentId: string;
@@ -9,6 +10,10 @@ export interface DeploymentResult {
   error?: string;
 }
 
+/**
+ * Refactored deployFunction using ParseQueryBuilder utilities
+ * This eliminates repetitive Parse query and object creation patterns
+ */
 export async function deployFunction(
   params: Record<string, unknown>,
   context: ActionContext
@@ -16,7 +21,7 @@ export async function deployFunction(
   try {
     const { functionName, environment = 'production' } = params;
 
-    // Verify function exists and is ready for deployment
+    // Verify function exists and is ready for deployment using utility
     const functionData = await getFunctionByName(functionName as string);
     if (!functionData) {
       return {
@@ -67,7 +72,7 @@ export async function deployFunction(
       functionData
     );
 
-    // Update function status in database
+    // Update function status in database using utility
     await updateFunctionDeploymentStatus(functionName as string, deploymentResult);
 
     // Log deployment
@@ -108,38 +113,31 @@ export async function deployFunction(
   }
 }
 
+/**
+ * Refactored function lookup using ParseQueryBuilder
+ */
 async function getFunctionByName(functionName: string): Promise<any | null> {
   try {
-    const query = new Parse.Query('CloudFunction');
-    query.equalTo('name', functionName);
+    // Use ParseQueryBuilder for cleaner query construction
+    const result = await createQuery('CloudFunction')
+      .equalTo('name', functionName)
+      .first();
     
-    const cloudFunction = await query.first();
-    if (!cloudFunction) {
+    if (!result) {
       return null;
     }
     
-    return {
-      id: cloudFunction.id,
-      name: cloudFunction.get('name'),
-      description: cloudFunction.get('description'),
-      code: cloudFunction.get('code'),
-      language: cloudFunction.get('language'),
-      runtime: cloudFunction.get('runtime'),
-      category: cloudFunction.get('category'),
-      triggers: cloudFunction.get('triggers') || [],
-      tags: cloudFunction.get('tags') || [],
-      status: cloudFunction.get('status'),
-      createdAt: cloudFunction.get('createdAt'),
-      updatedAt: cloudFunction.get('updatedAt'),
-      createdBy: cloudFunction.get('createdBy'),
-      version: cloudFunction.get('version') || 1
-    };
+    // Use utility function to map Parse object
+    return mapParseObjectToCloudFunction(result);
   } catch (error) {
     console.error('Error fetching function by name:', error);
     return null;
   }
 }
 
+/**
+ * Refactored deployment function with better error handling
+ */
 async function deployFunctionToEnvironment(
   functionName: string,
   environment: string,
@@ -151,18 +149,12 @@ async function deployFunctionToEnvironment(
     
     const deploymentId = `deploy_${functionName}_${Date.now()}`;
     
-    // Create deployment record
+    // Create deployment record using utility
     const Deployment = Parse.Object.extend('FunctionDeployment');
     const deployment = new Deployment();
     
-    deployment.set('deploymentId', deploymentId);
-    deployment.set('functionName', functionName);
-    deployment.set('functionId', functionData.id);
-    deployment.set('environment', environment);
-    deployment.set('status', 'pending');
-    deployment.set('code', functionData.code);
-    deployment.set('version', functionData.version);
-    deployment.set('startedAt', new Date());
+    // Use utility function to set deployment data
+    setDeploymentData(deployment, deploymentId, functionName, functionData, environment);
     
     await deployment.save();
     
@@ -203,10 +195,13 @@ async function deployFunctionToEnvironment(
     }
   } catch (error) {
     console.error('Error deploying function:', error);
-    throw error;
+    throw new Error(`Failed to deploy function: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
+/**
+ * Deployment validation utility
+ */
 async function validateDeployment(functionData: any): Promise<void> {
   // Basic deployment validation
   if (!functionData.code || !functionData.code.trim()) {
@@ -227,12 +222,16 @@ async function validateDeployment(functionData: any): Promise<void> {
   // - Performance testing
 }
 
+/**
+ * Refactored status update using ParseQueryBuilder
+ */
 async function updateFunctionDeploymentStatus(functionName: string, deploymentResult: DeploymentResult): Promise<void> {
   try {
-    const query = new Parse.Query('CloudFunction');
-    query.equalTo('name', functionName);
+    // Use ParseQueryBuilder to find the function
+    const cloudFunction = await createQuery('CloudFunction')
+      .equalTo('name', functionName)
+      .first();
     
-    const cloudFunction = await query.first();
     if (cloudFunction) {
       cloudFunction.set('status', deploymentResult.status);
       cloudFunction.set('lastDeployment', deploymentResult.deploymentId);
@@ -246,6 +245,9 @@ async function updateFunctionDeploymentStatus(functionName: string, deploymentRe
   }
 }
 
+/**
+ * Refactored logging function using Parse utilities
+ */
 async function logFunctionDeployment(functionName: string, logData: {
   userId: string;
   environment: string;
@@ -257,17 +259,8 @@ async function logFunctionDeployment(functionName: string, logData: {
     const DeploymentLog = Parse.Object.extend('FunctionDeploymentLog');
     const deploymentLog = new DeploymentLog();
     
-    deploymentLog.set('functionName', functionName);
-    deploymentLog.set('userId', logData.userId);
-    deploymentLog.set('environment', logData.environment);
-    deploymentLog.set('deploymentId', logData.deploymentResult.deploymentId);
-    deploymentLog.set('status', logData.deploymentResult.status);
-    deploymentLog.set('action', 'deploy');
-    deploymentLog.set('message', `Function '${functionName}' deployed to ${logData.environment} with status: ${logData.deploymentResult.status}`);
-    
-    if (logData.deploymentResult.error) {
-      deploymentLog.set('error', logData.deploymentResult.error);
-    }
+    // Use utility function to set log data
+    setDeploymentLogData(deploymentLog, functionName, logData);
     
     // Save to database
     await deploymentLog.save();
@@ -281,4 +274,71 @@ async function logFunctionDeployment(functionName: string, logData: {
     console.error('Error logging function deployment:', error);
     // Don't throw error here to avoid breaking the main deployment flow
   }
+}
+
+/**
+ * Utility function to set deployment data on Parse object
+ */
+function setDeploymentData(
+  parseObj: Parse.Object,
+  deploymentId: string,
+  functionName: string,
+  functionData: any,
+  environment: string
+): void {
+  parseObj.set('deploymentId', deploymentId);
+  parseObj.set('functionName', functionName);
+  parseObj.set('functionId', functionData.id);
+  parseObj.set('environment', environment);
+  parseObj.set('status', 'pending');
+  parseObj.set('code', functionData.code);
+  parseObj.set('version', functionData.version);
+  parseObj.set('startedAt', new Date());
+}
+
+/**
+ * Utility function to set deployment log data on Parse object
+ */
+function setDeploymentLogData(
+  parseObj: Parse.Object,
+  functionName: string,
+  logData: any
+): void {
+  parseObj.set('functionName', functionName);
+  parseObj.set('userId', logData.userId);
+  parseObj.set('environment', logData.environment);
+  parseObj.set('deploymentId', logData.deploymentResult.deploymentId);
+  parseObj.set('status', logData.deploymentResult.status);
+  parseObj.set('action', 'deploy');
+  parseObj.set('message', `Function '${functionName}' deployed to ${logData.environment} with status: ${logData.deploymentResult.status}`);
+  
+  if (logData.deploymentResult.error) {
+    parseObj.set('error', logData.deploymentResult.error);
+  }
+}
+
+/**
+ * Utility function to map Parse object to CloudFunction interface
+ * (Shared utility - could be moved to parseUtils.ts)
+ */
+function mapParseObjectToCloudFunction(parseObj: Parse.Object): any {
+  return {
+    id: parseObj.id,
+    name: parseObj.get('name'),
+    description: parseObj.get('description'),
+    code: parseObj.get('code'),
+    language: parseObj.get('language'),
+    runtime: parseObj.get('runtime'),
+    category: parseObj.get('category'),
+    triggers: parseObj.get('triggers') || [],
+    tags: parseObj.get('tags') || [],
+    status: parseObj.get('status'),
+    createdAt: parseObj.get('createdAt'),
+    updatedAt: parseObj.get('updatedAt'),
+    createdBy: parseObj.get('createdBy'),
+    updatedBy: parseObj.get('updatedBy'),
+    executionCount: parseObj.get('executionCount') || 0,
+    lastExecuted: parseObj.get('lastExecuted'),
+    version: parseObj.get('version') || 1
+  };
 }

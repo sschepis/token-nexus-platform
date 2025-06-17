@@ -1,6 +1,11 @@
 import Parse from 'parse/node';
 import { ActionContext, ActionResult } from '../types/ActionTypes';
+import { createQuery } from '../../utils/parseUtils';
 
+/**
+ * Refactored deleteFunction using ParseQueryBuilder utilities
+ * This eliminates repetitive Parse query and object creation patterns
+ */
 export async function deleteFunction(
   params: Record<string, unknown>,
   context: ActionContext
@@ -21,7 +26,7 @@ export async function deleteFunction(
       };
     }
 
-    // Verify function exists
+    // Verify function exists using utility
     const existingFunction = await getFunctionByName(functionName as string);
     if (!existingFunction) {
       return {
@@ -57,10 +62,10 @@ export async function deleteFunction(
       timestamp: new Date()
     });
 
-    // Delete function from database
+    // Delete function from database using utility
     await deleteFunctionFromDatabase(functionName as string);
 
-    // Clean up related data (logs, etc.)
+    // Clean up related data (logs, etc.) using utilities
     await cleanupFunctionData(functionName as string);
 
     return {
@@ -88,45 +93,38 @@ export async function deleteFunction(
   }
 }
 
+/**
+ * Refactored function lookup using ParseQueryBuilder
+ */
 async function getFunctionByName(functionName: string): Promise<any | null> {
   try {
-    const query = new Parse.Query('CloudFunction');
-    query.equalTo('name', functionName);
+    // Use ParseQueryBuilder for cleaner query construction
+    const result = await createQuery('CloudFunction')
+      .equalTo('name', functionName)
+      .first();
     
-    const cloudFunction = await query.first();
-    if (!cloudFunction) {
+    if (!result) {
       return null;
     }
     
-    return {
-      id: cloudFunction.id,
-      name: cloudFunction.get('name'),
-      description: cloudFunction.get('description'),
-      code: cloudFunction.get('code'),
-      language: cloudFunction.get('language'),
-      runtime: cloudFunction.get('runtime'),
-      category: cloudFunction.get('category'),
-      triggers: cloudFunction.get('triggers') || [],
-      tags: cloudFunction.get('tags') || [],
-      status: cloudFunction.get('status'),
-      createdAt: cloudFunction.get('createdAt'),
-      updatedAt: cloudFunction.get('updatedAt'),
-      createdBy: cloudFunction.get('createdBy'),
-      version: cloudFunction.get('version') || 1
-    };
+    // Use utility function to map Parse object
+    return mapParseObjectToCloudFunction(result);
   } catch (error) {
     console.error('Error fetching function by name:', error);
     return null;
   }
 }
 
+/**
+ * Refactored database deletion using ParseQueryBuilder
+ */
 async function deleteFunctionFromDatabase(functionName: string): Promise<void> {
   try {
-    // Find the function by name
-    const query = new Parse.Query('CloudFunction');
-    query.equalTo('name', functionName);
+    // Use ParseQueryBuilder to find the function
+    const cloudFunction = await createQuery('CloudFunction')
+      .equalTo('name', functionName)
+      .first();
     
-    const cloudFunction = await query.first();
     if (!cloudFunction) {
       throw new Error(`Function ${functionName} not found`);
     }
@@ -137,10 +135,13 @@ async function deleteFunctionFromDatabase(functionName: string): Promise<void> {
     console.log(`Successfully deleted function: ${functionName}`);
   } catch (error) {
     console.error('Error deleting function from database:', error);
-    throw error;
+    throw new Error(`Failed to delete function from database: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
+/**
+ * Refactored logging function using Parse utilities
+ */
 async function logFunctionDeletion(functionName: string, logData: {
   userId: string;
   functionData: any;
@@ -151,18 +152,8 @@ async function logFunctionDeletion(functionName: string, logData: {
     const DeletionLog = Parse.Object.extend('FunctionDeletionLog');
     const deletionLog = new DeletionLog();
     
-    deletionLog.set('functionName', functionName);
-    deletionLog.set('userId', logData.userId);
-    deletionLog.set('functionData', {
-      id: logData.functionData.id,
-      description: logData.functionData.description,
-      category: logData.functionData.category,
-      version: logData.functionData.version,
-      createdBy: logData.functionData.createdBy,
-      createdAt: logData.functionData.createdAt
-    });
-    deletionLog.set('action', 'delete');
-    deletionLog.set('message', `Function '${functionName}' deleted by user ${logData.userId}`);
+    // Use utility function to set log data
+    setDeletionLogData(deletionLog, functionName, logData);
     
     // Save to database
     await deletionLog.save();
@@ -177,14 +168,15 @@ async function logFunctionDeletion(functionName: string, logData: {
   }
 }
 
+/**
+ * Refactored cleanup function using ParseQueryBuilder utilities
+ */
 async function cleanupFunctionData(functionName: string): Promise<void> {
   try {
-    // Clean up execution logs (optional - you might want to keep them for audit)
-    // For now, we'll keep the logs but mark them as orphaned
-    const executionLogQuery = new Parse.Query('FunctionExecutionLog');
-    executionLogQuery.equalTo('functionName', functionName);
-    
-    const executionLogs = await executionLogQuery.find();
+    // Clean up execution logs using ParseQueryBuilder
+    const executionLogs = await createQuery('FunctionExecutionLog')
+      .equalTo('functionName', functionName)
+      .find();
     
     // Mark logs as orphaned instead of deleting them
     const updatePromises = executionLogs.map(log => {
@@ -195,11 +187,11 @@ async function cleanupFunctionData(functionName: string): Promise<void> {
     
     await Promise.all(updatePromises);
     
-    // Clean up update logs
-    const updateLogQuery = new Parse.Query('FunctionUpdateLog');
-    updateLogQuery.equalTo('functionName', functionName);
+    // Clean up update logs using ParseQueryBuilder
+    const updateLogs = await createQuery('FunctionUpdateLog')
+      .equalTo('functionName', functionName)
+      .find();
     
-    const updateLogs = await updateLogQuery.find();
     const updateLogPromises = updateLogs.map(log => {
       log.set('functionDeleted', true);
       log.set('deletedAt', new Date());
@@ -213,4 +205,52 @@ async function cleanupFunctionData(functionName: string): Promise<void> {
     console.error('Error cleaning up function data:', error);
     // Don't throw error here to avoid breaking the main deletion flow
   }
+}
+
+/**
+ * Utility function to set deletion log data on Parse object
+ */
+function setDeletionLogData(
+  parseObj: Parse.Object, 
+  functionName: string, 
+  logData: any
+): void {
+  parseObj.set('functionName', functionName);
+  parseObj.set('userId', logData.userId);
+  parseObj.set('functionData', {
+    id: logData.functionData.id,
+    description: logData.functionData.description,
+    category: logData.functionData.category,
+    version: logData.functionData.version,
+    createdBy: logData.functionData.createdBy,
+    createdAt: logData.functionData.createdAt
+  });
+  parseObj.set('action', 'delete');
+  parseObj.set('message', `Function '${functionName}' deleted by user ${logData.userId}`);
+}
+
+/**
+ * Utility function to map Parse object to CloudFunction interface
+ * (Shared utility - could be moved to parseUtils.ts)
+ */
+function mapParseObjectToCloudFunction(parseObj: Parse.Object): any {
+  return {
+    id: parseObj.id,
+    name: parseObj.get('name'),
+    description: parseObj.get('description'),
+    code: parseObj.get('code'),
+    language: parseObj.get('language'),
+    runtime: parseObj.get('runtime'),
+    category: parseObj.get('category'),
+    triggers: parseObj.get('triggers') || [],
+    tags: parseObj.get('tags') || [],
+    status: parseObj.get('status'),
+    createdAt: parseObj.get('createdAt'),
+    updatedAt: parseObj.get('updatedAt'),
+    createdBy: parseObj.get('createdBy'),
+    updatedBy: parseObj.get('updatedBy'),
+    executionCount: parseObj.get('executionCount') || 0,
+    lastExecuted: parseObj.get('lastExecuted'),
+    version: parseObj.get('version') || 1
+  };
 }

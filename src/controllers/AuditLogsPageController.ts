@@ -5,6 +5,8 @@ import {
   ActionResult,
   PageContext
 } from './types/ActionTypes';
+import Parse from 'parse';
+import { ParseQueryBuilder } from '../utils/parseUtils';
 
 export class AuditLogsPageController implements PageController {
   pageId = 'audit-logs';
@@ -118,29 +120,29 @@ export class AuditLogsPageController implements PageController {
           const logData = logs.map(log => log.toJSON());
 
           // Get total count for pagination
-          const countQuery = new Parse.Query('AuditLog');
-          countQuery.equalTo('organizationId', orgId);
-          
+          let countQueryBuilder = new ParseQueryBuilder('AuditLog')
+            .equalTo('organizationId', orgId);
+
           if (startDate) {
-            countQuery.greaterThanOrEqualTo('createdAt', new Date(startDate as string));
+            countQueryBuilder = countQueryBuilder.greaterThan('createdAt', new Date(startDate as string));
           }
           if (endDate) {
-            countQuery.lessThanOrEqualTo('createdAt', new Date(endDate as string));
+            countQueryBuilder = countQueryBuilder.lessThan('createdAt', new Date(endDate as string));
           }
           if (userId) {
-            countQuery.equalTo('userId', userId);
+            countQueryBuilder = countQueryBuilder.equalTo('userId', userId);
           }
           if (action) {
-            countQuery.equalTo('action', action);
+            countQueryBuilder = countQueryBuilder.equalTo('action', action);
           }
           if (resource) {
-            countQuery.equalTo('resource', resource);
+            countQueryBuilder = countQueryBuilder.equalTo('resource', resource);
           }
           if (severity) {
-            countQuery.equalTo('severity', severity);
+            countQueryBuilder = countQueryBuilder.equalTo('severity', severity);
           }
 
-          const totalCount = await countQuery.count();
+          const totalCount = await countQueryBuilder.count();
 
           return {
             success: true,
@@ -422,12 +424,11 @@ export class AuditLogsPageController implements PageController {
               break;
           }
 
-          const query = new Parse.Query('AuditLog');
-          query.equalTo('organizationId', orgId);
-          query.greaterThanOrEqualTo('createdAt', startDate);
-          query.lessThanOrEqualTo('createdAt', endDate);
-
-          const logs = await query.find();
+          const logs = await new ParseQueryBuilder('AuditLog')
+            .equalTo('organizationId', orgId)
+            .greaterThan('createdAt', startDate)
+            .lessThan('createdAt', endDate)
+            .find();
           const logData = logs.map(log => log.toJSON());
 
           // Generate statistics based on groupBy parameter

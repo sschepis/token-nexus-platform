@@ -1,12 +1,16 @@
 // Centralized Cloud Function imports for Parse Server
 
-// Core Organization Management
+// Identity Management (Load first to avoid conflicts)
+require('./identity-management/identityFunctions');
+
+// Core Organization Management (Primary organization functions)
 require('./organization/organizationManagement');
 require('./organization/organizations');
 require('./organization/orgUsers');
 
-// User Management
-require('./global/globalUserManagement');
+// User Management (Load after organization to avoid getUserDetails conflict)
+// Note: getUserDetails is already defined in organization/organizations.js
+// require('./global/globalUserManagement'); // DISABLED - causes getUserDetails duplicate
 
 // App Framework & Marketplace
 require('./schema/appFrameworkSchemas');
@@ -55,7 +59,7 @@ require('./cms/pageManagement');
 require('./cms/component');
 
 // Global Management
-require('./global/globalOrgManagement');
+// require('./global/globalOrgManagement'); // DISABLED - causes createOrganization duplicate
 require('./organization/parentOrgManagement');
 
 // App Bundle Management
@@ -82,7 +86,7 @@ require('./assistant');
 require('./auth');
 require('./components');
 require('./initialization');
-require('./organization');
+// require('./organization'); // DISABLED - causes duplicate organization function imports
 require('./roles');
 require('./triggers');
 require('./webhooks');

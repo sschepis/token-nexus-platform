@@ -5,6 +5,8 @@ import {
   ActionResult,
   PageContext
 } from './types/ActionTypes';
+import Parse from 'parse';
+import { ParseQueryBuilder } from '../utils/parseUtils';
 
 export class IntegrationsPageController implements PageController {
   pageId = 'integrations';
@@ -66,23 +68,23 @@ export class IntegrationsPageController implements PageController {
             };
           }
 
-          const query = new Parse.Query('Integration');
-          query.equalTo('organizationId', orgId);
+          let queryBuilder = new ParseQueryBuilder('Integration')
+            .equalTo('organizationId', orgId);
 
           if (!includeInactive) {
-            query.equalTo('isActive', true);
+            queryBuilder = queryBuilder.equalTo('isActive', true);
           }
 
           if (category) {
-            query.equalTo('category', category);
+            queryBuilder = queryBuilder.equalTo('category', category);
           }
 
           if (status) {
-            query.equalTo('status', status);
+            queryBuilder = queryBuilder.equalTo('status', status);
           }
 
-          query.descending('updatedAt');
-          const integrations = await query.find();
+          queryBuilder = queryBuilder.descending('updatedAt');
+          const integrations = await queryBuilder.find();
           const integrationData = integrations.map(integration => {
             const data = integration.toJSON();
             // Remove sensitive data like API keys from response
@@ -240,11 +242,10 @@ export class IntegrationsPageController implements PageController {
             };
           }
 
-          const query = new Parse.Query('Integration');
-          query.equalTo('objectId', integrationId);
-          query.equalTo('organizationId', orgId);
-
-          const integration = await query.first();
+          const integration = await new ParseQueryBuilder('Integration')
+            .equalTo('objectId', integrationId)
+            .equalTo('organizationId', orgId)
+            .first();
           if (!integration) {
             return {
               success: false,
@@ -384,11 +385,10 @@ export class IntegrationsPageController implements PageController {
             };
           }
 
-          const query = new Parse.Query('Integration');
-          query.equalTo('objectId', integrationId);
-          query.equalTo('organizationId', orgId);
-
-          const integration = await query.first();
+          const integration = await new ParseQueryBuilder('Integration')
+            .equalTo('objectId', integrationId)
+            .equalTo('organizationId', orgId)
+            .first();
           if (!integration) {
             return {
               success: false,
@@ -480,11 +480,10 @@ export class IntegrationsPageController implements PageController {
             };
           }
 
-          const query = new Parse.Query('Integration');
-          query.equalTo('objectId', integrationId);
-          query.equalTo('organizationId', orgId);
-
-          const integration = await query.first();
+          const integration = await new ParseQueryBuilder('Integration')
+            .equalTo('objectId', integrationId)
+            .equalTo('organizationId', orgId)
+            .first();
           if (!integration) {
             return {
               success: false,

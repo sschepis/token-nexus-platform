@@ -1,8 +1,19 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
-import Parse from 'parse';
 import { toast } from 'sonner';
+import { 
+  AsyncThunkFactory, 
+  AsyncReducerBuilder, 
+  createAsyncInitialState,
+  ExtendedAsyncState 
+} from '../utils/createAsyncSliceUtils';
+import { callCloudFunction } from '../../utils/apiUtils';
+
+/**
+ * Refactored Organization slice using AsyncThunkFactory utilities
+ * This eliminates all the repetitive createAsyncThunk and Parse.Cloud.run patterns
+ */
 
 // Utility function to serialize Parse objects to plain objects
 const serializeParseObject = (obj: any): any => {
@@ -119,18 +130,15 @@ const serializeOrganization = (orgJson: any): Organization => {
 };
 
 export interface Organization {
-  id: string; // Mapped from objectId
+  id: string;
   name: string;
   description?: string;
   subdomain?: string;
   industry?: string;
-  logo?: string; // This might be part of settings.theme.logoUrl or a direct field
-  primaryColor?: string; // Potentially part of 'settings.theme' (legacy or direct)
-  secondaryColor?: string; // Potentially part of 'settings.theme' (legacy or direct)
-  domain?: string; // Potentially part of 'settings.customDomain' (legacy or direct)
-  
-  // Fields from listOrganizationsForAdmin and for general use
-  // All Parse objects are serialized to plain objects for Redux compatibility
+  logo?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  domain?: string;
   administrator?: {
     objectId: string;
     id: string;
@@ -141,11 +149,11 @@ export interface Organization {
     createdAt?: string;
     updatedAt?: string;
   };
-  status?: string; // e.g., "Active", "Suspended"
-  planType?: string; // This is what listOrganizationsForAdmin likely returns for 'plan'
-  plan?: 'free' | 'standard' | 'enterprise' | string; // Keep original plan for flexibility
-  createdAt: string; // ISO date string (Parse default)
-  updatedAt: string; // ISO date string (Parse default)
+  status?: string;
+  planType?: string;
+  plan?: 'free' | 'standard' | 'enterprise' | string;
+  createdAt: string;
+  updatedAt: string;
   createdBy?: {
     objectId: string;
     id: string;
@@ -165,136 +173,65 @@ export interface Organization {
   settings?: Record<string, any>;
 }
 
-// Type for the data returned by getOrganizationSettings cloud function
-export interface OrganizationDetails { // This is what getOrganizationSettings and updateOrganizationSettings return
-  objectId: string;
-  name: string;
-  description?: string;
-  subdomain?: string;
-  industry?: string;
-  status?: string;
-  planType?: string;
-  // administrator?: any; // Not typically returned by getOrganizationSettings unless specifically included
-  createdAt: string;    // Added
-  updatedAt: string;    // Added
-  settings: Record<string, any>;
-}
-
-// Type for parameters when updating settings
 export interface UpdateOrgSettingsParams {
   orgId: string;
   name?: string;
   description?: string;
   subdomain?: string;
   industry?: string;
-  settings?: Record<string, any>; // To update nested settings
+  settings?: Record<string, any>;
 }
 
-// Params for creating an org by admin
 export interface CreateOrgByAdminParams {
-    name: string;
-    ownerEmail: string;
-    planType?: string;
-    description?: string;
-    subdomain?: string;
-    industry?: string;
+  name: string;
+  ownerEmail: string;
+  planType?: string;
+  description?: string;
+  subdomain?: string;
+  industry?: string;
 }
 
-
-interface OrgState {
-  currentOrg: Organization | null; // Should store the detailed Organization object
-  userOrgs: Organization[]; // Orgs associated with the logged-in user (if not admin)
-  allOrganizations: Organization[]; // For sys admin view of all orgs
-  isLoading: boolean;
-  isAdminLoading: boolean; // Specific loading for admin actions
-  error: string | null;
-  adminError: string | null; // Specific error for admin actions
+interface OrgState extends ExtendedAsyncState {
+  currentOrg: Organization | null;
+  userOrgs: Organization[];
+  allOrganizations: Organization[];
+  isAdminLoading: boolean;
+  adminError: string | null;
 }
 
-const initialState: OrgState = {
-  currentOrg: null,
-  userOrgs: [],
-  allOrganizations: [],
-  isLoading: false,
-  isAdminLoading: false,
-  error: null,
-  adminError: null,
-};
-
-// Async Thunks for current org (user-facing)
-export const fetchCurrentOrgDetails = createAsyncThunk(
-  'org/fetchCurrentOrgDetails',
-  async (orgId: string, { rejectWithValue }) => {
-    try {
-      // Changed 'getOrganizationSettings' to 'getOrganizationProfile'
-      const profileResponse: any = await Parse.Cloud.run('getOrganizationProfile', { orgId });
-      if (!profileResponse.success || !profileResponse.organization) {
-        throw new Error(profileResponse.message || 'Failed to fetch organization profile.');
+// Create async thunks using the factory
+const orgThunks = {
+  fetchCurrentOrgDetails: AsyncThunkFactory.create<string, Organization>({
+    name: 'org/fetchCurrentOrgDetails',
+    cloudFunction: 'getOrganizationProfile',
+    transformParams: (orgId: string) => ({ orgId }),
+    transformResponse: (response: any) => {
+      if (!response.success || !response.organization) {
+        throw new Error(response.message || 'Failed to fetch organization profile.');
       }
-      // The 'organization' field from getOrganizationProfile needs to be serialized
-      return serializeOrganization(profileResponse.organization);
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to fetch organization details.');
-      return rejectWithValue(error.message || 'Failed to fetch organization details.');
-    }
-  }
-);
+      return serializeOrganization(response.organization);
+    },
+    errorMessage: 'Failed to fetch organization details'
+  }),
 
-export const updateCurrentOrgSettings = createAsyncThunk(
-  'org/updateCurrentOrgSettings',
-  async (params: UpdateOrgSettingsParams, { rejectWithValue }) => {
-    try {
-      const updatedOrgData: OrganizationDetails = await Parse.Cloud.run('updateOrganizationSettings', params);
+  updateCurrentOrgSettings: AsyncThunkFactory.create<UpdateOrgSettingsParams, Organization>({
+    name: 'org/updateCurrentOrgSettings',
+    cloudFunction: 'updateOrganizationSettings',
+    transformResponse: (response: any) => {
       toast.success('Organization settings updated successfully!');
-      return serializeOrganization({ ...updatedOrgData, id: updatedOrgData.objectId });
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to update organization settings.');
-      return rejectWithValue(error.message || 'Failed to update organization settings.');
-    }
-  }
-);
+      return serializeOrganization({ ...response, id: response.objectId });
+    },
+    errorMessage: 'Failed to update organization settings'
+  }),
 
-// Fetch organizations for the current user with robust error handling
-export const fetchUserOrganizations = createAsyncThunk(
-  'org/fetchUserOrganizations',
-  async (_, { rejectWithValue, getState }) => {
-    try {
-      // Changed 'getUserOrganizations' to 'getUserDetails' and get current user ID
-      const state = getState() as { auth: { user: { id: string } | null } };
-      const currentUserId = state.auth.user?.id;
+  // This thunk needs custom logic for getState, so we'll keep it as createAsyncThunk
+  fetchUserOrganizations: null as any, // Will be defined separately
 
-      if (!currentUserId) {
-        console.warn('fetchUserOrganizations: No current user ID available.');
-        return rejectWithValue('No current user found to fetch organizations for.');
-      }
-
-      const userDetailsResponse: any = await Parse.Cloud.run('getUserDetails', { userId: currentUserId });
-      
-      if (!userDetailsResponse || !userDetailsResponse.organizations) {
-        console.warn('getUserDetails did not return expected organizations array:', userDetailsResponse);
-        return { organizations: [] as Organization[], currentOrganization: null };
-      }
-      
-      const organizations = userDetailsResponse.organizations.map((orgJson: any) => serializeOrganization(orgJson));
-      const currentOrganization = userDetailsResponse.currentOrganization ? serializeOrganization(userDetailsResponse.currentOrganization) : null;
-      
-      return { organizations, currentOrganization };
-    } catch (error: any) {
-      console.error('Failed to fetch user organizations:', error);
-      // Don't show toast for this as it might be called automatically
-      return rejectWithValue(error.message || 'Failed to fetch user organizations.');
-    }
-  }
-);
-
-// Set current organization with validation
-export const setCurrentOrganization = createAsyncThunk(
-  'org/setCurrentOrganization',
-  async (orgId: string, { rejectWithValue }) => {
-    try {
-      const result = await Parse.Cloud.run('setCurrentOrganization', {
-        orgId: orgId // Pass orgId for validation, but server will enforce user access
-      });
+  setCurrentOrganization: AsyncThunkFactory.create<string, Organization>({
+    name: 'org/setCurrentOrganization',
+    cloudFunction: 'setCurrentOrganization',
+    transformParams: (orgId: string) => ({ orgId }),
+    transformResponse: (result: any) => {
       if (result.success) {
         toast.success(`Switched to organization: ${result.orgName}`);
         return serializeOrganization({
@@ -315,109 +252,147 @@ export const setCurrentOrganization = createAsyncThunk(
       } else {
         throw new Error(result.message || 'Failed to switch organization');
       }
-    } catch (error: any) {
-      console.error('Failed to set current organization:', error);
-      toast.error(error.message || 'Failed to switch organization');
-      return rejectWithValue(error.message || 'Failed to switch organization');
-    }
-  }
-);
+    },
+    errorMessage: 'Failed to switch organization'
+  }),
 
-// Async Thunks for System Admin (Global Org Management)
-export const fetchAllOrganizationsAdmin = createAsyncThunk(
-  'org/fetchAllOrganizationsAdmin',
-  async (_, { rejectWithValue }) => {
-    try {
-      const orgsFromCloud: any[] = await Parse.Cloud.run('listOrganizationsForAdmin');
-      // Ensure mapping aligns with the comprehensive Organization interface
+  fetchAllOrganizationsAdmin: AsyncThunkFactory.create<void, Organization[]>({
+    name: 'org/fetchAllOrganizationsAdmin',
+    cloudFunction: 'listOrganizationsForAdmin',
+    transformResponse: (orgsFromCloud: any[]) => {
       return orgsFromCloud.map(orgJson => serializeOrganization(orgJson));
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to fetch all organizations.');
-      return rejectWithValue(error.message || 'Failed to fetch all organizations.');
-    }
-  }
-);
+    },
+    errorMessage: 'Failed to fetch all organizations'
+  }),
 
-export const createOrgByAdmin = createAsyncThunk(
-  'org/createOrgByAdmin',
-  async (params: CreateOrgByAdminParams, { dispatch, rejectWithValue }) => {
+  createOrgByAdmin: AsyncThunkFactory.create<CreateOrgByAdminParams, Organization>({
+    name: 'org/createOrgByAdmin',
+    cloudFunction: 'createOrganization',
+    transformResponse: (response: any) => {
+      toast.success('Organization created successfully!');
+      return serializeOrganization(response);
+    },
+    errorMessage: 'Failed to create organization'
+  }),
+
+  suspendOrgByAdmin: AsyncThunkFactory.create<string, Organization>({
+    name: 'org/suspendOrgByAdmin',
+    cloudFunction: 'suspendOrganization',
+    transformParams: (orgId: string) => ({ orgId }),
+    transformResponse: (response: any) => {
+      toast.success('Organization suspended successfully!');
+      return serializeOrganization(response);
+    },
+    errorMessage: 'Failed to suspend organization'
+  }),
+
+  activateOrgByAdmin: AsyncThunkFactory.create<string, Organization>({
+    name: 'org/activateOrgByAdmin',
+    cloudFunction: 'activateOrganization',
+    transformParams: (orgId: string) => ({ orgId }),
+    transformResponse: (response: any) => {
+      toast.success('Organization activated successfully!');
+      return serializeOrganization(response);
+    },
+    errorMessage: 'Failed to activate organization'
+  })
+};
+
+// Custom thunk for fetchUserOrganizations that needs getState access
+export const fetchUserOrganizations = createAsyncThunk(
+  'org/fetchUserOrganizations',
+  async (_, { rejectWithValue, getState }) => {
     try {
-      const newOrgDataRaw: any = await Parse.Cloud.run('createOrganization', params);
-      toast.success(`Organization "${params.name}" created successfully!`);
-      dispatch(fetchAllOrganizationsAdmin());
-      // Map the raw response to the Organization interface
-      return serializeOrganization(newOrgDataRaw);
+      const state = getState() as { auth: { user: { id: string } | null } };
+      const currentUserId = state.auth.user?.id;
+
+      if (!currentUserId) {
+        console.warn('fetchUserOrganizations: No current user ID available.');
+        return rejectWithValue('No current user found to fetch organizations for.');
+      }
+
+      const userDetailsResponse: any = await callCloudFunction('getUserDetails', { userId: currentUserId });
+      
+      if (!userDetailsResponse || !userDetailsResponse.organizations) {
+        console.warn('getUserDetails did not return expected organizations array:', userDetailsResponse);
+        return { organizations: [] as Organization[], currentOrganization: null };
+      }
+      
+      const organizations = userDetailsResponse.organizations.map((orgJson: any) => serializeOrganization(orgJson));
+      const currentOrganization = userDetailsResponse.currentOrganization ? serializeOrganization(userDetailsResponse.currentOrganization) : null;
+      
+      return { organizations, currentOrganization };
     } catch (error: any) {
-      toast.error(error.message || 'Failed to create organization.');
-      return rejectWithValue(error.message || 'Failed to create organization.');
+      console.error('Failed to fetch user organizations:', error);
+      return rejectWithValue(error.message || 'Failed to fetch user organizations.');
     }
   }
 );
 
-export const suspendOrgByAdmin = createAsyncThunk(
-  'org/suspendOrgByAdmin',
-  async (orgId: string, { rejectWithValue }) => { // Removed dispatch as optimistic update is better
-    try {
-      const updatedOrgDataRaw: any = await Parse.Cloud.run('suspendOrganization', { orgId });
-      toast.success(`Organization suspended successfully!`);
-      return serializeOrganization(updatedOrgDataRaw);
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to suspend organization.');
-      return rejectWithValue(error.message || 'Failed to suspend organization.');
-    }
-  }
-);
+// Export thunks for backward compatibility
+export const {
+  fetchCurrentOrgDetails,
+  updateCurrentOrgSettings,
+  setCurrentOrganization,
+  fetchAllOrganizationsAdmin,
+  createOrgByAdmin,
+  suspendOrgByAdmin,
+  activateOrgByAdmin
+} = orgThunks;
 
-export const activateOrgByAdmin = createAsyncThunk(
-  'org/activateOrgByAdmin',
-  async (orgId: string, { rejectWithValue }) => { // Removed dispatch
-    try {
-      const updatedOrgDataRaw: any = await Parse.Cloud.run('activateOrganization', { orgId });
-      toast.success(`Organization activated successfully!`);
-      return serializeOrganization(updatedOrgDataRaw);
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to activate organization.');
-      return rejectWithValue(error.message || 'Failed to activate organization.');
-    }
-  }
-);
+const initialState: OrgState = createAsyncInitialState({
+  currentOrg: null,
+  userOrgs: [],
+  allOrganizations: [],
+  isAdminLoading: false,
+  adminError: null
+}, { includeExtended: true });
 
-
-export const orgSlice = createSlice({
+const orgSlice = createSlice({
   name: 'org',
   initialState,
   reducers: {
-    // fetchOrgsStart, fetchOrgsSuccess, fetchOrgsFailed might be deprecated if
-    // userOrgs list is populated differently or if not needed directly by UI in favor of currentOrg focus.
-    // For now, keeping them but they don't use createAsyncThunk.
+    clearOrgErrors: (state) => {
+      state.error = null;
+      state.adminError = null;
+    },
+    
+    clearCurrentOrg: (state) => {
+      state.currentOrg = null;
+    },
+    
+    setCurrentOrgLocal: (state, action: PayloadAction<Organization>) => {
+      state.currentOrg = action.payload;
+    },
+
+    // Legacy reducers for backward compatibility
     fetchOrgsStart: (state) => {
       state.isLoading = true;
       state.error = null;
     },
+
     fetchOrgsSuccess: (state, action: PayloadAction<Organization[]>) => {
-      // Serialize the organizations to ensure no ParseUser objects are stored in Redux
       state.userOrgs = action.payload.map(org => serializeOrganization(org));
       state.isLoading = false;
-      // Logic to set currentOrg from this list might change if fetchCurrentOrgDetails is primary.
       if (action.payload.length > 0 && !state.currentOrg) {
-        // state.currentOrg = action.payload[0]; // Potentially set a summary, then fetch details
+        // Optionally set first org as current
       }
     },
+
     fetchOrgsFailed: (state, action: PayloadAction<string>) => {
       state.isLoading = false;
       state.error = action.payload;
     },
+
     setCurrentOrgById: (state, action: PayloadAction<string | null>) => {
-        if (action.payload === null) {
-            state.currentOrg = null;
-        } else {
-            const selected = state.userOrgs.find(org => org.id === action.payload);
-            state.currentOrg = selected || null;
-            // After setting, one might dispatch fetchCurrentOrgDetails(action.payload)
-        }
+      if (action.payload === null) {
+        state.currentOrg = null;
+      } else {
+        const selected = state.userOrgs.find(org => org.id === action.payload);
+        state.currentOrg = selected || null;
+      }
     },
-    // updateOrgTheme and updateOrgLogo might become part of updateCurrentOrgSettings
-    // by modifying the 'settings.theme.primaryColor' or 'settings.theme.logoUrl'
+
     updateOrgTheme: (state, action: PayloadAction<{ primaryColor?: string; secondaryColor?: string }>) => {
       if (state.currentOrg) {
         state.currentOrg.settings = {
@@ -429,9 +404,10 @@ export const orgSlice = createSlice({
         };
       }
     },
+
     updateOrgLogo: (state, action: PayloadAction<string>) => {
       if (state.currentOrg) {
-         state.currentOrg.settings = {
+        state.currentOrg.settings = {
           ...state.currentOrg.settings,
           theme: {
             ...state.currentOrg.settings?.theme,
@@ -440,24 +416,21 @@ export const orgSlice = createSlice({
         };
       }
     },
-    resetOrgState: (state) => { // Renamed to avoid conflict if 'resetOrg' is used elsewhere
+
+    resetOrgState: (state) => {
       state.currentOrg = null;
       state.userOrgs = [];
       state.isLoading = false;
       state.error = null;
-      state.adminError = null; // Reset admin error too
-      state.allOrganizations = []; // Reset admin list on full reset
+      state.adminError = null;
+      state.allOrganizations = [];
     }
   },
   extraReducers: (builder) => {
-    builder
-      // User-facing org details
-      .addCase(fetchCurrentOrgDetails.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addCase(fetchCurrentOrgDetails.fulfilled, (state, action: PayloadAction<Organization>) => {
-        state.isLoading = false;
+    // Fetch current org details
+    AsyncReducerBuilder.addAsyncCase(builder, orgThunks.fetchCurrentOrgDetails, {
+      loadingFlag: 'isFetching',
+      onFulfilled: (state, action) => {
         state.currentOrg = action.payload;
         const index = state.userOrgs.findIndex(org => org.id === action.payload.id);
         if (index !== -1) {
@@ -465,39 +438,30 @@ export const orgSlice = createSlice({
         } else {
           state.userOrgs.push(action.payload);
         }
-      })
-      .addCase(fetchCurrentOrgDetails.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = action.payload as string;
-      })
-      .addCase(updateCurrentOrgSettings.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addCase(updateCurrentOrgSettings.fulfilled, (state, action: PayloadAction<Organization>) => {
-        state.isLoading = false;
+      }
+    });
+
+    // Update current org settings
+    AsyncReducerBuilder.addAsyncCase(builder, orgThunks.updateCurrentOrgSettings, {
+      loadingFlag: 'isUpdating',
+      onFulfilled: (state, action) => {
         state.currentOrg = action.payload;
         const index = state.userOrgs.findIndex(org => org.id === action.payload.id);
         if (index !== -1) {
           state.userOrgs[index] = action.payload;
         }
-         // Also update in allOrganizations list if present (for admin consistency)
+        // Also update in allOrganizations list if present (for admin consistency)
         const adminIndex = state.allOrganizations.findIndex(org => org.id === action.payload.id);
         if (adminIndex !== -1) {
-            state.allOrganizations[adminIndex] = action.payload;
+          state.allOrganizations[adminIndex] = action.payload;
         }
-      })
-      .addCase(updateCurrentOrgSettings.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = action.payload as string;
-      })
-      // User organizations
-      .addCase(fetchUserOrganizations.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addCase(fetchUserOrganizations.fulfilled, (state, action: PayloadAction<{ organizations: Organization[], currentOrganization: Organization | null }>) => {
-        state.isLoading = false;
+      }
+    });
+
+    // Fetch user organizations (using custom thunk)
+    AsyncReducerBuilder.addAsyncCase(builder, fetchUserOrganizations, {
+      loadingFlag: 'isFetching',
+      onFulfilled: (state, action) => {
         state.userOrgs = action.payload.organizations;
         
         // Set current organization from the response
@@ -509,18 +473,13 @@ export const orgSlice = createSlice({
           state.currentOrg = action.payload.organizations[0];
           console.log(`Set first available organization as current: ${action.payload.organizations[0].name}`);
         }
-      })
-      .addCase(fetchUserOrganizations.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = action.payload as string;
-      })
-      // Set current organization
-      .addCase(setCurrentOrganization.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addCase(setCurrentOrganization.fulfilled, (state, action: PayloadAction<Organization>) => {
-        state.isLoading = false;
+      }
+    });
+
+    // Set current organization
+    AsyncReducerBuilder.addAsyncCase(builder, orgThunks.setCurrentOrganization, {
+      loadingFlag: 'isUpdating',
+      onFulfilled: (state, action) => {
         state.currentOrg = action.payload;
         
         // Update the organization in userOrgs if it exists there
@@ -528,71 +487,91 @@ export const orgSlice = createSlice({
         if (orgIndex >= 0) {
           state.userOrgs[orgIndex] = action.payload;
         }
-      })
-      .addCase(setCurrentOrganization.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = action.payload as string;
-      })
-      // System Admin org management
-      .addCase(fetchAllOrganizationsAdmin.pending, (state) => {
-        state.isAdminLoading = true;
-        state.adminError = null;
-      })
-      .addCase(fetchAllOrganizationsAdmin.fulfilled, (state, action: PayloadAction<Organization[]>) => {
-        state.isAdminLoading = false;
-        state.allOrganizations = action.payload;
-      })
-      .addCase(fetchAllOrganizationsAdmin.rejected, (state, action) => {
-        state.isAdminLoading = false;
-        state.adminError = action.payload as string;
-      })
-      .addCase(createOrgByAdmin.pending, (state) => {
-        state.isAdminLoading = true;
-      })
-      .addCase(createOrgByAdmin.fulfilled, (state, action: PayloadAction<Organization>) => {
-        state.isAdminLoading = false;
-        // Re-fetch is handled by thunk, or could push: state.allOrganizations.push(action.payload);
-      })
-      .addCase(createOrgByAdmin.rejected, (state, action) => {
-        state.isAdminLoading = false;
-        state.adminError = action.payload as string;
-      })
-      .addCase(suspendOrgByAdmin.fulfilled, (state, action: PayloadAction<Organization>) => {
-        state.isAdminLoading = false;
-        const index = state.allOrganizations.findIndex(org => org.id === action.payload.id);
-        if (index !== -1) {
-          state.allOrganizations[index] = action.payload;
-        }
-        if (state.currentOrg?.id === action.payload.id) state.currentOrg = action.payload;
+      }
+    });
 
-      })
-      .addCase(suspendOrgByAdmin.rejected, (state, action) => {
-        state.isAdminLoading = false;
-        state.adminError = action.payload as string;
-      })
-      .addCase(activateOrgByAdmin.fulfilled, (state, action: PayloadAction<Organization>) => {
-        state.isAdminLoading = false;
+    // Admin: Fetch all organizations
+    AsyncReducerBuilder.addAsyncCase(builder, orgThunks.fetchAllOrganizationsAdmin, {
+      loadingFlag: 'isAdminLoading',
+      onFulfilled: (state, action) => {
+        state.allOrganizations = action.payload;
+        state.adminError = null;
+      },
+      onRejected: (state, action) => {
+        state.adminError = action.payload || 'Failed to fetch all organizations';
+      }
+    });
+
+    // Admin: Create organization
+    AsyncReducerBuilder.addAsyncCase(builder, orgThunks.createOrgByAdmin, {
+      loadingFlag: 'isAdminLoading',
+      onFulfilled: (state, action) => {
+        state.allOrganizations.push(action.payload);
+        state.adminError = null;
+      },
+      onRejected: (state, action) => {
+        state.adminError = action.payload || 'Failed to create organization';
+      }
+    });
+
+    // Admin: Suspend organization
+    AsyncReducerBuilder.addAsyncCase(builder, orgThunks.suspendOrgByAdmin, {
+      loadingFlag: 'isAdminLoading',
+      onFulfilled: (state, action) => {
         const index = state.allOrganizations.findIndex(org => org.id === action.payload.id);
         if (index !== -1) {
           state.allOrganizations[index] = action.payload;
         }
-        if (state.currentOrg?.id === action.payload.id) state.currentOrg = action.payload;
-      })
-      .addCase(activateOrgByAdmin.rejected, (state, action) => {
-        state.isAdminLoading = false;
-        state.adminError = action.payload as string;
-      });
-  }
+        if (state.currentOrg?.id === action.payload.id) {
+          state.currentOrg = action.payload;
+        }
+        state.adminError = null;
+      },
+      onRejected: (state, action) => {
+        state.adminError = action.payload || 'Failed to suspend organization';
+      }
+    });
+
+    // Admin: Activate organization
+    AsyncReducerBuilder.addAsyncCase(builder, orgThunks.activateOrgByAdmin, {
+      loadingFlag: 'isAdminLoading',
+      onFulfilled: (state, action) => {
+        const index = state.allOrganizations.findIndex(org => org.id === action.payload.id);
+        if (index !== -1) {
+          state.allOrganizations[index] = action.payload;
+        }
+        if (state.currentOrg?.id === action.payload.id) {
+          state.currentOrg = action.payload;
+        }
+        state.adminError = null;
+      },
+      onRejected: (state, action) => {
+        state.adminError = action.payload || 'Failed to activate organization';
+      }
+    });
+  },
 });
 
 export const {
+  clearOrgErrors,
+  clearCurrentOrg,
+  setCurrentOrgLocal,
   fetchOrgsStart,
   fetchOrgsSuccess,
   fetchOrgsFailed,
-  setCurrentOrgById, // Changed from setCurrentOrg
+  setCurrentOrgById,
   updateOrgTheme,
   updateOrgLogo,
-  resetOrgState // Changed from resetOrg
+  resetOrgState
 } = orgSlice.actions;
 
 export default orgSlice.reducer;
+
+// Selectors
+export const selectCurrentOrg = (state: { org: OrgState }) => state.org.currentOrg;
+export const selectUserOrgs = (state: { org: OrgState }) => state.org.userOrgs;
+export const selectAllOrganizations = (state: { org: OrgState }) => state.org.allOrganizations;
+export const selectOrgLoading = (state: { org: OrgState }) => state.org.isLoading;
+export const selectOrgError = (state: { org: OrgState }) => state.org.error;
+export const selectAdminLoading = (state: { org: OrgState }) => state.org.isAdminLoading;
+export const selectAdminError = (state: { org: OrgState }) => state.org.adminError;

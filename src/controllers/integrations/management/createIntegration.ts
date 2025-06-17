@@ -1,5 +1,5 @@
 import { ActionDefinition, ActionContext, ActionResult } from '../../types/ActionTypes';
-import Parse from 'parse';
+import { createParseObject } from '../../../utils/parseUtils';
 
 export const createIntegrationAction: ActionDefinition = {
   id: 'createIntegration',
@@ -44,25 +44,24 @@ export const createIntegrationAction: ActionDefinition = {
         };
       }
 
-      const Integration = Parse.Object.extend('Integration');
-      const integration = new Integration();
+      const integrationData = {
+        name,
+        type,
+        category,
+        description: description || '',
+        endpoint: endpoint || '',
+        credentials,
+        configuration,
+        webhookEvents,
+        organizationId: orgId,
+        createdBy: context.user.userId,
+        status: 'inactive',
+        isActive: true,
+        lastSync: null,
+        errorCount: 0
+      };
 
-      integration.set('name', name);
-      integration.set('type', type);
-      integration.set('category', category);
-      integration.set('description', description || '');
-      integration.set('endpoint', endpoint || '');
-      integration.set('credentials', credentials);
-      integration.set('configuration', configuration);
-      integration.set('webhookEvents', webhookEvents);
-      integration.set('organizationId', orgId);
-      integration.set('createdBy', context.user.userId);
-      integration.set('status', 'inactive');
-      integration.set('isActive', true);
-      integration.set('lastSync', null);
-      integration.set('errorCount', 0);
-
-      const savedIntegration = await integration.save();
+      const savedIntegration = await createParseObject('Integration', integrationData);
 
       return {
         success: true,

@@ -1,6 +1,11 @@
 import Parse from 'parse/node';
 import { ActionContext, ActionResult } from '../types/ActionTypes';
+import { createQuery } from '../../utils/parseUtils';
 
+/**
+ * Refactored updateFunction using ParseQueryBuilder utilities
+ * This eliminates repetitive Parse query and object creation patterns
+ */
 export async function updateFunction(
   params: Record<string, unknown>,
   context: ActionContext
@@ -8,7 +13,7 @@ export async function updateFunction(
   try {
     const { functionName, code, description, category, triggers } = params;
 
-    // Verify function exists
+    // Verify function exists using utility
     const existingFunction = await getFunctionByName(functionName as string);
     if (!existingFunction) {
       return {
@@ -84,38 +89,31 @@ export async function updateFunction(
   }
 }
 
+/**
+ * Refactored function lookup using ParseQueryBuilder
+ */
 async function getFunctionByName(functionName: string): Promise<any | null> {
   try {
-    const query = new Parse.Query('CloudFunction');
-    query.equalTo('name', functionName);
+    // Use ParseQueryBuilder for cleaner query construction
+    const result = await createQuery('CloudFunction')
+      .equalTo('name', functionName)
+      .first();
     
-    const cloudFunction = await query.first();
-    if (!cloudFunction) {
+    if (!result) {
       return null;
     }
     
-    return {
-      id: cloudFunction.id,
-      name: cloudFunction.get('name'),
-      description: cloudFunction.get('description'),
-      code: cloudFunction.get('code'),
-      language: cloudFunction.get('language'),
-      runtime: cloudFunction.get('runtime'),
-      category: cloudFunction.get('category'),
-      triggers: cloudFunction.get('triggers') || [],
-      tags: cloudFunction.get('tags') || [],
-      status: cloudFunction.get('status'),
-      createdAt: cloudFunction.get('createdAt'),
-      updatedAt: cloudFunction.get('updatedAt'),
-      createdBy: cloudFunction.get('createdBy'),
-      version: cloudFunction.get('version') || 1
-    };
+    // Use utility function to map Parse object
+    return mapParseObjectToCloudFunction(result);
   } catch (error) {
     console.error('Error fetching function by name:', error);
     return null;
   }
 }
 
+/**
+ * Function code validation utility
+ */
 async function validateFunctionCode(code: string): Promise<{ isValid: boolean; errors: string[] }> {
   const errors: string[] = [];
   
@@ -143,25 +141,22 @@ async function validateFunctionCode(code: string): Promise<{ isValid: boolean; e
   };
 }
 
+/**
+ * Refactored database update using ParseQueryBuilder
+ */
 async function updateFunctionInDatabase(functionName: string, updateData: any): Promise<any> {
   try {
-    // Find the function by name
-    const query = new Parse.Query('CloudFunction');
-    query.equalTo('name', functionName);
+    // Use ParseQueryBuilder to find the function
+    const cloudFunction = await createQuery('CloudFunction')
+      .equalTo('name', functionName)
+      .first();
     
-    const cloudFunction = await query.first();
     if (!cloudFunction) {
       throw new Error(`Function ${functionName} not found`);
     }
     
-    // Update the function data
-    if (updateData.code) cloudFunction.set('code', updateData.code);
-    if (updateData.description) cloudFunction.set('description', updateData.description);
-    if (updateData.category) cloudFunction.set('category', updateData.category);
-    if (updateData.triggers) cloudFunction.set('triggers', updateData.triggers);
-    if (updateData.tags) cloudFunction.set('tags', updateData.tags);
-    if (updateData.status) cloudFunction.set('status', updateData.status);
-    if (updateData.updatedBy) cloudFunction.set('updatedBy', updateData.updatedBy);
+    // Use utility function to update function data
+    updateCloudFunctionData(cloudFunction, updateData);
     
     // Increment version
     const currentVersion = cloudFunction.get('version') || 1;
@@ -170,28 +165,17 @@ async function updateFunctionInDatabase(functionName: string, updateData: any): 
     // Save to database
     const savedFunction = await cloudFunction.save();
     
-    return {
-      id: savedFunction.id,
-      name: savedFunction.get('name'),
-      description: savedFunction.get('description'),
-      code: savedFunction.get('code'),
-      language: savedFunction.get('language'),
-      runtime: savedFunction.get('runtime'),
-      category: savedFunction.get('category'),
-      triggers: savedFunction.get('triggers'),
-      tags: savedFunction.get('tags'),
-      status: savedFunction.get('status'),
-      createdAt: savedFunction.get('createdAt'),
-      updatedAt: savedFunction.get('updatedAt'),
-      updatedBy: savedFunction.get('updatedBy'),
-      version: savedFunction.get('version')
-    };
+    // Use utility function to map result
+    return mapParseObjectToCloudFunction(savedFunction);
   } catch (error) {
     console.error('Error updating function in database:', error);
-    throw error;
+    throw new Error(`Failed to update function in database: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
+/**
+ * Refactored logging function using Parse utilities
+ */
 async function logFunctionUpdate(functionName: string, logData: {
   userId: string;
   changes: string[];
@@ -202,11 +186,8 @@ async function logFunctionUpdate(functionName: string, logData: {
     const UpdateLog = Parse.Object.extend('FunctionUpdateLog');
     const updateLog = new UpdateLog();
     
-    updateLog.set('functionName', functionName);
-    updateLog.set('userId', logData.userId);
-    updateLog.set('changes', logData.changes);
-    updateLog.set('action', 'update');
-    updateLog.set('message', `Function '${functionName}' updated: ${logData.changes.join(', ')}`);
+    // Use utility function to set log data
+    setUpdateLogData(updateLog, functionName, logData);
     
     // Save to database
     await updateLog.save();
@@ -219,4 +200,58 @@ async function logFunctionUpdate(functionName: string, logData: {
     console.error('Error logging function update:', error);
     // Don't throw error here to avoid breaking the main update flow
   }
+}
+
+/**
+ * Utility function to update cloud function data on Parse object
+ */
+function updateCloudFunctionData(parseObj: Parse.Object, updateData: any): void {
+  if (updateData.code) parseObj.set('code', updateData.code);
+  if (updateData.description) parseObj.set('description', updateData.description);
+  if (updateData.category) parseObj.set('category', updateData.category);
+  if (updateData.triggers) parseObj.set('triggers', updateData.triggers);
+  if (updateData.tags) parseObj.set('tags', updateData.tags);
+  if (updateData.status) parseObj.set('status', updateData.status);
+  if (updateData.updatedBy) parseObj.set('updatedBy', updateData.updatedBy);
+}
+
+/**
+ * Utility function to set update log data on Parse object
+ */
+function setUpdateLogData(
+  parseObj: Parse.Object,
+  functionName: string,
+  logData: any
+): void {
+  parseObj.set('functionName', functionName);
+  parseObj.set('userId', logData.userId);
+  parseObj.set('changes', logData.changes);
+  parseObj.set('action', 'update');
+  parseObj.set('message', `Function '${functionName}' updated: ${logData.changes.join(', ')}`);
+}
+
+/**
+ * Utility function to map Parse object to CloudFunction interface
+ * (Shared utility - could be moved to parseUtils.ts)
+ */
+function mapParseObjectToCloudFunction(parseObj: Parse.Object): any {
+  return {
+    id: parseObj.id,
+    name: parseObj.get('name'),
+    description: parseObj.get('description'),
+    code: parseObj.get('code'),
+    language: parseObj.get('language'),
+    runtime: parseObj.get('runtime'),
+    category: parseObj.get('category'),
+    triggers: parseObj.get('triggers') || [],
+    tags: parseObj.get('tags') || [],
+    status: parseObj.get('status'),
+    createdAt: parseObj.get('createdAt'),
+    updatedAt: parseObj.get('updatedAt'),
+    createdBy: parseObj.get('createdBy'),
+    updatedBy: parseObj.get('updatedBy'),
+    executionCount: parseObj.get('executionCount') || 0,
+    lastExecuted: parseObj.get('lastExecuted'),
+    version: parseObj.get('version') || 1
+  };
 }

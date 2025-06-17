@@ -5,6 +5,8 @@ import {
   ActionResult,
   PageContext
 } from './types/ActionTypes';
+import Parse from 'parse';
+import { ParseQueryBuilder } from '../utils/parseUtils';
 
 export class SettingsPageController implements PageController {
   pageId = 'settings';
@@ -157,11 +159,10 @@ export class SettingsPageController implements PageController {
           }
 
           // Find existing setting
-          const query = new Parse.Query('Setting');
-          query.equalTo('organizationId', orgId);
-          query.equalTo('key', key);
-
-          let setting = await query.first();
+          let setting = await new ParseQueryBuilder('Setting')
+            .equalTo('organizationId', orgId)
+            .equalTo('key', key)
+            .first();
 
           if (!setting) {
             // Create new setting if it doesn't exist
@@ -256,11 +257,10 @@ export class SettingsPageController implements PageController {
             const promise = (async () => {
               try {
                 // Find existing setting
-                const query = new Parse.Query('Setting');
-                query.equalTo('organizationId', orgId);
-                query.equalTo('key', key);
-
-                let setting = await query.first();
+                let setting = await new ParseQueryBuilder('Setting')
+                  .equalTo('organizationId', orgId)
+                  .equalTo('key', key)
+                  .first();
 
                 if (!setting) {
                   // Create new setting
@@ -372,15 +372,15 @@ export class SettingsPageController implements PageController {
             };
           }
 
-          const query = new Parse.Query('Setting');
-          query.equalTo('organizationId', orgId);
-          query.notEqualTo('isSystem', true); // Don't reset system settings
+          let queryBuilder = new ParseQueryBuilder('Setting')
+            .equalTo('organizationId', orgId)
+            .notEqualTo('isSystem', true); // Don't reset system settings
 
           if (category) {
-            query.equalTo('category', category);
+            queryBuilder = queryBuilder.equalTo('category', category);
           }
 
-          const settings = await query.find();
+          const settings = await queryBuilder.find();
           
           // Get default values for settings
           const defaultValues = this.getDefaultSettings();

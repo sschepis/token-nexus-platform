@@ -1,5 +1,5 @@
 import { ActionDefinition, ActionContext, ActionResult } from '../../types/ActionTypes';
-import Parse from 'parse';
+import { upsertParseObject } from '../../../utils/parseUtils';
 
 export const updateSettingAction: ActionDefinition = {
   id: 'updateSetting',
@@ -30,25 +30,23 @@ export const updateSettingAction: ActionDefinition = {
         };
       }
 
-      // Find existing setting
-      const query = new Parse.Query('Setting');
-      query.equalTo('organizationId', orgId);
-      query.equalTo('key', key);
+      // Upsert setting with permission validation
+      const savedSetting = await upsertParseObject(
+        'Setting',
+        { organizationId: orgId, key },
+        {
+          category,
+          createdBy: context.user.userId
+        },
+        {
+          value,
+          updatedBy: context.user.userId,
+          updatedAt: new Date()
+        }
+      );
 
-      let setting = await query.first();
-
-      if (!setting) {
-        // Create new setting if it doesn't exist
-        const Setting = Parse.Object.extend('Setting');
-        setting = new Setting();
-        setting.set('key', key);
-        setting.set('organizationId', orgId);
-        setting.set('category', category);
-        setting.set('createdBy', context.user.userId);
-      }
-
-      // Validate setting permissions
-      if (setting.get('isSystem') && !context.user.permissions?.includes('admin:settings')) {
+      // Validate setting permissions after upsert
+      if (savedSetting.get('isSystem') && !context.user.permissions?.includes('admin:settings')) {
         return {
           success: false,
           error: 'Insufficient permissions to modify system setting',
@@ -60,12 +58,6 @@ export const updateSettingAction: ActionDefinition = {
           }
         };
       }
-
-      setting.set('value', value);
-      setting.set('updatedBy', context.user.userId);
-      setting.set('updatedAt', new Date());
-
-      const savedSetting = await setting.save();
 
       return {
         success: true,

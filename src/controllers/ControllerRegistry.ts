@@ -66,11 +66,15 @@ export class ControllerRegistry {
     // Index all actions for quick lookup
     pageController.actions.forEach((action, actionId) => {
       const fullActionId = `${pageController.pageId}.${actionId}`;
+      console.log(`[DEBUG ControllerRegistry] Indexing action: ${fullActionId}`);
       this.actionIndex.set(fullActionId, {
         pageId: pageController.pageId,
         action
       });
     });
+    
+    console.log(`[DEBUG ControllerRegistry] Total actions indexed: ${this.actionIndex.size}`);
+    console.log(`[DEBUG ControllerRegistry] All indexed actions:`, Array.from(this.actionIndex.keys()));
 
     // Emit registration event
     this.emitEvent({

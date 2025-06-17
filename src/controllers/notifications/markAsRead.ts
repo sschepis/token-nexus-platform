@@ -1,4 +1,5 @@
 import { ActionContext } from '../types/ActionTypes';
+import { ParseQueryBuilder } from '../../utils/parseUtils';
 
 export async function markAsRead(params: Record<string, unknown>, context: ActionContext) {
   const { notificationIds } = params;
@@ -7,21 +8,22 @@ export async function markAsRead(params: Record<string, unknown>, context: Actio
     throw new Error('Notification IDs array is required');
   }
 
-  const query = new Parse.Query('Notification');
-  query.containedIn('objectId', notificationIds as string[]);
+  // Create OR query for user and organization notifications
+  const userQuery = new ParseQueryBuilder('Notification')
+    .equalTo('recipientId', context.user.userId);
   
-  // Ensure user can only mark their own notifications as read
-  const userQuery = new Parse.Query('Notification');
-  userQuery.equalTo('recipientId', context.user.userId);
+  const orgQuery = new ParseQueryBuilder('Notification')
+    .equalTo('organizationId', context.user.organizationId)
+    .equalTo('recipientType', 'organization');
   
-  const orgQuery = new Parse.Query('Notification');
-  orgQuery.equalTo('organizationId', context.user.organizationId);
-  orgQuery.equalTo('recipientType', 'organization');
+  const accessibleQuery = ParseQueryBuilder.or(userQuery, orgQuery);
   
-  const combinedQuery = (Parse.Query as any).or(userQuery, orgQuery);
-  (query as any).matchesQuery('objectId', combinedQuery);
-
-  const notifications = await query.find();
+  // Filter by notification IDs and ensure user access
+  const notifications = await new ParseQueryBuilder('Notification')
+    .containedIn('objectId', notificationIds as string[])
+    .getQuery()
+    .matchesQuery('objectId', accessibleQuery.getQuery())
+    .find();
   
   // Update status to read
   const updatePromises = notifications.map(notification => {

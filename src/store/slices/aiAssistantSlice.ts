@@ -1,5 +1,15 @@
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { apiService } from '@/services/api';
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { 
+  AsyncThunkFactory, 
+  AsyncReducerBuilder, 
+  createAsyncInitialState,
+  ExtendedAsyncState 
+} from '../utils/createAsyncSliceUtils';
+
+/**
+ * Refactored AI Assistant slice using AsyncThunkFactory utilities
+ * This eliminates all the repetitive createAsyncThunk and error handling patterns
+ */
 
 // Define the interface for a ScheduledTask, based on the plan and current usage
 export interface ScheduledTask {
@@ -15,70 +25,83 @@ export interface ScheduledTask {
   updatedAt: string;
 }
 
-interface AiAssistantState {
-  scheduledTasks: ScheduledTask[];
-  isLoadingTasks: boolean;
-  isCreatingTask: boolean;
-  isUpdatingTask: boolean;
-  isDeletingTask: boolean;
-  error: string | null;
+export interface CreateScheduledTaskParams {
+  name: string;
+  description: string;
+  cronExpression: string;
+  actionDetails: Record<string, unknown>;
 }
 
-const initialState: AiAssistantState = {
-  scheduledTasks: [],
-  isLoadingTasks: false,
-  isCreatingTask: false,
-  isUpdatingTask: false,
-  isDeletingTask: false,
-  error: null,
+export interface UpdateScheduledTaskParams {
+  taskId: string;
+  updates: {
+    name?: string;
+    description?: string;
+    cronExpression?: string;
+    actionDetails?: Record<string, unknown>;
+    isActive?: boolean;
+  };
+}
+
+export interface FetchScheduledTasksParams {
+  limit?: number;
+  skip?: number;
+  isActive?: boolean;
+  [key: string]: unknown; // Add index signature for Record<string, unknown> compatibility
+}
+
+interface AiAssistantState extends ExtendedAsyncState {
+  scheduledTasks: ScheduledTask[];
+}
+
+// Create async thunks using the factory
+const aiAssistantThunks = {
+  fetchScheduledTasks: AsyncThunkFactory.create<FetchScheduledTasksParams | undefined, ScheduledTask[]>({
+    name: 'aiAssistant/fetchScheduledTasks',
+    cloudFunction: 'getScheduledTasks',
+    transformParams: (params) => (params || {}) as Record<string, unknown>,
+    transformResponse: (response: any) => response.tasks || response.data?.tasks || response,
+    errorMessage: 'Failed to fetch scheduled tasks'
+  }),
+
+  createScheduledTask: AsyncThunkFactory.create<CreateScheduledTaskParams, ScheduledTask>({
+    name: 'aiAssistant/createScheduledTask',
+    cloudFunction: 'createScheduledTask',
+    transformResponse: (response: any) => response.task || response.data?.task || response,
+    errorMessage: 'Failed to create scheduled task'
+  }),
+
+  updateScheduledTask: AsyncThunkFactory.create<UpdateScheduledTaskParams, ScheduledTask>({
+    name: 'aiAssistant/updateScheduledTask',
+    cloudFunction: 'updateScheduledTask',
+    transformParams: (params) => ({
+      taskId: params.taskId,
+      ...params.updates
+    }),
+    transformResponse: (response: any) => response.task || response.data?.task || response,
+    errorMessage: 'Failed to update scheduled task'
+  }),
+
+  deleteScheduledTask: AsyncThunkFactory.create<string, { taskId: string }>({
+    name: 'aiAssistant/deleteScheduledTask',
+    cloudFunction: 'deleteScheduledTask',
+    transformParams: (taskId: string) => ({ taskId }),
+    transformResponse: (response: any) => ({ taskId: response.taskId || response.id || response }),
+    errorMessage: 'Failed to delete scheduled task'
+  })
 };
 
-// Async Thunks
-export const fetchScheduledTasks = createAsyncThunk(
-  'aiAssistant/fetchScheduledTasks',
-  async (params?: { limit?: number; skip?: number; isActive?: boolean }) => {
-    const response = await apiService.aiAssistant.getScheduledTasks(params);
-    return response.data.tasks as ScheduledTask[];
-  }
-);
+// Export thunks for backward compatibility
+export const {
+  fetchScheduledTasks,
+  createScheduledTask,
+  updateScheduledTask,
+  deleteScheduledTask
+} = aiAssistantThunks;
 
-export const createScheduledTask = createAsyncThunk(
-  'aiAssistant/createScheduledTask',
-  async (taskData: {
-    name: string;
-    description: string;
-    cronExpression: string;
-    actionDetails: Record<string, unknown>;
-  }) => {
-    const response = await apiService.aiAssistant.createScheduledTask(taskData);
-    return response.data.task as ScheduledTask;
-  }
-);
-
-export const updateScheduledTask = createAsyncThunk(
-  'aiAssistant/updateScheduledTask',
-  async ({ taskId, updates }: {
-    taskId: string;
-    updates: {
-      name?: string;
-      description?: string;
-      cronExpression?: string;
-      actionDetails?: Record<string, unknown>;
-      isActive?: boolean;
-    };
-  }) => {
-    const response = await apiService.aiAssistant.updateScheduledTask(taskId, updates);
-    return response.data.task as ScheduledTask;
-  }
-);
-
-export const deleteScheduledTask = createAsyncThunk(
-  'aiAssistant/deleteScheduledTask',
-  async (taskId: string) => {
-    await apiService.aiAssistant.deleteScheduledTask(taskId);
-    return taskId;
-  }
-);
+const initialState: AiAssistantState = createAsyncInitialState({
+  scheduledTasks: []
+}, { includeExtended: true });
 
 const aiAssistantSlice = createSlice({
   name: 'aiAssistant',
@@ -89,64 +112,52 @@ const aiAssistantSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
-    builder
-      // fetchScheduledTasks
-      .addCase(fetchScheduledTasks.pending, (state) => {
-        state.isLoadingTasks = true;
-        state.error = null;
-      })
-      .addCase(fetchScheduledTasks.fulfilled, (state, action: PayloadAction<ScheduledTask[]>) => {
-        state.isLoadingTasks = false;
+    // Fetch scheduled tasks using AsyncReducerBuilder
+    AsyncReducerBuilder.addAsyncCase(builder, aiAssistantThunks.fetchScheduledTasks, {
+      loadingFlag: 'isFetching',
+      onFulfilled: (state, action) => {
         state.scheduledTasks = action.payload;
-      })
-      .addCase(fetchScheduledTasks.rejected, (state, action) => {
-        state.isLoadingTasks = false;
-        state.error = action.error.message || 'Failed to fetch scheduled tasks';
-      })
-      // createScheduledTask
-      .addCase(createScheduledTask.pending, (state) => {
-        state.isCreatingTask = true;
-        state.error = null;
-      })
-      .addCase(createScheduledTask.fulfilled, (state, action: PayloadAction<ScheduledTask>) => {
-        state.isCreatingTask = false;
+      }
+    });
+
+    // Create scheduled task
+    AsyncReducerBuilder.addAsyncCase(builder, aiAssistantThunks.createScheduledTask, {
+      loadingFlag: 'isCreating',
+      onFulfilled: (state, action) => {
         state.scheduledTasks.push(action.payload);
-      })
-      .addCase(createScheduledTask.rejected, (state, action) => {
-        state.isCreatingTask = false;
-        state.error = action.error.message || 'Failed to create scheduled task';
-      })
-      // updateScheduledTask
-      .addCase(updateScheduledTask.pending, (state) => {
-        state.isUpdatingTask = true;
-        state.error = null;
-      })
-      .addCase(updateScheduledTask.fulfilled, (state, action: PayloadAction<ScheduledTask>) => {
-        state.isUpdatingTask = false;
+      }
+    });
+
+    // Update scheduled task
+    AsyncReducerBuilder.addAsyncCase(builder, aiAssistantThunks.updateScheduledTask, {
+      loadingFlag: 'isUpdating',
+      onFulfilled: (state, action) => {
         const index = state.scheduledTasks.findIndex(task => task.id === action.payload.id);
         if (index !== -1) {
           state.scheduledTasks[index] = action.payload;
         }
-      })
-      .addCase(updateScheduledTask.rejected, (state, action) => {
-        state.isUpdatingTask = false;
-        state.error = action.error.message || 'Failed to update scheduled task';
-      })
-      // deleteScheduledTask
-      .addCase(deleteScheduledTask.pending, (state) => {
-        state.isDeletingTask = true;
-        state.error = null;
-      })
-      .addCase(deleteScheduledTask.fulfilled, (state, action: PayloadAction<string>) => {
-        state.isDeletingTask = false;
-        state.scheduledTasks = state.scheduledTasks.filter(task => task.id !== action.payload);
-      })
-      .addCase(deleteScheduledTask.rejected, (state, action) => {
-        state.isDeletingTask = false;
-        state.error = action.error.message || 'Failed to delete scheduled task';
-      });
+      }
+    });
+
+    // Delete scheduled task
+    AsyncReducerBuilder.addAsyncCase(builder, aiAssistantThunks.deleteScheduledTask, {
+      loadingFlag: 'isDeleting',
+      onFulfilled: (state, action) => {
+        const taskId = action.payload.taskId;
+        state.scheduledTasks = state.scheduledTasks.filter(task => task.id !== taskId);
+      }
+    });
   },
 });
 
 export const { clearAiAssistantErrors } = aiAssistantSlice.actions;
 export default aiAssistantSlice.reducer;
+
+// Selectors
+export const selectScheduledTasks = (state: { aiAssistant: AiAssistantState }) => state.aiAssistant.scheduledTasks;
+export const selectAiAssistantLoading = (state: { aiAssistant: AiAssistantState }) => state.aiAssistant.isLoading;
+export const selectAiAssistantError = (state: { aiAssistant: AiAssistantState }) => state.aiAssistant.error;
+export const selectIsCreatingTask = (state: { aiAssistant: AiAssistantState }) => state.aiAssistant.isCreating;
+export const selectIsUpdatingTask = (state: { aiAssistant: AiAssistantState }) => state.aiAssistant.isUpdating;
+export const selectIsDeletingTask = (state: { aiAssistant: AiAssistantState }) => state.aiAssistant.isDeleting;
+export const selectIsFetchingTasks = (state: { aiAssistant: AiAssistantState }) => state.aiAssistant.isFetching;

@@ -4,7 +4,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware'; // Import createJSONStorage
 import { Layout } from 'react-grid-layout';
 import { v4 as uuidv4 } from 'uuid';
-import { apiService } from '@/services/api'; // Import apiService
+import { dashboardApi } from '@/services/api'; // Import dashboardApi
 import { store } from './store'; // Import the actual store instance
 import { RootState } from './store'; // Import RootState for typing
 
@@ -102,10 +102,22 @@ export const useDashboardStore = create<DashboardState>()(
       },
       
       removeWidget: (widgetId: string) => {
-        set((state) => ({
-          widgets: state.widgets.filter((w) => w.id !== widgetId),
-          layouts: state.layouts.filter((l) => l.i !== widgetId),
-        }));
+        console.log('[DEBUG] removeWidget called with widgetId:', widgetId);
+        set((state) => {
+          console.log('[DEBUG] Current widgets before removal:', state.widgets.map(w => ({ id: w.id, title: w.title })));
+          console.log('[DEBUG] Current layouts before removal:', state.layouts.map(l => ({ i: l.i, x: l.x, y: l.y })));
+          
+          const newWidgets = state.widgets.filter((w) => w.id !== widgetId);
+          const newLayouts = state.layouts.filter((l) => l.i !== widgetId);
+          
+          console.log('[DEBUG] New widgets after removal:', newWidgets.map(w => ({ id: w.id, title: w.title })));
+          console.log('[DEBUG] New layouts after removal:', newLayouts.map(l => ({ i: l.i, x: l.x, y: l.y })));
+          
+          return {
+            widgets: newWidgets,
+            layouts: newLayouts,
+          };
+        });
       },
       
       updateLayout: (layouts: Layout[]) => {
@@ -143,7 +155,7 @@ export const useDashboardStore = create<DashboardState>()(
         }
 
         try {
-          await apiService.saveDashboardLayout({
+          await dashboardApi.saveDashboardLayout({
             userId: user.id,
             orgId: orgId, // Corrected access
             layouts: state.layouts,
@@ -175,7 +187,7 @@ export const useDashboardStore = create<DashboardState>()(
         try {
           isLoadingDashboard = true;
           console.log("Loading dashboard layout for user:", user.id, "org:", orgId);
-          const response = await apiService.getDashboardLayout(user.id, orgId);
+          const response = await dashboardApi.getDashboardLayout(user.id, orgId);
           if (response.data.layouts && response.data.widgets) {
               set({ layouts: response.data.layouts, widgets: response.data.widgets });
               console.log("Dashboard layout loaded successfully.");

@@ -1,6 +1,7 @@
 import { ActionDefinition, ActionContext, ActionResult } from '../types/ActionTypes';
 import { createAction } from '../base/ActionBuilder';
 import { PermissionValidator } from '../base/PermissionValidator';
+import { ParseQueryBuilder, createParseObject, updateParseObject, deleteParseObject } from '../../utils/parseUtils';
 
 /**
  * Configuration for CRUD action factory
@@ -94,40 +95,40 @@ export class CRUDActionFactory {
 
         const { limit = 50, skip = 0, sortBy, sortOrder = 'desc', search } = params;
         
-        // Create base query
-        let query = new Parse.Query(config.className);
+        // Create base query using ParseQueryBuilder
+        let queryBuilder = new ParseQueryBuilder(config.className);
         
         // Add organization context
         const orgId = context.user.organizationId || context.organization?.id;
         if (orgId) {
-          query.equalTo('organizationId', orgId);
-        }
-        
-        // Apply custom query modifications
-        if (config.customQueries?.list) {
-          query = config.customQueries.list(query, context);
+          queryBuilder = queryBuilder.equalTo('organizationId', orgId);
         }
         
         // Apply search
         if (search && typeof search === 'string') {
           // Simple search implementation - can be enhanced
-          query.matches('name', new RegExp(search, 'i'));
+          queryBuilder = queryBuilder.contains('name', search);
         }
         
         // Apply sorting
         if (sortBy && typeof sortBy === 'string') {
           if (sortOrder === 'asc') {
-            query.ascending(sortBy);
+            queryBuilder = queryBuilder.ascending(sortBy);
           } else {
-            query.descending(sortBy);
+            queryBuilder = queryBuilder.descending(sortBy);
           }
         } else {
-          query.descending('createdAt');
+          queryBuilder = queryBuilder.descending('createdAt');
         }
         
         // Apply pagination
-        query.limit(limit as number);
-        query.skip(skip as number);
+        queryBuilder = queryBuilder.limit(limit as number).skip(skip as number);
+        
+        // Apply custom query modifications (convert to Parse.Query if needed)
+        let query = queryBuilder.getQuery();
+        if (config.customQueries?.list) {
+          query = config.customQueries.list(query, context);
+        }
         
         const results = await query.find({ useMasterKey: true });
         const total = await query.count({ useMasterKey: true });
@@ -173,15 +174,16 @@ export class CRUDActionFactory {
 
         const { id } = params;
         
-        let query = new Parse.Query(config.className);
+        let queryBuilder = new ParseQueryBuilder(config.className);
         
         // Add organization context
         const orgId = context.user.organizationId || context.organization?.id;
         if (orgId) {
-          query.equalTo('organizationId', orgId);
+          queryBuilder = queryBuilder.equalTo('organizationId', orgId);
         }
         
-        // Apply custom query modifications
+        // Apply custom query modifications (convert to Parse.Query if needed)
+        let query = queryBuilder.getQuery();
         if (config.customQueries?.get) {
           query = config.customQueries.get(query, context);
         }
@@ -288,28 +290,20 @@ export class CRUDActionFactory {
         data = await config.hooks.beforeCreate(data, context);
       }
       
-      // Create object
-      const ParseClass = Parse.Object.extend(config.className);
-      const object = new ParseClass();
+      // Prepare object data
+      const objectData: Record<string, any> = { ...data };
       
       // Set organization context
       const orgId = context.user.organizationId || context.organization?.id;
       if (orgId) {
-        object.set('organizationId', orgId);
+        objectData.organizationId = orgId;
       }
       
       // Set user context
-      object.set('createdBy', context.user.userId);
-      object.set('updatedBy', context.user.userId);
+      objectData.createdBy = context.user.userId;
+      objectData.updatedBy = context.user.userId;
       
-      // Set field data
-      for (const [key, value] of Object.entries(data)) {
-        if (value !== undefined && value !== null) {
-          object.set(key, value);
-        }
-      }
-      
-      const savedObject = await object.save(null, { useMasterKey: true });
+      const savedObject = await createParseObject(config.className, objectData);
       
       // Apply after create hook
       if (config.hooks?.afterCreate) {
@@ -351,41 +345,41 @@ export class CRUDActionFactory {
 
         const { id, ...updateData } = params;
         
-        // Get existing object
-        let query = new Parse.Query(config.className);
+        // Prepare update data
+        let data = { ...updateData };
         
-        // Add organization context
+        // Remove readonly fields
+        if (config.fields?.readonly) {
+          for (const field of config.fields.readonly) {
+            delete data[field];
+          }
+        }
+        
+        // Add organization context for security
         const orgId = context.user.organizationId || context.organization?.id;
+        const securityFilters: Record<string, any> = {};
         if (orgId) {
-          query.equalTo('organizationId', orgId);
+          securityFilters.organizationId = orgId;
         }
         
-        const object = await query.get(id as string, { useMasterKey: true });
-        
-        if (!object) {
-          throw new Error(`${config.resource} not found`);
-        }
-        
-        // Apply before update hook
-        let data = updateData;
+        // Get existing object for before update hook
+        let object: Parse.Object | undefined;
         if (config.hooks?.beforeUpdate) {
-          data = await config.hooks.beforeUpdate(object, updateData, context);
-        }
-        
-        // Update fields (excluding readonly fields)
-        for (const [key, value] of Object.entries(data)) {
-          if (config.fields?.readonly?.includes(key)) {
-            continue; // Skip readonly fields
+          const queryBuilder = new ParseQueryBuilder(config.className);
+          if (orgId) {
+            queryBuilder.equalTo('organizationId', orgId);
           }
-          if (value !== undefined) {
-            object.set(key, value);
+          object = await queryBuilder.getQuery().get(id as string, { useMasterKey: true });
+          if (!object) {
+            throw new Error(`${config.resource} not found`);
           }
+          data = await config.hooks.beforeUpdate(object, data, context);
         }
         
         // Update metadata
-        object.set('updatedBy', context.user.userId);
+        data.updatedBy = context.user.userId;
         
-        const savedObject = await object.save(null, { useMasterKey: true });
+        const savedObject = await updateParseObject(config.className, id as string, data, securityFilters);
         
         // Apply after update hook
         if (config.hooks?.afterUpdate) {
@@ -427,27 +421,28 @@ export class CRUDActionFactory {
 
         const { id } = params;
         
-        // Get existing object
-        let query = new Parse.Query(config.className);
-        
-        // Add organization context
+        // Add organization context for security
         const orgId = context.user.organizationId || context.organization?.id;
+        const securityFilters: Record<string, any> = {};
         if (orgId) {
-          query.equalTo('organizationId', orgId);
+          securityFilters.organizationId = orgId;
         }
         
-        const object = await query.get(id as string, { useMasterKey: true });
-        
-        if (!object) {
-          throw new Error(`${config.resource} not found`);
-        }
-        
-        // Apply before delete hook
+        // Get existing object for before delete hook
+        let object: Parse.Object | undefined;
         if (config.hooks?.beforeDelete) {
+          const queryBuilder = new ParseQueryBuilder(config.className);
+          if (orgId) {
+            queryBuilder.equalTo('organizationId', orgId);
+          }
+          object = await queryBuilder.getQuery().get(id as string, { useMasterKey: true });
+          if (!object) {
+            throw new Error(`${config.resource} not found`);
+          }
           await config.hooks.beforeDelete(object, context);
         }
         
-        await object.destroy({ useMasterKey: true });
+        await deleteParseObject(config.className, id as string, securityFilters);
         
         // Apply after delete hook
         if (config.hooks?.afterDelete) {

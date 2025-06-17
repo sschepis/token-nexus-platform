@@ -57,11 +57,17 @@ export const WidgetRenderer: React.FC<WidgetRendererProps> = ({ widget, isEditin
               <Settings className="h-3.5 w-3.5" />
               <span className="sr-only">Settings</span>
             </Button>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-6 w-6" 
-              onClick={() => removeWidget(widget.id)}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('[DEBUG] Delete button clicked for widget:', widget.id);
+                console.log('[DEBUG] removeWidget function:', removeWidget);
+                removeWidget(widget.id);
+              }}
             >
               <X className="h-3.5 w-3.5" />
               <span className="sr-only">Remove</span>

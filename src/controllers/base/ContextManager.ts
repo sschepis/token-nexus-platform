@@ -1,4 +1,6 @@
 import { ActionContext, PageContext, UserContext, OrganizationContext } from '../types/ActionTypes';
+import { ParseQueryBuilder, safeParseCloudRun } from '../../utils/parseUtils';
+import Parse from 'parse';
 
 /**
  * Utility class for managing page and action contexts
@@ -87,8 +89,13 @@ export class ContextManager {
 
     try {
       // Fetch organization data from Parse
-      const orgQuery = new Parse.Query('Organization');
-      const organization = await orgQuery.get(targetOrgId);
+      const organization = await new ParseQueryBuilder('Organization')
+        .equalTo('objectId', targetOrgId)
+        .first();
+      
+      if (!organization) {
+        throw new Error(`Organization not found: ${targetOrgId}`);
+      }
       
       const orgContext: OrganizationContext = {
         id: organization.id,
@@ -153,7 +160,7 @@ export class ContextManager {
   ): Promise<ActionContext | null> {
     try {
       // Fetch user data using cloud function
-      const result = await Parse.Cloud.run('getUserDetails', {
+      const result = await safeParseCloudRun('getUserDetails', {
         userId: userId,
         organizationId: organizationId
       });

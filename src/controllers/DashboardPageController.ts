@@ -5,6 +5,9 @@ import {
   ActionResult,
   PageContext
 } from './types/ActionTypes';
+import Parse from 'parse';
+import { ParseQueryBuilder } from '../utils/parseUtils';
+import { safeParseCloudRun } from '@/utils/parseUtils';
 
 export class DashboardPageController implements PageController {
   pageId = 'dashboard';
@@ -286,7 +289,7 @@ export class DashboardPageController implements PageController {
   // Helper methods for data retrieval
   private async getUserCount(orgId: string): Promise<number> {
     try {
-      const result = await Parse.Cloud.run('getUserCount', {
+      const result = await safeParseCloudRun('getUserCount', {
         organizationId: orgId
       });
       return result.success ? result.count : 0;

@@ -11,6 +11,7 @@ const Dashboard = require('./Dashboard');
 const ChainConfig = require('./ChainConfig');
 const ContractDeployment = require('./ContractDeployment');
 const CMSTrigger = require('./CMSTrigger');
+const workflowSchema = require('./workflowSchema');
 
 module.exports = {
   ...visualTesting,
@@ -24,4 +25,5 @@ module.exports = {
   ...ChainConfig,
   ...ContractDeployment,
   ...CMSTrigger,
+  ...workflowSchema,
 };

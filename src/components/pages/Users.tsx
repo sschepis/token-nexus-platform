@@ -81,7 +81,7 @@ const Users = () => {
     } else {
       console.log('No effective orgId available, cannot fetch users');
     }
-  }, [dispatch, effectiveOrgId, authOrgId, currentOrg]);
+  }, [dispatch, effectiveOrgId]);
 
   const runSearchAction = async (term: string) => {
     if (!pageController.isRegistered) return;

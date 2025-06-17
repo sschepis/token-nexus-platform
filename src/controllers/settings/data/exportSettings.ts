@@ -1,5 +1,5 @@
 import { ActionDefinition, ActionContext, ActionResult } from '../../types/ActionTypes';
-import Parse from 'parse';
+import { ParseQueryBuilder } from '../../../utils/parseUtils';
 
 // Utility functions for format conversion
 const convertToYAML = (data: any[]): string => {
@@ -50,18 +50,18 @@ export const exportSettingsAction: ActionDefinition = {
         };
       }
 
-      const query = new Parse.Query('Setting');
-      query.equalTo('organizationId', orgId);
+      let queryBuilder = new ParseQueryBuilder('Setting')
+        .equalTo('organizationId', orgId);
 
       if (category) {
-        query.equalTo('category', category);
+        queryBuilder = queryBuilder.equalTo('category', category);
       }
 
       if (!includeSensitive) {
-        query.notEqualTo('isSensitive', true);
+        queryBuilder = queryBuilder.notEqualTo('isSensitive', true);
       }
 
-      const settings = await query.find();
+      const settings = await queryBuilder.find();
       const settingsData = settings.map(setting => setting.toJSON());
 
       let exportData: string;

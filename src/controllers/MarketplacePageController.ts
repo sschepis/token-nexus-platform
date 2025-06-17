@@ -5,6 +5,8 @@ import {
   ActionResult,
   PageContext
 } from './types/ActionTypes';
+import Parse from 'parse';
+import { ParseQueryBuilder } from '../utils/parseUtils';
 
 export class MarketplacePageController implements PageController {
   pageId = 'marketplace';
@@ -138,11 +140,10 @@ export class MarketplacePageController implements PageController {
           const { appId } = params;
           const orgId = context.user.organizationId || context.organization?.id;
 
-          const query = new Parse.Query('MarketplaceApp');
-          query.equalTo('objectId', appId);
-          query.equalTo('isPublished', true);
-
-          const app = await query.first();
+          const app = await new ParseQueryBuilder('MarketplaceApp')
+            .equalTo('objectId', appId)
+            .equalTo('isPublished', true)
+            .first();
           if (!app) {
             return {
               success: false,
@@ -160,20 +161,20 @@ export class MarketplacePageController implements PageController {
 
           // Check if app is installed for current organization
           if (orgId) {
-            const installQuery = new Parse.Query('InstalledApp');
-            installQuery.equalTo('appId', appId);
-            installQuery.equalTo('organizationId', orgId);
-            const installation = await installQuery.first();
+            const installation = await new ParseQueryBuilder('InstalledApp')
+              .equalTo('appId', appId)
+              .equalTo('organizationId', orgId)
+              .first();
             appData.isInstalled = !!installation;
             appData.installationData = installation ? installation.toJSON() : null;
           }
 
           // Get app reviews
-          const reviewQuery = new Parse.Query('AppReview');
-          reviewQuery.equalTo('appId', appId);
-          reviewQuery.descending('createdAt');
-          reviewQuery.limit(10);
-          const reviews = await reviewQuery.find();
+          const reviews = await new ParseQueryBuilder('AppReview')
+            .equalTo('appId', appId)
+            .descending('createdAt')
+            .limit(10)
+            .find();
           appData.reviews = reviews.map(review => review.toJSON());
 
           return {
@@ -246,11 +247,10 @@ export class MarketplacePageController implements PageController {
           }
 
           // Check if app exists and is published
-          const appQuery = new Parse.Query('MarketplaceApp');
-          appQuery.equalTo('objectId', appId);
-          appQuery.equalTo('isPublished', true);
-
-          const app = await appQuery.first();
+          const app = await new ParseQueryBuilder('MarketplaceApp')
+            .equalTo('objectId', appId)
+            .equalTo('isPublished', true)
+            .first();
           if (!app) {
             return {
               success: false,
@@ -265,10 +265,10 @@ export class MarketplacePageController implements PageController {
           }
 
           // Check if app is already installed
-          const installQuery = new Parse.Query('InstalledApp');
-          installQuery.equalTo('appId', appId);
-          installQuery.equalTo('organizationId', orgId);
-          const existingInstall = await installQuery.first();
+          const existingInstall = await new ParseQueryBuilder('InstalledApp')
+            .equalTo('appId', appId)
+            .equalTo('organizationId', orgId)
+            .first();
 
           if (existingInstall) {
             return {
@@ -375,10 +375,10 @@ export class MarketplacePageController implements PageController {
           }
 
           // Find installation record
-          const installQuery = new Parse.Query('InstalledApp');
-          installQuery.equalTo('appId', appId);
-          installQuery.equalTo('organizationId', orgId);
-          const installation = await installQuery.first();
+          const installation = await new ParseQueryBuilder('InstalledApp')
+            .equalTo('appId', appId)
+            .equalTo('organizationId', orgId)
+            .first();
 
           if (!installation) {
             return {
@@ -397,9 +397,9 @@ export class MarketplacePageController implements PageController {
           await installation.destroy();
 
           // Update app install count
-          const appQuery = new Parse.Query('MarketplaceApp');
-          appQuery.equalTo('objectId', appId);
-          const app = await appQuery.first();
+          const app = await new ParseQueryBuilder('MarketplaceApp')
+            .equalTo('objectId', appId)
+            .first();
           if (app) {
             app.increment('installCount', -1);
             await app.save();
@@ -462,15 +462,15 @@ export class MarketplacePageController implements PageController {
             };
           }
 
-          const query = new Parse.Query('InstalledApp');
-          query.equalTo('organizationId', orgId);
+          let queryBuilder = new ParseQueryBuilder('InstalledApp')
+            .equalTo('organizationId', orgId);
 
           if (!includeInactive) {
-            query.equalTo('isActive', true);
+            queryBuilder = queryBuilder.equalTo('isActive', true);
           }
 
-          query.descending('createdAt');
-          const installations = await query.find();
+          queryBuilder = queryBuilder.descending('createdAt');
+          const installations = await queryBuilder.find();
           const installedApps = installations.map(installation => installation.toJSON());
 
           return {

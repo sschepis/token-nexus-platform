@@ -1,5 +1,5 @@
 import { ActionDefinition, ActionContext, ActionResult } from '../../types/ActionTypes';
-import Parse from 'parse';
+import { ParseQueryBuilder } from '../../../utils/parseUtils';
 
 export const fetchReportsAction: ActionDefinition = {
   id: 'fetchReports',
@@ -31,27 +31,30 @@ export const fetchReportsAction: ActionDefinition = {
         };
       }
 
-      const query = new Parse.Query('Report');
-      query.equalTo('organizationId', orgId);
+      // Build query using ParseQueryBuilder utility
+      let queryBuilder = new ParseQueryBuilder('Report')
+        .equalTo('organizationId', orgId);
 
       if (!includeInactive) {
-        query.equalTo('isActive', true);
+        queryBuilder = queryBuilder.equalTo('isActive', true);
       }
 
       if (category) {
-        query.equalTo('category', category);
+        queryBuilder = queryBuilder.equalTo('category', category);
       }
 
       if (searchTerm) {
-        query.contains('name', searchTerm.toString());
+        queryBuilder = queryBuilder.contains('name', searchTerm.toString());
       }
 
       if (createdBy) {
-        query.equalTo('createdBy', createdBy);
+        queryBuilder = queryBuilder.equalTo('createdBy', createdBy);
       }
 
-      query.descending('updatedAt');
-      const reports = await query.find();
+      const reports = await queryBuilder
+        .descending('updatedAt')
+        .find();
+      
       const reportData = reports.map(report => report.toJSON());
 
       return {

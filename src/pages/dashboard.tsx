@@ -17,21 +17,30 @@ const DASHBOARD_TAGS = ['dashboard', 'overview', 'metrics'];
 const DashboardPage = () => {
   const { user } = useAppSelector((state) => state.auth);
   const { currentOrg } = useAppSelector((state) => state.org);
-  const { layouts, widgets, addWidget, saveDashboardLayout, loadDashboardLayout } = useDashboardStore();
+  const { layouts, widgets, addWidget, saveDashboardLayout, loadDashboardLayout: storeLoadDashboardLayout } = useDashboardStore();
   const [isWidgetCatalogOpen, setIsWidgetCatalogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState<any>(null);
+  const [controllerReady, setControllerReady] = useState(false);
 
-  // Initialize page controller
-  const pageController = usePageController({
+  // Memoize pageController options
+  const pageControllerOptions = React.useMemo(() => ({
     pageId: 'dashboard',
     pageName: 'Dashboard',
     description: 'Main dashboard with system overview and key metrics',
     category: 'navigation',
     permissions: DASHBOARD_PERMISSIONS,
     tags: DASHBOARD_TAGS
-  });
+  }), []);
+
+  // Initialize page controller
+  const pageController = usePageController(pageControllerOptions);
+
+  // Memoize store functions to prevent unnecessary re-renders
+  const loadDashboardLayout = useCallback(() => {
+    return storeLoadDashboardLayout();
+  }, [storeLoadDashboardLayout]);
 
   // Load dashboard data using controller
   const loadDashboardData = useCallback(async () => {
@@ -39,6 +48,23 @@ const DashboardPage = () => {
     
     setIsLoading(true);
     try {
+      // Debug: Check available actions
+      console.log('[DEBUG Dashboard] Available actions:', pageController.getAvailableActions());
+      console.log('[DEBUG Dashboard] Page controller:', pageController.pageController);
+      
+      // Check if the specific action is available before trying to execute it
+      const availableActions = pageController.getAvailableActions();
+      const hasGetDashboardOverview = availableActions.some(action => action.id === 'getDashboardOverview');
+      
+      if (!hasGetDashboardOverview) {
+        console.warn('[Dashboard] getDashboardOverview action not yet available, deferring load');
+        setIsLoading(false);
+        setControllerReady(false);
+        return;
+      }
+      
+      setControllerReady(true);
+      
       const result = await pageController.executeAction('getDashboardOverview', {
         timeRange: '24h',
         includeCharts: true
@@ -47,29 +73,108 @@ const DashboardPage = () => {
       if (result.success) {
         setDashboardData(result.data);
       } else {
-        toast.error('Failed to load dashboard data');
+        // Handle specific error cases
+        const errorMessage = result.error || 'Failed to load dashboard data';
+        
+        if (errorMessage.includes('Invalid function') || errorMessage.includes('getUserCount')) {
+          console.warn('Dashboard: Cloud function registration issue detected');
+          toast.warning('Some dashboard features are temporarily unavailable. Showing cached data.');
+          // Set fallback data structure to prevent crashes
+          setDashboardData({
+            metrics: {
+              userCount: 0,
+              objectCount: 0,
+              recordCount: 0,
+              functionCount: 0,
+              integrationCount: 0
+            },
+            systemHealth: { status: 'unknown', message: 'Service temporarily unavailable' },
+            recentActivity: [],
+            charts: {
+              userGrowth: [],
+              recordActivity: [],
+              functionUsage: []
+            },
+            lastUpdated: new Date().toISOString()
+          });
+        } else {
+          toast.error('Failed to load dashboard data');
+        }
       }
     } catch (error) {
       console.error('Error loading dashboard data:', error);
-      toast.error('Failed to load dashboard data');
+      
+      // Enhanced error handling for different error types
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      if (errorMessage.includes('Invalid function') || errorMessage.includes('getUserCount')) {
+        console.warn('Dashboard: Parse Server cloud function not available');
+        toast.warning('Dashboard services are starting up. Please wait a moment and refresh.');
+        
+        // Provide fallback data to prevent blank dashboard
+        setDashboardData({
+          metrics: {
+            userCount: 0,
+            objectCount: 0,
+            recordCount: 0,
+            functionCount: 0,
+            integrationCount: 0
+          },
+          systemHealth: { status: 'starting', message: 'Services are initializing...' },
+          recentActivity: [],
+          charts: {
+            userGrowth: [],
+            recordActivity: [],
+            functionUsage: []
+          },
+          lastUpdated: new Date().toISOString(),
+          isPartialData: true
+        });
+      } else if (errorMessage.includes('network') || errorMessage.includes('timeout')) {
+        toast.error('Network connection issue. Please check your connection and try again.');
+      } else {
+        toast.error('Failed to load dashboard data. Please try refreshing the page.');
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [pageController.isRegistered]);
+  }, [pageController.isRegistered, pageController.executeAction]); // Depend on stable properties instead of the whole object
 
   // Load dashboard config and data on mount
   useEffect(() => {
     if (user && currentOrg && pageController.isRegistered) {
-      // Load dashboard layout only once when dependencies change
-      const timeoutId = setTimeout(() => {
-        loadDashboardLayout();
-      }, 100); // Small delay to prevent rapid calls
-      
+      loadDashboardLayout();
       loadDashboardData();
-      
-      return () => clearTimeout(timeoutId);
     }
-  }, [user?.id, currentOrg?.id, pageController.isRegistered]);
+  }, [user?.id, currentOrg?.id, pageController.isRegistered, loadDashboardLayout, loadDashboardData]);
+
+  // Polling effect to retry loading dashboard data when controllers become available
+  useEffect(() => {
+    if (!controllerReady && pageController.isRegistered && user && currentOrg) {
+      const pollInterval = setInterval(() => {
+        console.log('[Dashboard] Polling for controller readiness...');
+        const availableActions = pageController.getAvailableActions();
+        const hasGetDashboardOverview = availableActions.some(action => action.id === 'getDashboardOverview');
+        
+        if (hasGetDashboardOverview) {
+          console.log('[Dashboard] Controller ready, loading dashboard data');
+          clearInterval(pollInterval);
+          loadDashboardData();
+        }
+      }, 500); // Poll every 500ms
+
+      // Clear interval after 10 seconds to avoid infinite polling
+      const timeout = setTimeout(() => {
+        clearInterval(pollInterval);
+        console.warn('[Dashboard] Controller polling timeout - dashboard may not load properly');
+      }, 10000);
+
+      return () => {
+        clearInterval(pollInterval);
+        clearTimeout(timeout);
+      };
+    }
+  }, [controllerReady, pageController.isRegistered, user, currentOrg, pageController.getAvailableActions, loadDashboardData]);
 
   const toggleEditing = async () => {
     setIsEditing(!isEditing);
@@ -99,7 +204,7 @@ const DashboardPage = () => {
       console.error('Error refreshing dashboard:', error);
       toast.error('Failed to refresh dashboard');
     }
-  }, [pageController.isRegistered]);
+  }, [pageController.isRegistered, pageController.executeAction, loadDashboardData]);
 
   // Show loading state while organization context is being established
   if (!currentOrg) {

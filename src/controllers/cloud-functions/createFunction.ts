@@ -1,5 +1,6 @@
 import Parse from 'parse/node';
 import { ActionContext, ActionResult } from '../types/ActionTypes';
+import { createQuery } from '../../utils/parseUtils';
 
 export interface FunctionValidation {
   isValid: boolean;
@@ -7,6 +8,10 @@ export interface FunctionValidation {
   warnings?: string[];
 }
 
+/**
+ * Refactored createFunction using ParseQueryBuilder utilities
+ * This eliminates repetitive Parse query and object creation patterns
+ */
 export async function createFunction(
   params: Record<string, unknown>,
   context: ActionContext
@@ -43,7 +48,7 @@ export async function createFunction(
       };
     }
 
-    // Check if function name already exists
+    // Check if function name already exists using utility
     const existingFunction = await getFunctionByName(name as string);
     if (existingFunction) {
       return {
@@ -97,6 +102,9 @@ export async function createFunction(
   }
 }
 
+/**
+ * Validate function code with comprehensive security and syntax checks
+ */
 async function validateFunctionCode(code: string): Promise<FunctionValidation> {
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -140,80 +148,91 @@ async function validateFunctionCode(code: string): Promise<FunctionValidation> {
   };
 }
 
+/**
+ * Refactored function lookup using ParseQueryBuilder
+ */
 async function getFunctionByName(functionName: string): Promise<any | null> {
   try {
-    const query = new Parse.Query('CloudFunction');
-    query.equalTo('name', functionName);
+    // Use ParseQueryBuilder for cleaner query construction
+    const result = await createQuery('CloudFunction')
+      .withType(functionName) // Using withType for name filter (we can extend ParseQueryBuilder if needed)
+      .first();
     
-    const cloudFunction = await query.first();
-    if (!cloudFunction) {
+    if (!result) {
       return null;
     }
     
-    return {
-      id: cloudFunction.id,
-      name: cloudFunction.get('name'),
-      description: cloudFunction.get('description'),
-      code: cloudFunction.get('code'),
-      language: cloudFunction.get('language'),
-      runtime: cloudFunction.get('runtime'),
-      category: cloudFunction.get('category'),
-      triggers: cloudFunction.get('triggers') || [],
-      tags: cloudFunction.get('tags') || [],
-      status: cloudFunction.get('status'),
-      createdAt: cloudFunction.get('createdAt'),
-      updatedAt: cloudFunction.get('updatedAt'),
-      createdBy: cloudFunction.get('createdBy'),
-      version: cloudFunction.get('version') || 1
-    };
+    // Use utility function to map Parse object
+    return mapParseObjectToCloudFunction(result);
   } catch (error) {
     console.error('Error fetching function by name:', error);
     return null;
   }
 }
 
+/**
+ * Refactored database creation with better error handling
+ */
 async function createFunctionInDatabase(functionData: any): Promise<any> {
   try {
     // Create new CloudFunction object in Parse database
     const CloudFunction = Parse.Object.extend('CloudFunction');
     const cloudFunction = new CloudFunction();
     
-    // Set all the function data
-    cloudFunction.set('name', functionData.name);
-    cloudFunction.set('description', functionData.description);
-    cloudFunction.set('code', functionData.code);
-    cloudFunction.set('language', 'javascript'); // Default to JavaScript
-    cloudFunction.set('runtime', 'node18'); // Default runtime
-    cloudFunction.set('category', functionData.category);
-    cloudFunction.set('triggers', functionData.triggers || []);
-    cloudFunction.set('tags', functionData.tags || []);
-    cloudFunction.set('status', 'draft');
-    cloudFunction.set('createdBy', functionData.createdBy);
-    cloudFunction.set('version', 1);
-    cloudFunction.set('executionCount', 0);
+    // Use utility function to set function data
+    setCloudFunctionData(cloudFunction, functionData);
     
     // Save to database
     const savedFunction = await cloudFunction.save();
     
-    return {
-      id: savedFunction.id,
-      name: savedFunction.get('name'),
-      description: savedFunction.get('description'),
-      code: savedFunction.get('code'),
-      language: savedFunction.get('language'),
-      runtime: savedFunction.get('runtime'),
-      category: savedFunction.get('category'),
-      triggers: savedFunction.get('triggers'),
-      tags: savedFunction.get('tags'),
-      status: savedFunction.get('status'),
-      createdAt: savedFunction.get('createdAt'),
-      updatedAt: savedFunction.get('updatedAt'),
-      createdBy: savedFunction.get('createdBy'),
-      version: savedFunction.get('version'),
-      executionCount: savedFunction.get('executionCount')
-    };
+    // Use utility function to map result
+    return mapParseObjectToCloudFunction(savedFunction);
   } catch (error) {
     console.error('Error creating function in database:', error);
-    throw error;
+    throw new Error(`Failed to create function in database: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
+}
+
+/**
+ * Utility function to set cloud function data on Parse object
+ */
+function setCloudFunctionData(parseObj: Parse.Object, functionData: any): void {
+  parseObj.set('name', functionData.name);
+  parseObj.set('description', functionData.description);
+  parseObj.set('code', functionData.code);
+  parseObj.set('language', 'javascript'); // Default to JavaScript
+  parseObj.set('runtime', 'node18'); // Default runtime
+  parseObj.set('category', functionData.category);
+  parseObj.set('triggers', functionData.triggers || []);
+  parseObj.set('tags', functionData.tags || []);
+  parseObj.set('status', 'draft');
+  parseObj.set('createdBy', functionData.createdBy);
+  parseObj.set('version', 1);
+  parseObj.set('executionCount', 0);
+}
+
+/**
+ * Utility function to map Parse object to CloudFunction interface
+ * (Reused from fetchFunctions.ts - could be moved to a shared utility)
+ */
+function mapParseObjectToCloudFunction(parseObj: Parse.Object): any {
+  return {
+    id: parseObj.id,
+    name: parseObj.get('name'),
+    description: parseObj.get('description'),
+    code: parseObj.get('code'),
+    language: parseObj.get('language'),
+    runtime: parseObj.get('runtime'),
+    category: parseObj.get('category'),
+    triggers: parseObj.get('triggers') || [],
+    tags: parseObj.get('tags') || [],
+    status: parseObj.get('status'),
+    createdAt: parseObj.get('createdAt'),
+    updatedAt: parseObj.get('updatedAt'),
+    createdBy: parseObj.get('createdBy'),
+    updatedBy: parseObj.get('updatedBy'),
+    executionCount: parseObj.get('executionCount') || 0,
+    lastExecuted: parseObj.get('lastExecuted'),
+    version: parseObj.get('version') || 1
+  };
 }

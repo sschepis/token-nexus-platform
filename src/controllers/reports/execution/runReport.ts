@@ -1,5 +1,5 @@
 import { ActionDefinition, ActionContext, ActionResult } from '../../types/ActionTypes';
-import Parse from 'parse';
+import { ParseQueryBuilder, updateParseObject } from '../../../utils/parseUtils';
 
 export const runReportAction: ActionDefinition = {
   id: 'runReport',
@@ -30,11 +30,12 @@ export const runReportAction: ActionDefinition = {
         };
       }
 
-      const query = new Parse.Query('Report');
-      query.equalTo('objectId', reportId);
-      query.equalTo('organizationId', orgId);
+      // Get report using ParseQueryBuilder
+      const report = await new ParseQueryBuilder('Report')
+        .equalTo('objectId', reportId)
+        .equalTo('organizationId', orgId)
+        .first();
 
-      const report = await query.first();
       if (!report) {
         return {
           success: false,
@@ -54,10 +55,9 @@ export const runReportAction: ActionDefinition = {
       // Execute the report based on data source configuration
       let reportData;
       if (dataSource.type === 'parse_query') {
-        const dataQuery = new Parse.Query(dataSource.className);
-        
-        // Apply organization filter
-        dataQuery.equalTo('organizationId', orgId);
+        // Build data query using ParseQueryBuilder
+        let dataQueryBuilder = new ParseQueryBuilder(dataSource.className)
+          .equalTo('organizationId', orgId);
         
         // Apply filters from report configuration
         const filters = report.get('filters') || [];
@@ -65,16 +65,16 @@ export const runReportAction: ActionDefinition = {
           if (filter.field && filter.operator && filter.value !== undefined) {
             switch (filter.operator) {
               case 'equals':
-                dataQuery.equalTo(filter.field, filter.value);
+                dataQueryBuilder = dataQueryBuilder.equalTo(filter.field, filter.value);
                 break;
               case 'contains':
-                dataQuery.contains(filter.field, filter.value);
+                dataQueryBuilder = dataQueryBuilder.contains(filter.field, filter.value);
                 break;
               case 'greaterThan':
-                dataQuery.greaterThan(filter.field, filter.value);
+                dataQueryBuilder = dataQueryBuilder.greaterThan(filter.field, filter.value);
                 break;
               case 'lessThan':
-                dataQuery.lessThan(filter.field, filter.value);
+                dataQueryBuilder = dataQueryBuilder.lessThan(filter.field, filter.value);
                 break;
             }
           }
@@ -83,21 +83,27 @@ export const runReportAction: ActionDefinition = {
         // Apply runtime parameters
         Object.entries(parameters as Record<string, any>).forEach(([key, value]) => {
           if (value !== undefined) {
-            dataQuery.equalTo(key, value);
+            dataQueryBuilder = dataQueryBuilder.equalTo(key, value);
           }
         });
 
-        const results = await dataQuery.find();
+        const results = await dataQueryBuilder.find();
         reportData = results.map(result => result.toJSON());
       } else {
         // Handle other data source types
         reportData = [];
       }
 
-      // Update report run statistics
-      report.increment('runCount');
-      report.set('lastRun', new Date());
-      await report.save();
+      // Update report run statistics using utility
+      await updateParseObject(
+        'Report',
+        reportId as string,
+        {
+          runCount: (report.get('runCount') || 0) + 1,
+          lastRun: new Date()
+        },
+        { organizationId: orgId }
+      );
 
       return {
         success: true,

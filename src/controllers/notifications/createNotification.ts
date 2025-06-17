@@ -1,4 +1,5 @@
 import { ActionContext } from '../types/ActionTypes';
+import { createParseObject } from '../../utils/parseUtils';
 
 export async function createNotification(params: Record<string, unknown>, context: ActionContext) {
   const { 
@@ -18,27 +19,26 @@ export async function createNotification(params: Record<string, unknown>, contex
     throw new Error('Organization ID is required to create notification');
   }
 
-  const Notification = Parse.Object.extend('Notification');
-  const notification = new Notification();
-
-  notification.set('title', title);
-  notification.set('message', message);
-  notification.set('type', type);
-  notification.set('priority', priority);
-  notification.set('recipientType', recipientType);
-  notification.set('recipientId', recipientId || null);
-  notification.set('actionUrl', actionUrl || '');
-  notification.set('metadata', metadata);
-  notification.set('organizationId', orgId);
-  notification.set('createdBy', context.user.userId);
-  notification.set('status', 'unread');
-  notification.set('isActive', true);
+  const notificationData: Record<string, any> = {
+    title,
+    message,
+    type,
+    priority,
+    recipientType,
+    recipientId: recipientId || null,
+    actionUrl: actionUrl || '',
+    metadata,
+    organizationId: orgId,
+    createdBy: context.user.userId,
+    status: 'unread',
+    isActive: true
+  };
 
   if (expiresAt) {
-    notification.set('expiresAt', new Date(expiresAt as string));
+    notificationData.expiresAt = new Date(expiresAt as string);
   }
 
-  const savedNotification = await notification.save();
+  const savedNotification = await createParseObject('Notification', notificationData);
 
   return { notification: savedNotification.toJSON() };
 }

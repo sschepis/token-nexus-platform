@@ -1,5 +1,5 @@
 import { ActionDefinition, ActionContext, ActionResult } from '../../types/ActionTypes';
-import Parse from 'parse';
+import { ParseQueryBuilder } from '../../../utils/parseUtils';
 
 export const testIntegrationAction: ActionDefinition = {
   id: 'testIntegration',
@@ -29,11 +29,10 @@ export const testIntegrationAction: ActionDefinition = {
         };
       }
 
-      const query = new Parse.Query('Integration');
-      query.equalTo('objectId', integrationId);
-      query.equalTo('organizationId', orgId);
-
-      const integration = await query.first();
+      const integration = await new ParseQueryBuilder('Integration')
+        .equalTo('objectId', integrationId)
+        .equalTo('organizationId', orgId)
+        .first();
       if (!integration) {
         return {
           success: false,

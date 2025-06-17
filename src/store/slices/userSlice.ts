@@ -1,8 +1,17 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
-import Parse from 'parse';
-import { toast } from 'sonner';
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { 
+  AsyncThunkFactory, 
+  AsyncReducerBuilder, 
+  createAsyncInitialState,
+  ExtendedAsyncState 
+} from '../utils/createAsyncSliceUtils';
+
+/**
+ * Refactored User slice using AsyncThunkFactory utilities
+ * This eliminates all the repetitive createAsyncThunk and error handling patterns
+ */
 
 export type UserRole = 'org_admin' | 'developer' | 'viewer' | 'token_manager'; // This might be org-specific role base names
 export type KycStatus = 'pending' | 'verified' | 'rejected';
@@ -44,173 +53,195 @@ export interface AdminUserView {
 // For Org Users
 export interface FetchOrgUsersParams {
   orgId: string;
+  [key: string]: unknown; // Add index signature for Record<string, unknown> compatibility
 }
+
 export interface InviteUserToOrgParams {
   orgId: string;
   email: string;
   roles: string[];
+  [key: string]: unknown;
 }
+
 export interface UpdateOrgUserRolesParams {
   orgId: string;
   userId: string;
   roles: string[];
+  [key: string]: unknown;
 }
+
 export interface RemoveUserFromOrgParams {
   orgId: string;
   userId: string;
+  [key: string]: unknown;
 }
 
 // For Admin Global User Management
 export interface FetchUserDetailsAdminParams {
   userId: string;
+  [key: string]: unknown;
 }
+
 export interface SuspendUserByAdminParams {
   userId: string;
+  [key: string]: unknown;
 }
+
 export interface ReactivateUserByAdminParams {
   userId: string;
+  [key: string]: unknown;
 }
 
-
-interface UserState {
+interface UserState extends ExtendedAsyncState {
   orgUsers: OrgUser[];
-  isLoading: boolean; // For org-specific user actions
-  error: string | null; // For org-specific user actions
-
   allUsers: AdminUserView[]; // For sysadmin global user list
   selectedUserDetailsAdmin: AdminUserView | null; // For sysadmin viewing/editing a user
+  
+  // Specific loading states
+  isInviting: boolean;
+  inviteError: string | null;
+  isUpdatingRoles: boolean;
+  updateRolesError: string | null;
+  isRemoving: boolean;
+  removeError: string | null;
   isAdminLoadingUsers: boolean; // Loading state for admin user actions
   adminUsersError: string | null; // Error state for admin user actions
+  isSuspending: boolean;
+  suspendError: string | null;
+  isReactivating: boolean;
+  reactivateError: string | null;
 }
 
-const initialState: UserState = {
-  orgUsers: [],
-  isLoading: false,
-  error: null,
+// Create async thunks using the factory
+const userThunks = {
+  // Org-specific user management
+  fetchOrgUsers: AsyncThunkFactory.create<FetchOrgUsersParams, OrgUser[]>({
+    name: 'user/fetchOrgUsers',
+    cloudFunction: 'getOrgUsers',
+    transformParams: (params) => ({ orgId: params.orgId }),
+    transformResponse: (response: any) => response.data || response,
+    errorMessage: 'Failed to fetch organization users'
+  }),
 
-  allUsers: [],
-  selectedUserDetailsAdmin: null,
-  isAdminLoadingUsers: false,
-  adminUsersError: null,
+  inviteUserToOrganization: AsyncThunkFactory.create<InviteUserToOrgParams, { email: string }>({
+    name: 'user/inviteUserToOrganization',
+    cloudFunction: 'inviteUserToOrg',
+    transformParams: (params) => ({
+      orgId: params.orgId,
+      email: params.email,
+      roles: params.roles
+    }),
+    transformResponse: (response: any) => ({ email: response.email || 'invited' }),
+    errorMessage: 'Failed to invite user'
+  }),
+
+  updateOrgUserRoles: AsyncThunkFactory.create<UpdateOrgUserRolesParams, { userId: string; roles: string[] }>({
+    name: 'user/updateOrgUserRoles',
+    cloudFunction: 'updateUserRolesInOrg',
+    transformParams: (params) => ({
+      orgId: params.orgId,
+      userId: params.userId,
+      roles: params.roles
+    }),
+    transformResponse: (response: any) => ({
+      userId: response.userId || response.id,
+      roles: response.roles || []
+    }),
+    errorMessage: 'Failed to update user roles'
+  }),
+
+  removeUserFromOrganization: AsyncThunkFactory.create<RemoveUserFromOrgParams, { userId: string; orgId: string }>({
+    name: 'user/removeUserFromOrganization',
+    cloudFunction: 'removeUserFromOrg',
+    transformParams: (params) => ({
+      orgId: params.orgId,
+      userId: params.userId
+    }),
+    transformResponse: (response: any) => ({
+      userId: response.userId || response.id,
+      orgId: response.orgId
+    }),
+    errorMessage: 'Failed to remove user from organization'
+  }),
+
+  // System Admin global user management
+  fetchAllUsersAdmin: AsyncThunkFactory.create<undefined, AdminUserView[]>({
+    name: 'user/fetchAllUsersAdmin',
+    cloudFunction: 'listAllUsersAdmin',
+    transformParams: () => ({}),
+    transformResponse: (response: any) => {
+      const users = response.data || response;
+      // Ensure the returned data matches AdminUserView structure, especially id vs objectId
+      return users.map((u: any) => ({...u, id: u.objectId || u.id }));
+    },
+    errorMessage: 'Failed to fetch all users'
+  }),
+
+  fetchUserDetailsAdmin: AsyncThunkFactory.create<FetchUserDetailsAdminParams, AdminUserView>({
+    name: 'user/fetchUserDetailsAdmin',
+    cloudFunction: 'getUserDetailsAdmin',
+    transformParams: (params) => ({ userId: params.userId }),
+    transformResponse: (response: any) => {
+      const userDetails = response.data || response;
+      return {...userDetails, id: userDetails.objectId || userDetails.id };
+    },
+    errorMessage: 'Failed to fetch user details'
+  }),
+
+  suspendUserByAdmin: AsyncThunkFactory.create<SuspendUserByAdminParams, { userId: string; status: 'Suspended' }>({
+    name: 'user/suspendUserByAdmin',
+    cloudFunction: 'suspendUserGlobal',
+    transformParams: (params) => ({ userId: params.userId }),
+    transformResponse: (response: any) => ({
+      userId: response.userId || response.id,
+      status: 'Suspended' as const
+    }),
+    errorMessage: 'Failed to suspend user'
+  }),
+
+  reactivateUserByAdmin: AsyncThunkFactory.create<ReactivateUserByAdminParams, { userId: string; status: 'Active' }>({
+    name: 'user/reactivateUserByAdmin',
+    cloudFunction: 'reactivateUserGlobal',
+    transformParams: (params) => ({ userId: params.userId }),
+    transformResponse: (response: any) => ({
+      userId: response.userId || response.id,
+      status: 'Active' as const
+    }),
+    errorMessage: 'Failed to reactivate user'
+  })
 };
 
-// Async Thunks for Org-Specific User Management
-export const fetchOrgUsers = createAsyncThunk(
-  'user/fetchOrgUsers',
-  async ({ orgId }: FetchOrgUsersParams, { rejectWithValue }) => {
-    try {
-      const users: OrgUser[] = await Parse.Cloud.run('getOrgUsers', { orgId });
-      return users;
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to fetch organization users.');
-      return rejectWithValue(error.message || 'Failed to fetch organization users.');
-    }
-  }
-);
+// Export thunks for backward compatibility
+export const {
+  fetchOrgUsers,
+  inviteUserToOrganization,
+  updateOrgUserRoles,
+  removeUserFromOrganization,
+  fetchAllUsersAdmin,
+  fetchUserDetailsAdmin,
+  suspendUserByAdmin,
+  reactivateUserByAdmin
+} = userThunks;
 
-export const inviteUserToOrganization = createAsyncThunk(
-  'user/inviteUserToOrganization',
-  async (params: InviteUserToOrgParams, { dispatch, rejectWithValue }) => {
-    try {
-      await Parse.Cloud.run('inviteUserToOrg', params);
-      toast.success(`Invitation sent to ${params.email} or user added to organization.`);
-      // Re-fetch users for the org to see the new/updated user
-      dispatch(fetchOrgUsers({ orgId: params.orgId }));
-      // The cloud function doesn't return the user object, so re-fetching is best.
-      return { email: params.email }; // Indicate success for this email
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to invite user.');
-      return rejectWithValue(error.message || 'Failed to invite user.');
-    }
-  }
-);
-
-export const updateOrgUserRoles = createAsyncThunk(
-  'user/updateOrgUserRoles',
-  async (params: UpdateOrgUserRolesParams, { dispatch, rejectWithValue }) => {
-    try {
-      await Parse.Cloud.run('updateUserRolesInOrg', params);
-      toast.success(`Roles updated for user ${params.userId}.`);
-      // Re-fetch to get updated roles
-      dispatch(fetchOrgUsers({ orgId: params.orgId }));
-      return { userId: params.userId, roles: params.roles };
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to update user roles.');
-      return rejectWithValue(error.message || 'Failed to update user roles.');
-    }
-  }
-);
-
-export const removeUserFromOrganization = createAsyncThunk(
-  'user/removeUserFromOrganization',
-  async (params: RemoveUserFromOrgParams, { rejectWithValue }) => {
-    try {
-      await Parse.Cloud.run('removeUserFromOrg', params);
-      toast.success(`User ${params.userId} removed from organization.`);
-      return { userId: params.userId, orgId: params.orgId }; // Return for optimistic update or logging
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to remove user from organization.');
-      return rejectWithValue(error.message || 'Failed to remove user from organization.');
-    }
-  }
-);
-
-// Async Thunks for System Admin Global User Management
-export const fetchAllUsersAdmin = createAsyncThunk(
-  'user/fetchAllUsersAdmin',
-  async (_, { rejectWithValue }) => {
-    try {
-      const users: AdminUserView[] = await Parse.Cloud.run('listAllUsersAdmin');
-      // Ensure the returned data matches AdminUserView structure, especially id vs objectId
-      return users.map(u => ({...u, id: (u as any).objectId || u.id }));
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to fetch all users.');
-      return rejectWithValue(error.message || 'Failed to fetch all users.');
-    }
-  }
-);
-
-export const fetchUserDetailsAdmin = createAsyncThunk(
-  'user/fetchUserDetailsAdmin',
-  async ({ userId }: FetchUserDetailsAdminParams, { rejectWithValue }) => {
-    try {
-      const userDetails: AdminUserView = await Parse.Cloud.run('getUserDetailsAdmin', { userId });
-      return {...userDetails, id: (userDetails as any).objectId || userDetails.id };
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to fetch user details.');
-      return rejectWithValue(error.message || 'Failed to fetch user details.');
-    }
-  }
-);
-
-export const suspendUserByAdmin = createAsyncThunk(
-  'user/suspendUserByAdmin',
-  async ({ userId }: SuspendUserByAdminParams, { dispatch, rejectWithValue }): Promise<{ userId: string; status: 'Suspended' } | ReturnType<typeof rejectWithValue>> => {
-    try {
-      await Parse.Cloud.run('suspendUserGlobal', { userId });
-      toast.success(`User ${userId} suspended successfully.`);
-      return { userId, status: 'Suspended' };
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to suspend user.');
-      return rejectWithValue(error.message || 'Failed to suspend user.');
-    }
-  }
-);
-
-export const reactivateUserByAdmin = createAsyncThunk(
-  'user/reactivateUserByAdmin',
-  async ({ userId }: ReactivateUserByAdminParams, { dispatch, rejectWithValue }): Promise<{ userId: string; status: 'Active' } | ReturnType<typeof rejectWithValue>> => {
-    try {
-      await Parse.Cloud.run('reactivateUserGlobal', { userId });
-      toast.success(`User ${userId} reactivated successfully.`);
-      return { userId, status: 'Active' };
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to reactivate user.');
-      return rejectWithValue(error.message || 'Failed to reactivate user.');
-    }
-  }
-);
-
+const initialState: UserState = createAsyncInitialState({
+  orgUsers: [],
+  allUsers: [],
+  selectedUserDetailsAdmin: null,
+  
+  // Specific loading states
+  isInviting: false,
+  inviteError: null,
+  isUpdatingRoles: false,
+  updateRolesError: null,
+  isRemoving: false,
+  removeError: null,
+  isAdminLoadingUsers: false,
+  adminUsersError: null,
+  isSuspending: false,
+  suspendError: null,
+  isReactivating: false,
+  reactivateError: null,
+}, { includeExtended: true });
 
 export const userSlice = createSlice({
   name: 'user',
@@ -218,91 +249,119 @@ export const userSlice = createSlice({
   reducers: {
     // Synchronous reducers can be added if needed, e.g., for clearing state on logout
     clearOrgUsers: (state) => {
-        state.orgUsers = [];
-        state.isLoading = false;
-        state.error = null;
-        state.isAdminLoadingUsers = false; // Also reset admin loading/error
-        state.adminUsersError = null;
-        state.allUsers = [];
-        state.selectedUserDetailsAdmin = null;
+      state.orgUsers = [];
+      state.isLoading = false;
+      state.error = null;
+      state.isAdminLoadingUsers = false; // Also reset admin loading/error
+      state.adminUsersError = null;
+      state.allUsers = [];
+      state.selectedUserDetailsAdmin = null;
+    },
+
+    clearInviteError: (state) => {
+      state.inviteError = null;
+    },
+
+    clearUpdateRolesError: (state) => {
+      state.updateRolesError = null;
+    },
+
+    clearRemoveError: (state) => {
+      state.removeError = null;
+    },
+
+    clearAdminUsersError: (state) => {
+      state.adminUsersError = null;
+    },
+
+    clearSuspendError: (state) => {
+      state.suspendError = null;
+    },
+
+    clearReactivateError: (state) => {
+      state.reactivateError = null;
+    },
+
+    clearAllErrors: (state) => {
+      state.error = null;
+      state.inviteError = null;
+      state.updateRolesError = null;
+      state.removeError = null;
+      state.adminUsersError = null;
+      state.suspendError = null;
+      state.reactivateError = null;
     }
   },
+  
   extraReducers: (builder) => {
-    builder
-      // Org-specific user management (No changes here for admin status)
-      .addCase(fetchOrgUsers.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addCase(fetchOrgUsers.fulfilled, (state, action: PayloadAction<OrgUser[]>) => {
+    // Org-specific user management
+    AsyncReducerBuilder.addAsyncCase(builder, userThunks.fetchOrgUsers, {
+      loadingFlag: 'isFetching',
+      onFulfilled: (state, action) => {
         state.orgUsers = action.payload;
-        state.isLoading = false;
-      })
-      .addCase(fetchOrgUsers.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = action.payload as string;
-      })
-      .addCase(inviteUserToOrganization.pending, (state) => {
-        state.isLoading = true;
-      })
-      .addCase(inviteUserToOrganization.fulfilled, (state) => {
-        state.isLoading = false;
-      })
-      .addCase(inviteUserToOrganization.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = action.payload as string;
-      })
-      .addCase(updateOrgUserRoles.pending, (state) => {
-        state.isLoading = true;
-      })
-      .addCase(updateOrgUserRoles.fulfilled, (state) => {
-        state.isLoading = false;
-      })
-      .addCase(updateOrgUserRoles.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = action.payload as string;
-      })
-      .addCase(removeUserFromOrganization.pending, (state) => {
-        state.isLoading = true;
-      })
-      .addCase(removeUserFromOrganization.fulfilled, (state, action: PayloadAction<{ userId: string; orgId: string }>) => {
-        state.isLoading = false;
+      }
+    });
+
+    AsyncReducerBuilder.addAsyncCase(builder, userThunks.inviteUserToOrganization, {
+      loadingFlag: 'isInviting',
+      onFulfilled: (state, action) => {
+        state.inviteError = null;
+        // Note: The actual user list will be updated by re-fetching in the component
+      },
+      onRejected: (state, action) => {
+        state.inviteError = action.payload as string;
+      }
+    });
+
+    AsyncReducerBuilder.addAsyncCase(builder, userThunks.updateOrgUserRoles, {
+      loadingFlag: 'isUpdatingRoles',
+      onFulfilled: (state, action) => {
+        state.updateRolesError = null;
+        // Note: The actual user list will be updated by re-fetching in the component
+      },
+      onRejected: (state, action) => {
+        state.updateRolesError = action.payload as string;
+      }
+    });
+
+    AsyncReducerBuilder.addAsyncCase(builder, userThunks.removeUserFromOrganization, {
+      loadingFlag: 'isRemoving',
+      onFulfilled: (state, action) => {
         state.orgUsers = state.orgUsers.filter(user => user.id !== action.payload.userId);
-      })
-      .addCase(removeUserFromOrganization.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = action.payload as string;
-      })
-      // System Admin global user management
-      .addCase(fetchAllUsersAdmin.pending, (state) => {
-        state.isAdminLoadingUsers = true;
-        state.adminUsersError = null;
-      })
-      .addCase(fetchAllUsersAdmin.fulfilled, (state, action: PayloadAction<AdminUserView[]>) => {
+        state.removeError = null;
+      },
+      onRejected: (state, action) => {
+        state.removeError = action.payload as string;
+      }
+    });
+
+    // System Admin global user management
+    AsyncReducerBuilder.addAsyncCase(builder, userThunks.fetchAllUsersAdmin, {
+      loadingFlag: 'isAdminLoadingUsers',
+      onFulfilled: (state, action) => {
         state.allUsers = action.payload;
-        state.isAdminLoadingUsers = false;
-      })
-      .addCase(fetchAllUsersAdmin.rejected, (state, action) => {
-        state.isAdminLoadingUsers = false;
-        state.adminUsersError = action.payload as string;
-      })
-      .addCase(fetchUserDetailsAdmin.pending, (state) => {
-        state.isAdminLoadingUsers = true; // Could use a different flag for selected user loading
-        state.selectedUserDetailsAdmin = null;
-      })
-      .addCase(fetchUserDetailsAdmin.fulfilled, (state, action: PayloadAction<AdminUserView>) => {
-        state.selectedUserDetailsAdmin = action.payload;
-        state.isAdminLoadingUsers = false;
-      })
-      .addCase(fetchUserDetailsAdmin.rejected, (state, action) => {
-        state.isAdminLoadingUsers = false;
-        state.adminUsersError = action.payload as string;
-      })
-      .addCase(suspendUserByAdmin.pending, (state) => { // Added pending for suspend
-        state.isAdminLoadingUsers = true;
         state.adminUsersError = null;
-      })
-      .addCase(suspendUserByAdmin.fulfilled, (state, action: PayloadAction<{ userId: string; status: 'Suspended' }>) => {
+      },
+      onRejected: (state, action) => {
+        state.adminUsersError = action.payload as string;
+      }
+    });
+
+    AsyncReducerBuilder.addAsyncCase(builder, userThunks.fetchUserDetailsAdmin, {
+      loadingFlag: 'isAdminLoadingUsers',
+      onFulfilled: (state, action) => {
+        state.selectedUserDetailsAdmin = action.payload;
+        state.adminUsersError = null;
+      },
+      onRejected: (state, action) => {
+        state.adminUsersError = action.payload as string;
+        state.selectedUserDetailsAdmin = null;
+      }
+    });
+
+    AsyncReducerBuilder.addAsyncCase(builder, userThunks.suspendUserByAdmin, {
+      loadingFlag: 'isSuspending',
+      onFulfilled: (state, action) => {
         const userIndex = state.allUsers.findIndex(u => u.id === action.payload.userId);
         if (userIndex !== -1) {
           state.allUsers[userIndex].status = action.payload.status;
@@ -310,33 +369,41 @@ export const userSlice = createSlice({
         if (state.selectedUserDetailsAdmin?.id === action.payload.userId) {
           state.selectedUserDetailsAdmin.status = action.payload.status;
         }
-        state.isAdminLoadingUsers = false;
-      })
-      .addCase(suspendUserByAdmin.rejected, (state, action) => {
-         state.isAdminLoadingUsers = false;
-         state.adminUsersError = action.payload as string;
-      })
-      .addCase(reactivateUserByAdmin.pending, (state) => { // Added pending for reactivate
-        state.isAdminLoadingUsers = true;
-        state.adminUsersError = null;
-      })
-      .addCase(reactivateUserByAdmin.fulfilled, (state, action: PayloadAction<{ userId: string; status: 'Active' }>) => {
+        state.suspendError = null;
+      },
+      onRejected: (state, action) => {
+        state.suspendError = action.payload as string;
+      }
+    });
+
+    AsyncReducerBuilder.addAsyncCase(builder, userThunks.reactivateUserByAdmin, {
+      loadingFlag: 'isReactivating',
+      onFulfilled: (state, action) => {
         const userIndex = state.allUsers.findIndex(u => u.id === action.payload.userId);
         if (userIndex !== -1) {
           state.allUsers[userIndex].status = action.payload.status;
         }
-         if (state.selectedUserDetailsAdmin?.id === action.payload.userId) {
+        if (state.selectedUserDetailsAdmin?.id === action.payload.userId) {
           state.selectedUserDetailsAdmin.status = action.payload.status;
         }
-        state.isAdminLoadingUsers = false;
-      })
-      .addCase(reactivateUserByAdmin.rejected, (state, action) => {
-         state.isAdminLoadingUsers = false;
-         state.adminUsersError = action.payload as string;
-      });
+        state.reactivateError = null;
+      },
+      onRejected: (state, action) => {
+        state.reactivateError = action.payload as string;
+      }
+    });
   },
 });
 
-export const { clearOrgUsers } = userSlice.actions;
+export const { 
+  clearOrgUsers,
+  clearInviteError,
+  clearUpdateRolesError,
+  clearRemoveError,
+  clearAdminUsersError,
+  clearSuspendError,
+  clearReactivateError,
+  clearAllErrors
+} = userSlice.actions;
 
 export default userSlice.reducer;

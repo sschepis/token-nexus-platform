@@ -8,6 +8,7 @@ import {
   ActionExample
 } from '../types/ActionTypes';
 import Parse from 'parse';
+import { ParseQueryBuilder } from '../../utils/parseUtils';
 
 /**
  * Configuration for creating a page controller
@@ -221,33 +222,33 @@ export abstract class BasePageController implements PageController {
   /**
    * Helper method to create Parse queries with organization context
    */
-  protected createOrganizationQuery(className: string, context: ActionContext): Parse.Query {
-    const query = new Parse.Query(className);
+  protected createOrganizationQuery(className: string, context: ActionContext): ParseQueryBuilder {
+    const queryBuilder = new ParseQueryBuilder(className);
     const orgId = this.getOrganizationId(context);
     
     if (orgId) {
       // Try different organization field patterns
-      query.equalTo('organizationId', orgId);
+      queryBuilder.equalTo('organizationId', orgId);
     }
     
-    return query;
+    return queryBuilder;
   }
 
   /**
    * Helper method to safely execute Parse queries with error handling
    */
   protected async executeQuery<T extends Parse.Object>(
-    query: Parse.Query<T>,
+    queryBuilder: ParseQueryBuilder,
     operation: 'find' | 'first' | 'count' = 'find'
   ): Promise<T[] | T | number | null> {
     try {
       switch (operation) {
         case 'find':
-          return await query.find();
+          return await queryBuilder.find() as T[];
         case 'first':
-          return await query.first();
+          return await queryBuilder.first() as T;
         case 'count':
-          return await query.count();
+          return await queryBuilder.count();
         default:
           throw new Error(`Unknown query operation: ${operation}`);
       }
