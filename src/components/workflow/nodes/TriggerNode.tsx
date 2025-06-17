@@ -91,15 +91,15 @@ export const TriggerNode: React.FC<BaseNodeProps> = (props) => {
   const triggerTypeLabel = getTriggerTypeLabel(triggerType);
   const triggerDescription = getTriggerDescription(data.config);
 
-  // Enhanced data with trigger-specific information
-  const enhancedData = {
+  // Data with trigger-specific information
+  const nodeData = {
     ...data,
     description: triggerDescription,
   };
 
   return (
     <div className="relative">
-      <BaseNode {...props} data={enhancedData} />
+      <BaseNode {...props} data={nodeData} />
       
       {/* Trigger-specific overlay */}
       <div className="absolute top-2 left-2 flex items-center gap-1">

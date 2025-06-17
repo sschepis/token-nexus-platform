@@ -3,11 +3,19 @@
  * Handles content optimization, SEO, media assets, and performance
  */
 
-const sharp = require('sharp');
 const { exec } = require('child_process');
 const { promisify } = require('util');
 const execAsync = promisify(exec);
 const BaseService = require('./BaseService');
+
+// Try to load sharp, but handle gracefully if it fails
+let sharp;
+try {
+  sharp = require('sharp');
+} catch (error) {
+  console.warn('Sharp package not available for OptimizationService, image optimization will be disabled:', error.message);
+  sharp = null;
+}
 
 class OptimizationService extends BaseService {
   constructor() {
@@ -19,14 +27,19 @@ class OptimizationService extends BaseService {
    * @param {Object} options Initialization options
    */
   async _initializeService(options) {
-    // Register dependencies
-    const CacheService = require('./CacheService');
-    const AIService = require('./AIService');
-    const MediaManager = require('../media/MediaManager');
+    // Register dependencies - these are singleton instances, not classes
+    try {
+      const cacheService = require('./CacheService');
+      const aiService = require('./AIService');
+      const mediaManager = require('../media/MediaManager');
 
-    this.registerDependency('cache', CacheService);
-    this.registerDependency('ai', AIService);
-    this.registerDependency('media', MediaManager);
+      this.registerDependency('cache', cacheService);
+      this.registerDependency('ai', aiService);
+      this.registerDependency('media', mediaManager);
+    } catch (error) {
+      console.warn('Some dependencies not available for OptimizationService:', error.message);
+      // Continue initialization even if some dependencies are missing
+    }
 
     // Initialize components in parallel
     await Promise.all([this._initializeMediaManager(), this._initializeCache()]);

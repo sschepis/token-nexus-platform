@@ -29,7 +29,7 @@ const Dashboard = () => {
     setIsLoading(true);
     try {
       const result = await Parse.Cloud.run('getDashboardConfig', {
-        organizationId: currentOrg.id
+        // organizationId removed - will be injected by server middleware
       });
 
       if (result.success && result.config) {
@@ -42,12 +42,12 @@ const Dashboard = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [currentOrg?.id, setLayouts, setWidgets]);
+  }, [currentOrg?.id]); // Removed setLayouts, setWidgets from dependencies to prevent infinite loop
 
   // Load dashboard config on mount or org change
   useEffect(() => {
     loadDashboardConfig();
-  }, [loadDashboardConfig]);
+  }, [currentOrg?.id]); // Changed to depend directly on currentOrg?.id instead of loadDashboardConfig
 
 
   const saveDashboardConfig = async () => {
@@ -59,9 +59,9 @@ const Dashboard = () => {
     setIsSaving(true);
     try {
       const result = await Parse.Cloud.run('saveDashboardConfig', {
-        organizationId: currentOrg.id,
         layouts,
         widgets
+        // organizationId removed - will be injected by server middleware
       });
 
       if (result.success) {

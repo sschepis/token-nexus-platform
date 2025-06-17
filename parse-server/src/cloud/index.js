@@ -17,6 +17,7 @@ require('./appStore');
 require('./marketplace'); // Require the new marketplace module
 require('./organizations');
 require('./users');
+require('./userManagement'); // Require the new user management module
 require('./orgAppInstallations');
 require('./orgUsers'); // Require the new orgUsers module
 require('./tokens'); // Require the new tokens module

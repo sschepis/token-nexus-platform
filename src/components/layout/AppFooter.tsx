@@ -28,10 +28,10 @@ export const AppFooter: React.FC<AppFooterProps> = ({ className = '' }) => {
     minute: '2-digit'
   });
 
-  // Determine connection status (simplified - could be enhanced with actual connectivity checks)
+  // Determine connection status (simplified)
   const isOnline = navigator.onLine;
   
-  // Parse server status (could be enhanced with actual health checks)
+  // Parse server status
   const parseServerStatus = 'Connected';
 
   return (

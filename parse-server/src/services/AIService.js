@@ -23,12 +23,17 @@ class AIService extends BaseService {
    * @param {Object} options Initialization options
    */
   async _initializeService(options = {}) {
-    // Register dependencies
-    const CacheService = require('./CacheService');
-    const AnalyticsService = require('./AnalyticsService');
+    // Register dependencies - these are singleton instances, not classes
+    try {
+      const cacheService = require('./CacheService');
+      const analyticsService = require('./AnalyticsService');
 
-    this.registerDependency('cache', CacheService);
-    this.registerDependency('analytics', AnalyticsService);
+      this.registerDependency('cache', cacheService);
+      this.registerDependency('analytics', analyticsService);
+    } catch (error) {
+      console.warn('Some dependencies not available for AIService:', error.message);
+      // Continue initialization even if some dependencies are missing
+    }
 
     // Initialize OpenAI client (for openai@4.x.x+)
     this.openai = new OpenAI({

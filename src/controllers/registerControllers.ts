@@ -3,13 +3,11 @@
 import { controllerRegistry } from './ControllerRegistry';
 
 // Import all page controllers
-import { usersPageController } from './UsersPageController';
 import { objectManagerPageController } from './ObjectManagerPageController';
-import { dashboardPageController } from './DashboardPageController';
+import { dashboardPageController } from './dashboard/DashboardPageController';
 import { routesPageController } from './RoutesPageController';
 import { cloudFunctionsPageController } from './CloudFunctionsPageController';
 import { pageBuilderPageController } from './PageBuilderPageController';
-import { componentLibraryPageController } from './ComponentLibraryPageController';
 import { reportsPageController } from './ReportsPageController';
 import { integrationsPageController } from './IntegrationsPageController';
 import { marketplacePageController } from './MarketplacePageController';
@@ -20,6 +18,7 @@ import { aiAssistantPageController } from './AIAssistantPageController';
 import { settingsPageController } from './SettingsPageController';
 import { themePageController } from './ThemePageController';
 import { workflowPageController } from './WorkflowPageController';
+import { usersPageController } from './UsersPageController'; // New import for the refactored controller
 
 /**
  * Register all page controllers with the controller registry
@@ -28,13 +27,12 @@ export function registerAllControllers(): void {
   console.log('Registering all page controllers...');
 
   const controllers = [
-    { name: 'usersPageController', controller: () => usersPageController.getPageController() },
+    { name: 'usersPageController', controller: () => usersPageController }, // Directly use the instance
     { name: 'objectManagerPageController', controller: () => objectManagerPageController },
     { name: 'dashboardPageController', controller: () => dashboardPageController },
     { name: 'routesPageController', controller: () => routesPageController },
     { name: 'cloudFunctionsPageController', controller: () => cloudFunctionsPageController },
     { name: 'pageBuilderPageController', controller: () => pageBuilderPageController },
-    { name: 'componentLibraryPageController', controller: () => componentLibraryPageController },
     { name: 'reportsPageController', controller: () => reportsPageController },
     { name: 'integrationsPageController', controller: () => integrationsPageController },
     { name: 'marketplacePageController', controller: () => marketplacePageController },

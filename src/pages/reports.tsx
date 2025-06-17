@@ -36,7 +36,7 @@ import {
   ChartContainer,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { Download, CalendarIcon } from "lucide-react";
+import { Download, CalendarIcon, RefreshCw, Loader2, AlertCircle } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
@@ -59,8 +59,14 @@ import {
   AuditEventType,
   fetchMetrics,
 } from "@/store/slices/auditSlice";
+import { usePageController } from "@/hooks/usePageController";
+import { useToast } from "@/hooks/use-toast";
+import { usePermission } from "@/hooks/usePermission";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const ReportsPage = () => {
+  const { toast } = useToast();
+  const { hasPermission } = usePermission();
   const dispatch = useAppDispatch();
   const { reports, isLoadingReports, isGeneratingReport, reportError, metrics, isLoadingMetrics, metricsError } = useAppSelector(
     (state) => state.audit
@@ -75,24 +81,182 @@ const ReportsPage = () => {
     from: undefined,
     to: undefined,
   });
+  const [controllerReports, setControllerReports] = useState<any[]>([]);
+  const [controllerMetrics, setControllerMetrics] = useState<any>(null);
+  const [isLoadingController, setIsLoadingController] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Permission checks
+  const canRead = hasPermission('reports:read');
+  const canWrite = hasPermission('reports:write');
+  const canReadAnalytics = hasPermission('analytics:read');
+
+  // Initialize page controller
+  const pageController = usePageController({
+    pageId: 'reports',
+    pageName: 'Reports & Analytics',
+    description: 'Generate and manage custom reports and analytics',
+    category: 'analytics',
+    permissions: ['reports:read', 'reports:write', 'analytics:read'],
+    tags: ['reports', 'analytics', 'data', 'visualization']
+  });
+
+  // Load reports from controller
+  const loadReports = async () => {
+    if (!pageController.isRegistered || !canRead) return;
+    
+    setIsLoadingController(true);
+    setError(null);
+    
+    try {
+      const result = await pageController.executeAction('fetchReports', { includeInactive: false });
+      
+      if (result.success && result.data) {
+        const reportsData = result.data as { reports: any[] };
+        setControllerReports(reportsData.reports || []);
+        toast({
+          title: "Reports loaded",
+          description: "Reports loaded successfully",
+        });
+      } else {
+        setError(result.error || 'Failed to load reports');
+        toast({
+          title: "Error loading reports",
+          description: result.error || 'Failed to load reports',
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error loading reports:', error);
+      setError('Failed to load reports');
+      toast({
+        title: "Error loading reports",
+        description: 'Failed to load reports',
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingController(false);
+    }
+  };
+
+  // Load metrics from controller
+  const loadMetrics = async () => {
+    if (!pageController.isRegistered || !canReadAnalytics) return;
+    
+    try {
+      const result = await pageController.executeAction('fetchMetrics', {
+        timeRange,
+        organizationId: currentOrg?.id
+      });
+      
+      if (result.success && result.data) {
+        setControllerMetrics(result.data);
+        toast({
+          title: "Metrics loaded",
+          description: "Metrics loaded successfully",
+        });
+      } else {
+        toast({
+          title: "Error loading metrics",
+          description: result.error || 'Failed to load metrics',
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error loading metrics:', error);
+      toast({
+        title: "Error loading metrics",
+        description: 'Failed to load metrics',
+        variant: "destructive",
+      });
+    }
+  };
 
   useEffect(() => {
+    if (pageController.isRegistered && canRead) {
+      loadReports();
+      if (canReadAnalytics) {
+        loadMetrics();
+      }
+    }
+  }, [pageController.isRegistered, canRead, canReadAnalytics]);
+
+  useEffect(() => {
+    // Also keep Redux calls for backward compatibility
     dispatch(fetchReports({}));
   }, [dispatch]);
 
   useEffect(() => {
-    if (currentOrg?.id) {
-      dispatch(fetchMetrics({ timeRange, organizationId: currentOrg.id }));
-    } else {
-      dispatch(fetchMetrics({ timeRange }));
+    if (canReadAnalytics) {
+      if (currentOrg?.id) {
+        dispatch(fetchMetrics({ timeRange, organizationId: currentOrg.id }));
+        if (pageController.isRegistered) {
+          loadMetrics();
+        }
+      } else {
+        dispatch(fetchMetrics({ timeRange }));
+        if (pageController.isRegistered) {
+          loadMetrics();
+        }
+      }
     }
-  }, [dispatch, timeRange, currentOrg?.id]);
+  }, [timeRange, currentOrg?.id, pageController.isRegistered, canReadAnalytics]);
 
+  const handleGenerateReport = async () => {
+    if (!canWrite) {
+      toast({
+        title: "Permission denied",
+        description: "You don't have permission to generate reports",
+        variant: "destructive",
+      });
+      return;
+    }
 
-  const handleGenerateReport = () => {
+    if (!pageController.isRegistered) {
+      toast({
+        title: "Controller not available",
+        description: "Controller not available",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const startDate = reportDateRange?.from ? format(reportDateRange.from, 'yyyy-MM-dd') : undefined;
     const endDate = reportDateRange?.to ? format(reportDateRange.to, 'yyyy-MM-dd') : undefined;
 
+    try {
+      const result = await pageController.executeAction('generateReport', {
+        type: reportType,
+        format: reportFormat,
+        title: reportTitle || `${reportType} Report`,
+        startDate,
+        endDate,
+        filters: {}
+      });
+
+      if (result.success) {
+        toast({
+          title: "Report generated",
+          description: "Report generated successfully",
+        });
+        await loadReports(); // Refresh reports list
+      } else {
+        toast({
+          title: "Error generating report",
+          description: result.error || 'Failed to generate report',
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error generating report:', error);
+      toast({
+        title: "Error generating report",
+        description: 'Failed to generate report',
+        variant: "destructive",
+      });
+    }
+
+    // Also keep Redux call for backward compatibility
     dispatch(
       generateReport({
         type: reportType,
@@ -102,6 +266,11 @@ const ReportsPage = () => {
         filters: {},
       })
     );
+  };
+
+  const handleRefreshReports = async () => {
+    await loadReports();
+    await loadMetrics();
   };
  
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
@@ -114,6 +283,29 @@ const ReportsPage = () => {
   const apiUsageData = metrics?.apiUsageData || [];
 
 
+  // Show permission error if user can't read reports
+  if (!canRead) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Reports & Analytics</h1>
+            <p className="text-muted-foreground mt-2">
+              Track platform usage, monitor performance metrics, and visualize data
+            </p>
+          </div>
+        </div>
+        
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            You don't have permission to view reports. Please contact your administrator.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
         <div className="flex justify-between items-center">
@@ -124,26 +316,49 @@ const ReportsPage = () => {
             </p>
           </div>
           <div className="flex items-center space-x-2">
-            <Select
-              value={timeRange}
-              onValueChange={(value) => setTimeRange(value)}
+            <Button
+              variant="outline"
+              onClick={handleRefreshReports}
+              disabled={isLoadingController}
             >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Select time range" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="7d">Last 7 days</SelectItem>
-                <SelectItem value="30d">Last 30 days</SelectItem>
-                <SelectItem value="90d">Last 90 days</SelectItem>
-                <SelectItem value="1y">Last year</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button variant="outline">
-              <Download className="h-4 w-4 mr-2" />
-              Export
+              {isLoadingController ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-2" />
+              )}
+              Refresh
             </Button>
+            {canReadAnalytics && (
+              <Select
+                value={timeRange}
+                onValueChange={(value) => setTimeRange(value)}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Select time range" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="7d">Last 7 days</SelectItem>
+                  <SelectItem value="30d">Last 30 days</SelectItem>
+                  <SelectItem value="90d">Last 90 days</SelectItem>
+                  <SelectItem value="1y">Last year</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+            {canWrite && (
+              <Button variant="outline">
+                <Download className="h-4 w-4 mr-2" />
+                Export
+              </Button>
+            )}
           </div>
         </div>
+
+        {error && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
         <Tabs defaultValue="overview">
           <TabsList className="grid w-[400px] grid-cols-3">
@@ -568,9 +783,11 @@ const ReportsPage = () => {
                     </Popover>
                   </div>
                 </div>
-                <Button onClick={handleGenerateReport} className="mt-4" disabled={isGeneratingReport}>
-                  {isGeneratingReport ? 'Generating...' : 'Generate Report'}
-                </Button>
+                {canWrite && (
+                  <Button onClick={handleGenerateReport} className="mt-4" disabled={isGeneratingReport}>
+                    {isGeneratingReport ? 'Generating...' : 'Generate Report'}
+                  </Button>
+                )}
                 {reportError && <p className="text-red-500 text-sm mt-2">{reportError}</p>}
               </CardContent>
             </Card>

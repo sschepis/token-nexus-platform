@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { apiService } from "@/services/api"; // Keep apiService imported for token specific actions
-import { Token, fetchTokens, deleteToken, clearTokenErrors } from "@/store/slices/tokenSlice";
+import { usePageController } from "@/hooks/usePageController";
+import { Token } from "@/store/slices/tokenSlice";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -20,7 +19,7 @@ import {
   ArrowUpDown,
   ExternalLink,
   RefreshCw,
-  Loader2 // Imported Loader2
+  Loader2
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -34,8 +33,8 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
-import { usePermission } from "@/hooks/usePermission"; // Import real permission hook
-import { useToast } from "@/hooks/use-toast"; // Import useToast
+import { usePermission } from "@/hooks/usePermission";
+import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,36 +44,75 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"; // Import AlertDialog for confirmation
+} from "@/components/ui/alert-dialog";
 
 const TokensPage = () => {
-  const { toast } = useToast(); // Initialize toast
-  const dispatch = useAppDispatch();
+  const { toast } = useToast();
   const { hasPermission } = usePermission();
 
-  const { tokens, isLoadingTokens, isDeletingToken, tokenError } = useAppSelector((state) => state.token);
+  // Initialize page controller
+  const pageController = usePageController({
+    pageId: 'tokens',
+    pageName: 'Tokens',
+    description: 'Manage blockchain tokens, digital assets, and tokenized securities',
+    category: 'blockchain',
+    permissions: ['tokens:read', 'tokens:write', 'tokens:manage'],
+    tags: ['tokens', 'blockchain', 'assets', 'securities', 'digital']
+  });
+
+  const [tokens, setTokens] = useState<Token[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [confirmDeleteTokenId, setConfirmDeleteTokenId] = useState<string | null>(null);
+  const [isDeletingToken, setIsDeletingToken] = useState(false);
+  const [isLoadingTokens, setIsLoadingTokens] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
+  // Load tokens on mount
   useEffect(() => {
-    dispatch(fetchTokens({})); // Initial fetch of tokens
-    dispatch(clearTokenErrors()); // Clear any previous errors on mount
-  }, [dispatch]);
+    if (pageController.isRegistered) {
+      handleRefresh();
+    }
+  }, [pageController.isRegistered]);
 
+  // Handle errors
   useEffect(() => {
-    if (tokenError) {
+    if (error) {
       toast({
         title: "Error",
-        description: tokenError,
+        description: error,
         variant: "destructive",
       });
-      dispatch(clearTokenErrors());
+      setError(null);
     }
-  }, [tokenError, toast, dispatch]);
+  }, [error, toast]);
 
-
-  const handleRefresh = () => {
-    dispatch(fetchTokens({}));
+  const handleRefresh = async () => {
+    if (!pageController.isRegistered) return;
+    
+    setIsLoadingTokens(true);
+    setError(null);
+    
+    try {
+      const result = await pageController.executeAction('refreshTokens', {});
+      if (result.success && result.data) {
+        // Handle the API response structure
+        const responseData = result.data as any;
+        if (responseData.tokens && Array.isArray(responseData.tokens)) {
+          setTokens(responseData.tokens);
+        } else if (Array.isArray(responseData)) {
+          setTokens(responseData);
+        } else {
+          setTokens([]);
+        }
+      } else {
+        setError(result.error || 'Failed to load tokens');
+      }
+    } catch (error) {
+      console.error('Failed to refresh tokens:', error);
+      setError('Failed to refresh tokens');
+    } finally {
+      setIsLoadingTokens(false);
+    }
   };
 
   const handleDeleteConfirmation = (tokenId: string) => {
@@ -82,15 +120,26 @@ const TokensPage = () => {
   };
   
   const handleDeleteToken = async (tokenId: string) => {
-    setConfirmDeleteTokenId(null); // Close dialog immediately
+    setConfirmDeleteTokenId(null);
+    setIsDeletingToken(true);
+    
     try {
-      await dispatch(deleteToken(tokenId)).unwrap();
-      toast({
-        title: "Token Deleted",
-        description: "Token has been successfully deleted.",
-      });
+      const result = await pageController.executeAction('deleteToken', { tokenId });
+      if (result.success) {
+        toast({
+          title: "Token Deleted",
+          description: "Token has been successfully deleted.",
+        });
+        // Refresh the tokens list
+        await handleRefresh();
+      } else {
+        setError(result.error || 'Failed to delete token');
+      }
     } catch (error) {
-      // Error handled by useEffect
+      console.error('Failed to delete token:', error);
+      setError('Failed to delete token');
+    } finally {
+      setIsDeletingToken(false);
     }
   };
 

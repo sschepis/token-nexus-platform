@@ -141,7 +141,7 @@ export function GlobalSearch({ trigger }: GlobalSearchProps) {
 
   useEffect(() => {
     filterResults(query);
-  }, [query, filterResults]);
+  }, [query]);
 
   const handleSelect = (result: SearchResult) => {
     setOpen(false);

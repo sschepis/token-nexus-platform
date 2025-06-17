@@ -60,7 +60,7 @@ const IndexPage = () => {
     // Run once on component mount
     handleInitialRedirect();
     setIsLoading(false); // Set to false after initial redirect attempt
-  }, [isAuthenticated, router]); // Keep dependencies minimal and focused on auth/router
+  }, [isAuthenticated]); // Remove router from dependencies to prevent infinite loops
 
   // Show loading screen while checking platform status
   if (isLoading) {

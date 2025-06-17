@@ -16,16 +16,21 @@ class ContentService extends BaseService {
    * @param {Object} options Initialization options
    */
   async _initializeService(options = {}) {
-    // Register dependencies
-    const OptimizationService = require('./OptimizationService');
-    const AIService = require('./AIService');
-    const AnalyticsService = require('./AnalyticsService');
-    const CacheService = require('./CacheService');
+    // Register dependencies - these are singleton instances, not classes
+    try {
+      const optimizationService = require('./OptimizationService');
+      const aiService = require('./AIService');
+      const analyticsService = require('./AnalyticsService');
+      const cacheService = require('./CacheService');
 
-    this.registerDependency('optimization', OptimizationService);
-    this.registerDependency('ai', AIService);
-    this.registerDependency('analytics', AnalyticsService);
-    this.registerDependency('cache', CacheService);
+      this.registerDependency('optimization', optimizationService);
+      this.registerDependency('ai', aiService);
+      this.registerDependency('analytics', analyticsService);
+      this.registerDependency('cache', cacheService);
+    } catch (error) {
+      console.warn('Some dependencies not available for ContentService:', error.message);
+      // Continue initialization even if some dependencies are missing
+    }
 
     // Initialize schema
     await this._initializeSchema();

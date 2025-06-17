@@ -7,6 +7,10 @@ module.exports = {
       ignore_watch: ['node_modules', 'logs'],
       env: {
         NODE_ENV: 'development',
+        PARSE_APP_ID: 'gemcms_dev',
+        PARSE_JAVASCRIPT_KEY: 'YOUR_JAVASCRIPT_KEY', // This is still missing a default in config.js
+        PARSE_MASTER_KEY: 'gemcms_master_key_dev',
+        PARSE_SERVER_URL: 'http://localhost:1337/parse',
       },
     },
     {

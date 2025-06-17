@@ -11,6 +11,8 @@ export * from './oauthApps';
 export * from './apiKeys';
 export * from './dashboard';
 export * from './aiAssistant';
+export * from './aiDesignAssistant'; // Added AI design assistant export
 export * from './appMarketplace';
 export * from './pageBuilder'; // Added new export
+export * from './componentLibrary'; // Added component library export
 export * from './workflows';

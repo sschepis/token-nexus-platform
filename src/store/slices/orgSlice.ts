@@ -272,10 +272,13 @@ export const fetchUserOrganizations = createAsyncThunk(
       
       if (!userDetailsResponse || !userDetailsResponse.organizations) {
         console.warn('getUserDetails did not return expected organizations array:', userDetailsResponse);
-        return [] as Organization[];
+        return { organizations: [] as Organization[], currentOrganization: null };
       }
       
-      return userDetailsResponse.organizations.map((orgJson: any) => serializeOrganization(orgJson));
+      const organizations = userDetailsResponse.organizations.map((orgJson: any) => serializeOrganization(orgJson));
+      const currentOrganization = userDetailsResponse.currentOrganization ? serializeOrganization(userDetailsResponse.currentOrganization) : null;
+      
+      return { organizations, currentOrganization };
     } catch (error: any) {
       console.error('Failed to fetch user organizations:', error);
       // Don't show toast for this as it might be called automatically
@@ -290,7 +293,7 @@ export const setCurrentOrganization = createAsyncThunk(
   async (orgId: string, { rejectWithValue }) => {
     try {
       const result = await Parse.Cloud.run('setCurrentOrganization', {
-        // orgId removed - now handled by middleware
+        orgId: orgId // Pass orgId for validation, but server will enforce user access
       });
       if (result.success) {
         toast.success(`Switched to organization: ${result.orgName}`);
@@ -493,14 +496,18 @@ export const orgSlice = createSlice({
         state.isLoading = true;
         state.error = null;
       })
-      .addCase(fetchUserOrganizations.fulfilled, (state, action: PayloadAction<Organization[]>) => {
+      .addCase(fetchUserOrganizations.fulfilled, (state, action: PayloadAction<{ organizations: Organization[], currentOrganization: Organization | null }>) => {
         state.isLoading = false;
-        state.userOrgs = action.payload;
+        state.userOrgs = action.payload.organizations;
         
-        // If no current org is set but we have orgs, try to set one from auth state
-        if (!state.currentOrg && action.payload.length > 0) {
-          // This will be handled by the auth flow or explicit organization switching
-          console.log(`User has ${action.payload.length} organizations available`);
+        // Set current organization from the response
+        if (action.payload.currentOrganization) {
+          state.currentOrg = action.payload.currentOrganization;
+          console.log(`Set current organization: ${action.payload.currentOrganization.name}`);
+        } else if (!state.currentOrg && action.payload.organizations.length > 0) {
+          // If no current org is set but we have orgs, set the first one
+          state.currentOrg = action.payload.organizations[0];
+          console.log(`Set first available organization as current: ${action.payload.organizations[0].name}`);
         }
       })
       .addCase(fetchUserOrganizations.rejected, (state, action) => {

@@ -95,11 +95,16 @@ const customUserLoginHandler = async (request) => {
           const validOrg = await orgQuery.get(orgId, { useMasterKey: true });
           
           if (validOrg && typeof currentOrg === 'string') {
-            // Repair: Convert string to proper Pointer
+            // Repair: Convert string to proper Pointer and set both fields
             logger.info(`Repairing malformed currentOrganization for user ${user.id}`);
             fullUser.set("currentOrganization", validOrg);
+            fullUser.set("currentOrganizationId", validOrg.id);
             await fullUser.save(null, { useMasterKey: true });
             currentOrg = validOrg;
+          } else if (validOrg && !fullUser.get("currentOrganizationId")) {
+            // Ensure currentOrganizationId is set for consistency
+            fullUser.set("currentOrganizationId", validOrg.id);
+            await fullUser.save(null, { useMasterKey: true });
           }
         } catch (orgError) {
           logger.warn(`Organization ${orgId} not found for user ${user.id}, will use fallback:`, orgError.message);
@@ -117,9 +122,10 @@ const customUserLoginHandler = async (request) => {
         const userOrgs = await userOrgsQuery.find({ useMasterKey: true });
         
         if (userOrgs.length > 0) {
-          // Set the first organization as current
+          // Set the first organization as current with both fields
           const firstOrg = userOrgs[0];
           fullUser.set("currentOrganization", firstOrg);
+          fullUser.set("currentOrganizationId", firstOrg.id);
           await fullUser.save(null, { useMasterKey: true });
           
           orgId = firstOrg.id;

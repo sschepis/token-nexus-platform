@@ -5,8 +5,16 @@
 
 const fs = require('fs').promises;
 const path = require('path');
-const sharp = require('sharp');
 const BaseService = require('../services/BaseService');
+
+// Try to load sharp, but handle gracefully if it fails
+let sharp;
+try {
+  sharp = require('sharp');
+} catch (error) {
+  console.warn('Sharp package not available, image optimization will be disabled:', error.message);
+  sharp = null;
+}
 
 class MediaManager extends BaseService {
   constructor() {
@@ -45,6 +53,11 @@ class MediaManager extends BaseService {
   async optimizeAsset(buffer, options = {}) {
     this.validateInitialization();
 
+    if (!sharp) {
+      console.warn('Sharp not available, returning original buffer');
+      return buffer;
+    }
+
     const { format = 'webp', quality = 80, maxWidth = 2000, maxHeight = 2000 } = options;
 
     try {
@@ -63,7 +76,8 @@ class MediaManager extends BaseService {
       return await image[format]({ quality }).toBuffer();
     } catch (error) {
       console.error('Failed to optimize asset:', error);
-      throw error;
+      // Return original buffer if optimization fails
+      return buffer;
     }
   }
 
@@ -80,8 +94,8 @@ class MediaManager extends BaseService {
     const { optimize = true, format, quality, maxWidth, maxHeight } = options;
 
     try {
-      // Optimize if requested
-      const processedBuffer = optimize
+      // Optimize if requested and sharp is available
+      const processedBuffer = (optimize && sharp)
         ? await this.optimizeAsset(buffer, { format, quality, maxWidth, maxHeight })
         : buffer;
 

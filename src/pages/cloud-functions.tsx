@@ -1,7 +1,9 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/router";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { controllerRegistry } from "@/controllers/ControllerRegistry";
+import { usePageController } from "@/hooks/usePageController";
+import { usePermission } from "@/hooks/usePermission";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -30,6 +32,7 @@ import {
   Clock,
   CheckCircle,
   AlertCircle,
+  Loader2,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -44,7 +47,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { toast as sonnerToast } from "sonner";
 import {
   addFunction,
   updateFunction,
@@ -72,63 +74,19 @@ import ExecuteFunctionDialog from "@/components/cloud-functions/ExecuteFunctionD
 const CloudFunctionsPage = () => {
   const router = useRouter();
   const dispatch = useAppDispatch();
+  const { toast } = useToast();
+  const { hasPermission } = usePermission();
   const { functions, selectedFunctionId, isLoading, error } = useAppSelector((state) => state.cloudFunction);
-  const { currentOrg } = useAppSelector((state) => state.org);
-  const { user: currentUser } = useAppSelector((state) => state.auth);
 
-  // Get the page controller for AI assistant integration
-  const cloudFunctionsPageController = controllerRegistry.getPageController('cloud-functions');
-  const isRegistered = !!cloudFunctionsPageController;
-
-  // Create a wrapper for executeAction that uses the registry directly
-  const executeAction = useCallback(async (actionId: string, params: Record<string, unknown>) => {
-    if (!currentUser) {
-      throw new Error('User not authenticated');
-    }
-    
-    const fullActionId = actionId.includes('.') ? actionId : `cloud-functions.${actionId}`;
-    
-    // Build a basic action context
-    const context = {
-      user: {
-        userId: currentUser.id,
-        username: currentUser.email,
-        email: currentUser.email,
-        roles: [],
-        permissions: [],
-        organizationId: currentOrg?.id
-      },
-      organization: currentOrg ? {
-        id: currentOrg.id,
-        name: currentOrg.name,
-        settings: currentOrg.settings || {},
-        permissions: [],
-        features: []
-      } : undefined,
-      page: {
-        pageId: 'cloud-functions',
-        pageName: 'Cloud Functions',
-        state: {},
-        props: {},
-        metadata: {
-          category: 'development',
-          tags: ['functions', 'serverless', 'cloud'],
-          permissions: []
-        }
-      },
-      navigation: {
-        router,
-        currentPath: router.asPath,
-        breadcrumbs: [
-          { label: 'Home', path: '/' },
-          { label: 'Cloud Functions', path: '/cloud-functions' }
-        ]
-      },
-      timestamp: new Date()
-    };
-    
-    return controllerRegistry.executeAction(fullActionId, params, context);
-  }, [currentUser, currentOrg, router]);
+  // Initialize page controller
+  const pageController = usePageController({
+    pageId: 'cloud-functions',
+    pageName: 'Cloud Functions',
+    description: 'Manage serverless cloud functions, deployments, and execution monitoring',
+    category: 'development',
+    permissions: ['functions:read', 'functions:write', 'functions:execute', 'functions:deploy'],
+    tags: ['functions', 'serverless', 'cloud', 'development', 'deployment']
+  });
 
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("all");
@@ -136,17 +94,38 @@ const CloudFunctionsPage = () => {
   const [executeDialogOpen, setExecuteDialogOpen] = useState(false);
   const [selectedFunction, setSelectedFunctionLocal] = useState<CloudFunction | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'detail'>('list');
+  const [isLoadingFunctions, setIsLoadingFunctions] = useState(false);
+  const [controllerError, setControllerError] = useState<string | null>(null);
+
+  // Load functions on mount
+  useEffect(() => {
+    if (pageController.isRegistered) {
+      handleRefresh();
+    }
+  }, [pageController.isRegistered]);
+
+  // Handle errors
+  useEffect(() => {
+    if (controllerError) {
+      toast({
+        title: "Error",
+        description: controllerError,
+        variant: "destructive",
+      });
+      setControllerError(null);
+    }
+  }, [controllerError, toast]);
 
   // Filter functions based on search and tab
   const filteredFunctions = functions.filter((func) => {
-    const matchesTab = 
-      activeTab === "all" || 
-      (activeTab === "active" && func.status === "active") || 
+    const matchesTab =
+      activeTab === "all" ||
+      (activeTab === "active" && func.status === "active") ||
       (activeTab === "disabled" && func.status === "disabled") ||
       (activeTab === "draft" && func.status === "draft") ||
       (activeTab === "error" && func.status === "error");
 
-    const matchesSearch = 
+    const matchesSearch =
       searchTerm === "" ||
       func.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       func.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -157,31 +136,37 @@ const CloudFunctionsPage = () => {
 
   const handleCreateFunction = async (functionData: CreateFunctionRequest) => {
     try {
-      if (isRegistered && executeAction) {
-        const result = await executeAction('createFunction', functionData as unknown as Record<string, unknown>);
+      if (pageController.isRegistered) {
+        const result = await pageController.executeAction('createFunction', functionData as unknown as Record<string, unknown>);
         if (result.success) {
           // Add to local state
           dispatch(addFunction(functionData));
-          sonnerToast.success('Function created successfully');
+          toast({
+            title: "Success",
+            description: "Function created successfully",
+          });
         } else {
           throw new Error(result.error || 'Failed to create function');
         }
       } else {
         // Fallback to direct Redux dispatch
         dispatch(addFunction(functionData));
-        sonnerToast.success('Function created successfully');
+        toast({
+          title: "Success",
+          description: "Function created successfully",
+        });
       }
     } catch (error) {
       console.error('Failed to create function:', error);
-      sonnerToast.error(`Failed to create function: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setControllerError(`Failed to create function: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
     }
   };
 
   const handleExecuteFunction = async (request: ExecuteFunctionRequest): Promise<ExecuteFunctionResponse> => {
     try {
-      if (isRegistered && executeAction) {
-        const result = await executeAction('executeFunction', request as unknown as Record<string, unknown>);
+      if (pageController.isRegistered) {
+        const result = await pageController.executeAction('executeFunction', request as unknown as Record<string, unknown>);
         if (result.success) {
           return result.data as ExecuteFunctionResponse;
         } else {
@@ -214,49 +199,61 @@ const CloudFunctionsPage = () => {
     const newStatus = currentStatus === "active" ? "disabled" : "active";
     
     try {
-      if (isRegistered && executeAction) {
-        const result = await executeAction('updateFunction', {
+      if (pageController.isRegistered) {
+        const result = await pageController.executeAction('updateFunction', {
           functionName: functions.find(f => f.id === functionId)?.name,
           status: newStatus
         });
         if (result.success) {
           dispatch(updateFunction({ id: functionId, updates: { status: newStatus } }));
-          sonnerToast.success(`Function ${newStatus === 'active' ? 'activated' : 'disabled'}`);
+          toast({
+            title: "Success",
+            description: `Function ${newStatus === 'active' ? 'activated' : 'disabled'}`,
+          });
         } else {
           throw new Error(result.error || 'Failed to update function');
         }
       } else {
         // Fallback to direct Redux dispatch
         dispatch(updateFunction({ id: functionId, updates: { status: newStatus } }));
-        sonnerToast.success(`Function ${newStatus === 'active' ? 'activated' : 'disabled'}`);
+        toast({
+          title: "Success",
+          description: `Function ${newStatus === 'active' ? 'activated' : 'disabled'}`,
+        });
       }
     } catch (error) {
       console.error('Failed to toggle function status:', error);
-      sonnerToast.error(`Failed to update function: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setControllerError(`Failed to update function: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
   const handleDeleteFunction = async (functionId: string, functionName: string) => {
     try {
-      if (isRegistered && executeAction) {
-        const result = await executeAction('deleteFunction', {
+      if (pageController.isRegistered) {
+        const result = await pageController.executeAction('deleteFunction', {
           functionName,
           confirmDelete: true
         });
         if (result.success) {
           dispatch(deleteFunction(functionId));
-          sonnerToast.success('Function deleted successfully');
+          toast({
+            title: "Success",
+            description: "Function deleted successfully",
+          });
         } else {
           throw new Error(result.error || 'Failed to delete function');
         }
       } else {
         // Fallback to direct Redux dispatch
         dispatch(deleteFunction(functionId));
-        sonnerToast.success('Function deleted successfully');
+        toast({
+          title: "Success",
+          description: "Function deleted successfully",
+        });
       }
     } catch (error) {
       console.error('Failed to delete function:', error);
-      sonnerToast.error(`Failed to delete function: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setControllerError(`Failed to delete function: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -275,13 +272,13 @@ const CloudFunctionsPage = () => {
     if (!newName) return;
 
     if (functions.some(f => f.name === newName)) {
-      sonnerToast.error('A function with that name already exists');
+      setControllerError('A function with that name already exists');
       return;
     }
 
     try {
-      if (isRegistered && executeAction) {
-        const result = await executeAction('cloneFunction', {
+      if (pageController.isRegistered) {
+        const result = await pageController.executeAction('cloneFunction', {
           sourceFunctionName: sourceFunction.name,
           newFunctionName: newName,
           newDescription: `Clone of ${sourceFunction.description}`
@@ -300,7 +297,10 @@ const CloudFunctionsPage = () => {
             tags: [...(sourceFunction.tags || []), 'cloned']
           };
           dispatch(addFunction(clonedFunction));
-          sonnerToast.success(`Function cloned successfully as "${newName}"`);
+          toast({
+            title: "Success",
+            description: `Function cloned successfully as "${newName}"`,
+          });
         } else {
           throw new Error(result.error || 'Failed to clone function');
         }
@@ -317,32 +317,39 @@ const CloudFunctionsPage = () => {
           tags: [...(sourceFunction.tags || []), 'cloned']
         };
         dispatch(addFunction(clonedFunction));
-        sonnerToast.success(`Function cloned successfully as "${newName}"`);
+        toast({
+          title: "Success",
+          description: `Function cloned successfully as "${newName}"`,
+        });
       }
     } catch (error) {
       console.error('Failed to clone function:', error);
-      sonnerToast.error(`Failed to clone function: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setControllerError(`Failed to clone function: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
-  const handleRefreshFunctions = async () => {
+  const handleRefresh = async () => {
+    if (!pageController.isRegistered) return;
+    
+    setIsLoadingFunctions(true);
+    setControllerError(null);
+    
     try {
-      sonnerToast.info("Refreshing functions...");
-      
-      if (isRegistered && executeAction) {
-        const result = await executeAction('fetchFunctions', { includeStats: true });
-        if (result.success) {
-          sonnerToast.success("Functions refreshed successfully");
-        } else {
-          throw new Error(result.error || 'Failed to refresh functions');
-        }
+      const result = await pageController.executeAction('fetchFunctions', { includeStats: true });
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: "Functions refreshed successfully",
+        });
+        // The actual function data would be handled by the controller and Redux
       } else {
-        // Mock refresh
-        sonnerToast.success("Functions refreshed successfully");
+        setControllerError(result.error || 'Failed to refresh functions');
       }
     } catch (error) {
       console.error('Failed to refresh functions:', error);
-      sonnerToast.error(`Failed to refresh functions: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setControllerError(`Failed to refresh functions: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsLoadingFunctions(false);
     }
   };
 
@@ -391,10 +398,10 @@ const CloudFunctionsPage = () => {
             <Button
               size="sm"
               variant="outline"
-              onClick={handleRefreshFunctions}
-              disabled={isLoading}
+              onClick={handleRefresh}
+              disabled={isLoadingFunctions}
             >
-              <RefreshCw className="h-4 w-4 mr-2" />
+              {isLoadingFunctions ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
               Refresh
             </Button>
             <Button onClick={() => setCreateDialogOpen(true)} size="sm">
@@ -547,7 +554,10 @@ const CloudFunctionsPage = () => {
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => {
                                   navigator.clipboard.writeText(func.code);
-                                  sonnerToast.success('Code copied to clipboard');
+                                  toast({
+                                    title: "Success",
+                                    description: "Code copied to clipboard",
+                                  });
                                 }}>
                                   <Copy className="h-4 w-4 mr-2" />
                                   Copy code

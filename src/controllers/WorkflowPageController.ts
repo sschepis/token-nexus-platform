@@ -179,8 +179,8 @@ export class WorkflowPageController extends BasePageController {
         description,
         templateId,
         tags,
-        organizationId: orgId,
         createdBy: context.user.userId
+        // organizationId removed - will be injected by server middleware
       });
 
       return {
@@ -200,8 +200,8 @@ export class WorkflowPageController extends BasePageController {
       const result = await Parse.Cloud.run('updateWorkflow', {
         workflowId,
         updateData,
-        organizationId: orgId,
         updatedBy: context.user.userId
+        // organizationId removed - will be injected by server middleware
       });
 
       return {
@@ -222,8 +222,8 @@ export class WorkflowPageController extends BasePageController {
         workflowId,
         triggerData,
         dryRun,
-        organizationId: orgId,
         userId: context.user.userId
+        // organizationId removed - will be injected by server middleware
       });
 
       return {
@@ -241,11 +241,11 @@ export class WorkflowPageController extends BasePageController {
 
     try {
       const result = await Parse.Cloud.run('getWorkflows', {
-        organizationId: orgId,
         status,
         tags,
         limit: limit || 50,
         skip: skip || 0
+        // organizationId removed - will be injected by server middleware
       });
 
       return {
@@ -265,10 +265,10 @@ export class WorkflowPageController extends BasePageController {
 
     try {
       const result = await Parse.Cloud.run('getWorkflowExecutions', {
-        organizationId: orgId,
         workflowId,
         status,
         limit: limit || 100
+        // organizationId removed - will be injected by server middleware
       });
 
       return {
@@ -305,8 +305,8 @@ export class WorkflowPageController extends BasePageController {
         sourceWorkflowId,
         name,
         description,
-        organizationId: orgId,
         createdBy: context.user.userId
+        // organizationId removed - will be injected by server middleware
       });
 
       return {
@@ -325,8 +325,8 @@ export class WorkflowPageController extends BasePageController {
     try {
       const result = await Parse.Cloud.run('deleteWorkflow', {
         workflowId,
-        organizationId: orgId,
         deletedBy: context.user.userId
+        // organizationId removed - will be injected by server middleware
       });
 
       return {
@@ -346,8 +346,8 @@ export class WorkflowPageController extends BasePageController {
       const result = await Parse.Cloud.run('validateWorkflow', {
         workflowId,
         nodes,
-        edges,
-        organizationId: orgId
+        edges
+        // organizationId removed - will be injected by server middleware
       });
 
       return {
@@ -367,9 +367,9 @@ export class WorkflowPageController extends BasePageController {
 
     try {
       const result = await Parse.Cloud.run('getWorkflowStatistics', {
-        organizationId: orgId,
         timeRange: timeRange || '30d',
         workflowId
+        // organizationId removed - will be injected by server middleware
       });
 
       return {

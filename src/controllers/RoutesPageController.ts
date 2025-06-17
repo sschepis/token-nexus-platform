@@ -589,7 +589,6 @@ export class RoutesPageController implements PageController {
       { path: '/notifications', component: 'Notifications', protected: true },
       { path: '/audit-logs', component: 'AuditLogs', protected: true },
       { path: '/reports', component: 'Reports', protected: true },
-      { path: '/component-library', component: 'ComponentLibrary', protected: true },
       { path: '/page-builder', component: 'PageBuilder', protected: true },
       { path: '/marketplace', component: 'AppMarketplace', protected: true },
       { path: '/ai-assistant', component: 'AIAssistantPage', protected: true },

@@ -1,7 +1,9 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/router";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { controllerRegistry } from "@/controllers/ControllerRegistry";
+import { usePageController } from "@/hooks/usePageController";
+import { usePermission } from "@/hooks/usePermission";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -45,7 +47,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { toast as sonnerToast } from "sonner";
 import {
   addJob,
   updateJob,
@@ -76,15 +77,18 @@ const ScheduledJobsPage = () => {
   const { currentOrg } = useAppSelector((state) => state.org);
   const { user: currentUser } = useAppSelector((state) => state.auth);
 
-  // Get the page controller for AI assistant integration
-  const scheduledJobsPageController = controllerRegistry.getPageController('scheduled-jobs');
-  const isRegistered = !!scheduledJobsPageController;
+  // Use modern page controller integration
+  const pageController = usePageController('scheduled-jobs');
+  const canManageJobs = usePermission('jobs:manage');
+  const { toast } = useToast();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [selectedFrequency, setSelectedFrequency] = useState<JobFrequency | "all">("all");
   const [selectedStatus, setSelectedStatus] = useState<JobStatus | "all">("all");
+  const [isLoadingJobs, setIsLoadingJobs] = useState(false);
+  const [controllerError, setControllerError] = useState<string | null>(null);
 
   // Filter jobs based on search, tab, frequency, and status
   const filteredJobs = jobs.filter((job) => {
@@ -108,60 +112,154 @@ const ScheduledJobsPage = () => {
   });
 
   const handleCreateJob = async (jobData: CreateJobRequest) => {
+    if (!canManageJobs) {
+      setControllerError('You do not have permission to create scheduled jobs');
+      return;
+    }
+
     try {
-      dispatch(addJob(jobData));
-      sonnerToast.success('Scheduled job created successfully');
+      if (pageController.isRegistered) {
+        const result = await pageController.executeAction('createJob', jobData as unknown as Record<string, unknown>);
+        if (result.success) {
+          dispatch(addJob(jobData));
+          toast({
+            title: "Success",
+            description: "Scheduled job created successfully",
+          });
+        } else {
+          throw new Error(result.error || 'Failed to create job');
+        }
+      } else {
+        dispatch(addJob(jobData));
+        toast({
+          title: "Success",
+          description: "Scheduled job created successfully",
+        });
+      }
     } catch (error) {
       console.error('Failed to create scheduled job:', error);
-      sonnerToast.error(`Failed to create job: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setControllerError(`Failed to create job: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
     }
   };
 
   const handleToggleStatus = async (jobId: string, currentStatus: JobStatus) => {
+    if (!canManageJobs) {
+      setControllerError('You do not have permission to modify scheduled jobs');
+      return;
+    }
+
     const newStatus: JobStatus = currentStatus === "active" ? "disabled" : "active";
     
     try {
-      dispatch(setJobStatus({ id: jobId, status: newStatus }));
-      sonnerToast.success(`Job ${newStatus === 'active' ? 'activated' : 'disabled'}`);
+      if (pageController.isRegistered) {
+        const result = await pageController.executeAction('toggleJobStatus', {
+          jobId,
+          status: newStatus
+        });
+        if (result.success) {
+          dispatch(setJobStatus({ id: jobId, status: newStatus }));
+          toast({
+            title: "Success",
+            description: `Job ${newStatus === 'active' ? 'activated' : 'disabled'}`,
+          });
+        } else {
+          throw new Error(result.error || 'Failed to update job');
+        }
+      } else {
+        dispatch(setJobStatus({ id: jobId, status: newStatus }));
+        toast({
+          title: "Success",
+          description: `Job ${newStatus === 'active' ? 'activated' : 'disabled'}`,
+        });
+      }
     } catch (error) {
       console.error('Failed to toggle job status:', error);
-      sonnerToast.error(`Failed to update job: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setControllerError(`Failed to update job: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
   const handleRunJobNow = async (jobId: string, jobName: string) => {
+    if (!canManageJobs) {
+      setControllerError('You do not have permission to execute jobs');
+      return;
+    }
+
     try {
-      // Record the execution
-      dispatch(recordJobExecution({
-        id: jobId,
-        success: true,
-        executionTime: Math.floor(Math.random() * 5000) + 100, // Simulated duration
-      }));
-      
-      sonnerToast.success(`Job "${jobName}" executed successfully`);
+      if (pageController.isRegistered) {
+        const result = await pageController.executeAction('runJobNow', { jobId });
+        if (result.success) {
+          dispatch(recordJobExecution({
+            id: jobId,
+            success: true,
+            executionTime: Math.floor(Math.random() * 5000) + 100,
+          }));
+          toast({
+            title: "Success",
+            description: `Job "${jobName}" executed successfully`,
+          });
+        } else {
+          throw new Error(result.error || 'Failed to run job');
+        }
+      } else {
+        dispatch(recordJobExecution({
+          id: jobId,
+          success: true,
+          executionTime: Math.floor(Math.random() * 5000) + 100,
+        }));
+        toast({
+          title: "Success",
+          description: `Job "${jobName}" executed successfully`,
+        });
+      }
     } catch (error) {
       console.error('Failed to run job:', error);
-      sonnerToast.error(`Failed to run job: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setControllerError(`Failed to run job: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
   const handleDeleteJob = async (jobId: string, jobName: string) => {
+    if (!canManageJobs) {
+      setControllerError('You do not have permission to delete jobs');
+      return;
+    }
+
     try {
-      dispatch(deleteJob(jobId));
-      sonnerToast.success('Scheduled job deleted successfully');
+      if (pageController.isRegistered) {
+        const result = await pageController.executeAction('deleteJob', { jobId });
+        if (result.success) {
+          dispatch(deleteJob(jobId));
+          toast({
+            title: "Success",
+            description: "Scheduled job deleted successfully",
+          });
+        } else {
+          throw new Error(result.error || 'Failed to delete job');
+        }
+      } else {
+        dispatch(deleteJob(jobId));
+        toast({
+          title: "Success",
+          description: "Scheduled job deleted successfully",
+        });
+      }
     } catch (error) {
       console.error('Failed to delete job:', error);
-      sonnerToast.error(`Failed to delete job: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setControllerError(`Failed to delete job: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
   const handleCloneJob = async (sourceJob: ScheduledJob) => {
+    if (!canManageJobs) {
+      setControllerError('You do not have permission to clone jobs');
+      return;
+    }
+
     const newName = prompt(`Enter a name for the cloned job:`, `${sourceJob.name}_copy`);
     if (!newName) return;
 
     if (jobs.some(j => j.name === newName)) {
-      sonnerToast.error('A job with that name already exists');
+      setControllerError('A job with that name already exists');
       return;
     }
 
@@ -176,22 +274,51 @@ const ScheduledJobsPage = () => {
         tags: [...(sourceJob.tags || []), 'cloned']
       };
       
-      dispatch(addJob(clonedJob));
-      sonnerToast.success(`Job cloned successfully as "${newName}"`);
+      if (pageController.isRegistered) {
+        const result = await pageController.executeAction('cloneJob', clonedJob as unknown as Record<string, unknown>);
+        if (result.success) {
+          dispatch(addJob(clonedJob));
+          toast({
+            title: "Success",
+            description: `Job cloned successfully as "${newName}"`,
+          });
+        } else {
+          throw new Error(result.error || 'Failed to clone job');
+        }
+      } else {
+        dispatch(addJob(clonedJob));
+        toast({
+          title: "Success",
+          description: `Job cloned successfully as "${newName}"`,
+        });
+      }
     } catch (error) {
       console.error('Failed to clone job:', error);
-      sonnerToast.error(`Failed to clone job: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setControllerError(`Failed to clone job: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
-  const handleRefreshJobs = async () => {
+  const handleRefresh = async () => {
+    if (!pageController.isRegistered) return;
+    
+    setIsLoadingJobs(true);
+    setControllerError(null);
+    
     try {
-      sonnerToast.info("Refreshing scheduled jobs...");
-      // In a real implementation, this would fetch from the server
-      sonnerToast.success("Jobs refreshed successfully");
+      const result = await pageController.executeAction('fetchJobs', { includeStats: true });
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: "Jobs refreshed successfully",
+        });
+      } else {
+        setControllerError(result.error || 'Failed to refresh jobs');
+      }
     } catch (error) {
       console.error('Failed to refresh jobs:', error);
-      sonnerToast.error(`Failed to refresh jobs: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setControllerError(`Failed to refresh jobs: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsLoadingJobs(false);
     }
   };
 
@@ -290,12 +417,18 @@ const ScheduledJobsPage = () => {
             </p>
           </div>
 
+          {controllerError && (
+            <div className="bg-destructive/15 text-destructive px-4 py-2 rounded-md">
+              {controllerError}
+            </div>
+          )}
+
           <div className="flex items-center gap-2">
             <Button
               size="sm"
               variant="outline"
-              onClick={handleRefreshJobs}
-              disabled={isLoading}
+              onClick={handleRefresh}
+              disabled={isLoadingJobs}
             >
               <RefreshCw className="h-4 w-4 mr-2" />
               Refresh
@@ -498,7 +631,10 @@ const ScheduledJobsPage = () => {
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => {
                                   navigator.clipboard.writeText(job.code);
-                                  sonnerToast.success('Code copied to clipboard');
+                                  toast({
+                                    title: "Success",
+                                    description: "Code copied to clipboard",
+                                  });
                                 }}>
                                   <Copy className="h-4 w-4 mr-2" />
                                   Copy code

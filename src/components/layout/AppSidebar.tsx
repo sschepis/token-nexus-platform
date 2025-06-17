@@ -177,11 +177,6 @@ export function AppSidebar() {
       icon: <LayoutPanelLeft className="h-5 w-5" />
     },
     {
-      name: "Component Library",
-      path: "/component-library",
-      icon: <Component className="h-5 w-5" />
-    },
-    {
       name: "Reports",
       path: "/reports",
       icon: <FileText className="h-5 w-5" />
@@ -189,7 +184,7 @@ export function AppSidebar() {
     {
       name: "Integrations",
       path: "/integrations",
-      icon: <LayoutDashboard className="h-5 w-5" />
+      icon: <LinkIcon className="h-5 w-5" /> // Fixed: Changed from LayoutDashboard to LinkIcon
     },
     {
       name: "Marketplace",
@@ -227,9 +222,14 @@ export function AppSidebar() {
       icon: <GitBranch className="h-5 w-5" />
     },
     {
-      name: "Objects",
-      path: "/objects",
-      icon: <Database className="h-5 w-5" />
+      name: "Triggers",
+      path: "/triggers",
+      icon: <Zap className="h-5 w-5" />
+    },
+    {
+      name: "Scheduled Jobs",
+      path: "/scheduled-jobs",
+      icon: <Clock className="h-5 w-5" />
     },
     {
       name: "Settings",
@@ -245,6 +245,11 @@ export function AppSidebar() {
 
   // Define System Admin navigation items
   const adminNavItems = [
+    {
+      name: 'System Admin',
+      path: '/system-admin',
+      icon: <Shield className="h-5 w-5" />,
+    },
     {
       name: 'Contract Deploy',
       path: '/system-admin/deploy',
@@ -331,50 +336,78 @@ export function AppSidebar() {
     },
     {
       name: "Database Explorer",
-      path: "/dev/database",
+      path: "/dev/database-explorer", // Fixed: Updated to match actual file
       icon: <Database className="h-5 w-5" />
     },
     {
-      name: "Environment Variables",
-      path: "/dev/env",
+      name: "Environment Manager",
+      path: "/dev/env-manager", // Fixed: Updated to match actual file
       icon: <Wrench className="h-5 w-5" />
     },
     {
       name: "Logs Viewer",
-      path: "/dev/logs",
+      path: "/dev/logs-viewer", // Fixed: Updated to match actual file
       icon: <FileText className="h-5 w-5" />
     },
     {
-      name: "Performance",
-      path: "/dev/performance",
+      name: "Performance Monitor",
+      path: "/dev/performance-monitor", // Fixed: Updated to match actual file
       icon: <Layers className="h-5 w-5" />
     },
     {
       name: "Auth Tester",
-      path: "/dev/auth-testing",
+      path: "/dev/auth-tester", // Fixed: Updated to match actual file
       icon: <Key className="h-5 w-5" />
     },
     {
       name: "Storage Explorer",
-      path: "/dev/storage",
+      path: "/dev/storage-explorer", // Fixed: Updated to match actual file
       icon: <Database className="h-5 w-5" />
     },
     {
       name: "Network Inspector",
-      path: "/dev/network",
+      path: "/dev/network-inspector", // Fixed: Updated to match actual file
       icon: <Search className="h-5 w-5" />
     },
     {
       name: "Debug Settings",
-      path: "/dev/settings",
+      path: "/dev/debug-settings", // Fixed: Updated to match actual file
       icon: <Bug className="h-5 w-5" />
     },
     {
       name: "Create Token",
-      path: "/token-create",
+      path: "/tokens/create", // Fixed: Updated to match actual file
       icon: <Plus className="h-5 w-5" />
     }
   ];
+
+  // Helper function to check if a path is active
+  const isPathActive = (itemPath: string, currentPath: string) => {
+    // Exact match for most paths
+    if (currentPath === itemPath) return true;
+    
+    // Special handling for system-admin paths with dynamic segments
+    if (itemPath === '/system-admin' && currentPath.startsWith('/system-admin')) {
+      return currentPath === '/system-admin' || currentPath === '/system-admin/';
+    }
+    
+    // For other system-admin sub-paths, check if current path starts with item path
+    if (itemPath.startsWith('/system-admin/') && currentPath.startsWith(itemPath)) {
+      return true;
+    }
+    
+    // For tokens path, handle both /tokens and /tokens/create
+    if (itemPath === '/tokens' && (currentPath === '/tokens' || currentPath.startsWith('/tokens/'))) {
+      return true;
+    }
+    
+    // For AI assistant, handle sub-paths
+    if (itemPath === '/ai-assistant' && currentPath.startsWith('/ai-assistant')) {
+      return true;
+    }
+    
+    return false;
+  };
 
   // Use this to avoid hydration errors - only render on client
   if (!mounted) {
@@ -432,7 +465,7 @@ export function AppSidebar() {
                       <a>
                         <SidebarMenuButton
                           tooltip={item.name}
-                          isActive={router.pathname === item.path}
+                          isActive={isPathActive(item.path, router.pathname)}
                         >
                           {item.icon}
                           <span>{item.name}</span>
@@ -460,7 +493,7 @@ export function AppSidebar() {
                       <a>
                         <SidebarMenuButton
                           tooltip={item.name}
-                          isActive={router.pathname === item.path || (item.path !== "/system-admin" && router.pathname.startsWith(item.path))}
+                          isActive={isPathActive(item.path, router.pathname)}
                         >
                           {item.icon}
                           <span>{item.name}</span>
@@ -486,7 +519,7 @@ export function AppSidebar() {
                       <a>
                         <SidebarMenuButton
                           tooltip={item.name}
-                          isActive={router.pathname === item.path}
+                          isActive={isPathActive(item.path, router.pathname)}
                         >
                           {item.icon}
                           <span>{item.name}</span>
@@ -502,7 +535,23 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="p-4">
-        <div className="text-xs text-muted-foreground text-center">
+        {/* Logout button */}
+        {user && (
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                onClick={handleLogout}
+                tooltip="Logout"
+                className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+              >
+                <LogOut className="h-4 w-4" />
+                <span>Logout</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        )}
+        
+        <div className="text-xs text-muted-foreground text-center mt-2">
           © 2024 Token Nexus Platform
         </div>
       </SidebarFooter>

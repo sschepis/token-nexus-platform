@@ -1,28 +1,29 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
-import { 
-  fetchAuditLogs, 
-  AuditEvent, 
-  AuditEventType, 
-  AuditSeverity, 
-  setEventTypeFilter, 
-  setSeverityFilter, 
-  setDateRangeFilter, 
+import {
+  fetchAuditLogs,
+  AuditEvent,
+  AuditEventType,
+  AuditSeverity,
+  setEventTypeFilter,
+  setSeverityFilter,
+  setDateRangeFilter,
   resetFilters,
   clearErrors, // clearAuditErrors
   deleteAuditLog,
   exportAuditLogs,
-} from "@/store/slices/auditSlice"; // Updated imports
+} from "@/store/slices/auditSlice";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CalendarIcon, Filter, DownloadIcon, Activity, Shield, Coins, UserCog, Loader2, Trash2 } from "lucide-react";
+import { CalendarIcon, Filter, DownloadIcon, Activity, Shield, Coins, UserCog, Loader2, Trash2, RefreshCw, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { usePermission } from "@/hooks/usePermission";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,15 +35,23 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar"; // Assuming shadcn Calendar component
+import { Calendar } from "@/components/ui/calendar";
 import { Textarea } from "@/components/ui/textarea";
+import { usePageController } from "@/hooks/usePageController";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const AuditLogsPage = () => {
   const { toast } = useToast();
+  const { hasPermission } = usePermission();
   const dispatch = useAppDispatch();
   const { events, isLoading, totalCount, hasMore, filters } = useAppSelector((state) => state.audit);
-  const auditError = null; // Removed reference to non-existent 'error' property
+  const auditError = null;
   const { user } = useAppSelector((state) => state.auth);
+
+  // Permission checks
+  const canRead = hasPermission('audit:read');
+  const canWrite = hasPermission('audit:write');
+  const canDelete = hasPermission('audit:delete');
 
   const [activeTab, setActiveTab] = useState<AuditEventType | "all">(filters.eventType && filters.eventType.length > 0 ? filters.eventType[0] : "all");
   const [searchTerm, setSearchTerm] = useState("");
@@ -56,10 +65,84 @@ const AuditLogsPage = () => {
   const [deleteReason, setDeleteReason] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [controllerEvents, setControllerEvents] = useState<any[]>([]);
+  const [isControllerLoading, setIsControllerLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Fetch audit logs based on filters
+  // Initialize page controller
+  const pageController = usePageController({
+    pageId: 'audit-logs',
+    pageName: 'Audit Logs',
+    description: 'Track all activities and actions in your organization',
+    category: 'security',
+    permissions: ['audit:read', 'audit:write', 'audit:delete'],
+    tags: ['audit', 'logs', 'security', 'tracking']
+  });
+
+  // Load audit logs from controller
+  const loadAuditLogs = async () => {
+    if (!pageController.isRegistered || !canRead) return;
+    
+    setIsControllerLoading(true);
+    setError(null);
+    
+    try {
+      const params: any = {};
+      
+      if (activeTab !== "all") {
+        params.eventTypes = [activeTab];
+      }
+      if (selectedSeverity !== "all") {
+        params.severity = [selectedSeverity];
+      }
+      if (dateRange.from) {
+        params.startDate = dateRange.from.toISOString();
+      }
+      if (dateRange.to) {
+        params.endDate = dateRange.to.toISOString();
+      }
+
+      const result = await pageController.executeAction('fetchAuditLogs', params);
+      
+      if (result.success && result.data) {
+        const logsData = result.data as { events: any[] };
+        setControllerEvents(logsData.events || []);
+        toast({
+          title: "Audit logs loaded",
+          description: "Audit logs loaded successfully",
+        });
+      } else {
+        setError(result.error || 'Failed to load audit logs');
+        toast({
+          title: "Error loading audit logs",
+          description: result.error || 'Failed to load audit logs',
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error loading audit logs:', error);
+      setError('Failed to load audit logs');
+      toast({
+        title: "Error loading audit logs",
+        description: 'Failed to load audit logs',
+        variant: "destructive",
+      });
+    } finally {
+      setIsControllerLoading(false);
+    }
+  };
+
   useEffect(() => {
-    dispatch(clearErrors()); // Clear errors from previous operations
+    if (pageController.isRegistered && canRead) {
+      loadAuditLogs();
+    }
+  }, [pageController.isRegistered, canRead, activeTab, selectedSeverity, dateRange]);
+
+  // Fetch audit logs based on filters (keep Redux for backward compatibility)
+  useEffect(() => {
+    if (!canRead) return;
+    
+    dispatch(clearErrors());
 
     const params: {
       startDate?: string;
@@ -82,7 +165,7 @@ const AuditLogsPage = () => {
     }
 
     dispatch(fetchAuditLogs(params));
-  }, [dispatch, activeTab, selectedSeverity, dateRange]);
+  }, [dispatch, canRead, activeTab, selectedSeverity, dateRange]);
 
   // Handle errors from Redux slice
   useEffect(() => {
@@ -143,22 +226,42 @@ const AuditLogsPage = () => {
     }
   };
 
+  // Use controller events if available, fallback to Redux events
+  const allEvents = controllerEvents.length > 0 ? controllerEvents : events;
+  
   const filteredEvents = useMemo(() => {
     const lowercasedSearchTerm = searchTerm.toLowerCase();
-    return events.filter(event => 
+    return allEvents.filter(event =>
       event.description.toLowerCase().includes(lowercasedSearchTerm) ||
       event.userEmail?.toLowerCase().includes(lowercasedSearchTerm) ||
       event.userId.toLowerCase().includes(lowercasedSearchTerm) ||
       event.ipAddress?.toLowerCase().includes(lowercasedSearchTerm)
     );
-  }, [events, searchTerm]);
+  }, [allEvents, searchTerm]);
 
   const handleDeleteConfirmation = (logId: string) => {
+    if (!canDelete) {
+      toast({
+        title: "Permission denied",
+        description: "You don't have permission to delete audit logs",
+        variant: "destructive",
+      });
+      return;
+    }
     setConfirmDeleteLogId(logId);
     setDeleteReason(""); // Clear previous reason
   };
 
   const handleDeleteAuditLog = async () => {
+    if (!canDelete) {
+      toast({
+        title: "Permission denied",
+        description: "You don't have permission to delete audit logs",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!confirmDeleteLogId || !deleteReason || deleteReason.trim().length < 10) {
       toast({
         title: "Error",
@@ -167,7 +270,41 @@ const AuditLogsPage = () => {
       });
       return;
     }
+    
     setIsDeleting(true);
+    
+    if (pageController.isRegistered) {
+      try {
+        const result = await pageController.executeAction('deleteAuditLog', {
+          logId: confirmDeleteLogId,
+          reason: deleteReason.trim()
+        });
+
+        if (result.success) {
+          toast({
+            title: "Audit log deleted",
+            description: "Audit log deleted successfully",
+          });
+          setConfirmDeleteLogId(null);
+          await loadAuditLogs(); // Refresh logs
+        } else {
+          toast({
+            title: "Error deleting audit log",
+            description: result.error || 'Failed to delete audit log',
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error('Error deleting audit log:', error);
+        toast({
+          title: "Error deleting audit log",
+          description: 'Failed to delete audit log',
+          variant: "destructive",
+        });
+      }
+    }
+
+    // Also keep Redux call for backward compatibility
     try {
       await dispatch(deleteAuditLog(confirmDeleteLogId)).unwrap();
       toast({
@@ -182,7 +319,20 @@ const AuditLogsPage = () => {
     }
   };
 
+  const handleRefreshLogs = async () => {
+    await loadAuditLogs();
+  };
+
   const handleExportLogs = async (format: string) => {
+    if (!canRead) {
+      toast({
+        title: "Permission denied",
+        description: "You don't have permission to export audit logs",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsExporting(true);
     try {
       const params: {
@@ -232,6 +382,29 @@ const AuditLogsPage = () => {
     }
   };
   
+  // Show permission error if user can't read audit logs
+  if (!canRead) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Audit Logs</h1>
+            <p className="text-muted-foreground">
+              Track all activities and actions in your organization
+            </p>
+          </div>
+        </div>
+        
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            You don't have permission to view audit logs. Please contact your administrator.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
         <div className="flex justify-between items-center">
@@ -242,23 +415,45 @@ const AuditLogsPage = () => {
             </p>
           </div>
           <div className="flex space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefreshLogs}
+              disabled={isControllerLoading}
+            >
+              {isControllerLoading ? (
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-1" />
+              )}
+              Refresh
+            </Button>
             <Button variant="outline" size="sm" onClick={handleResetFilters}>
               <Filter className="h-4 w-4 mr-1" />
               Reset Filters
             </Button>
-            <Select onValueChange={handleExportLogs} disabled={isExporting}>
-              <SelectTrigger className="w-[120px]">
-                {isExporting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <DownloadIcon className="h-4 w-4 mr-1" />}
-                <SelectValue placeholder="Export" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="csv">CSV</SelectItem>
-                <SelectItem value="json">JSON</SelectItem>
-                <SelectItem value="pdf">PDF</SelectItem>
-              </SelectContent>
-            </Select>
+            {canRead && (
+              <Select onValueChange={handleExportLogs} disabled={isExporting}>
+                <SelectTrigger className="w-[120px]">
+                  {isExporting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <DownloadIcon className="h-4 w-4 mr-1" />}
+                  <SelectValue placeholder="Export" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="csv">CSV</SelectItem>
+                  <SelectItem value="json">JSON</SelectItem>
+                  <SelectItem value="pdf">PDF</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
           </div>
         </div>
+
+        {error && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
         <Card>
           <CardHeader className="pb-3">
@@ -389,9 +584,11 @@ const AuditLogsPage = () => {
                             </TableCell>
                             <TableCell className="font-mono">{event.ipAddress || '-'}</TableCell>
                             <TableCell>
-                              <Button variant="ghost" size="icon" onClick={() => handleDeleteConfirmation(event.id)}>
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
+                              {canDelete && (
+                                <Button variant="ghost" size="icon" onClick={() => handleDeleteConfirmation(event.id)}>
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              )}
                             </TableCell>
                           </TableRow>
                         ))

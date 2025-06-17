@@ -1,7 +1,9 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/router";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { controllerRegistry } from "@/controllers/ControllerRegistry";
+import { usePageController } from "@/hooks/usePageController";
+import { usePermission } from "@/hooks/usePermission";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -44,7 +46,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { toast as sonnerToast } from "sonner";
 import {
   addTrigger,
   updateTrigger,
@@ -53,7 +54,6 @@ import {
   setTriggerStatus,
 } from "@/store/slices/triggerSlice";
 import { ParseTrigger, CreateTriggerRequest, TriggerType } from "@/types/triggers";
-import { CreateTriggerDialog } from "@/components/triggers/CreateTriggerDialog";
 import { CreateTriggerDialog } from "@/components/triggers/CreateTriggerDialog";
 
 /**
@@ -76,15 +76,18 @@ const TriggersPage = () => {
   const { currentOrg } = useAppSelector((state) => state.org);
   const { user: currentUser } = useAppSelector((state) => state.auth);
 
-  // Get the page controller for AI assistant integration
-  const triggersPageController = controllerRegistry.getPageController('triggers');
-  const isRegistered = !!triggersPageController;
+  // Use modern page controller integration
+  const pageController = usePageController('triggers');
+  const canManageTriggers = usePermission('triggers:manage');
+  const { toast } = useToast();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [selectedClass, setSelectedClass] = useState<string>("all");
   const [selectedTriggerType, setSelectedTriggerType] = useState<TriggerType | "all">("all");
+  const [isLoadingTriggers, setIsLoadingTriggers] = useState(false);
+  const [controllerError, setControllerError] = useState<string | null>(null);
 
   // Filter triggers based on search, tab, class, and trigger type
   const filteredTriggers = triggers.filter((trigger) => {
@@ -108,44 +111,115 @@ const TriggersPage = () => {
   });
 
   const handleCreateTrigger = async (triggerData: CreateTriggerRequest) => {
+    if (!canManageTriggers) {
+      setControllerError('You do not have permission to create triggers');
+      return;
+    }
+
     try {
-      dispatch(addTrigger(triggerData));
-      sonnerToast.success('Trigger created successfully');
+      if (pageController.isRegistered) {
+        const result = await pageController.executeAction('createTrigger', triggerData as unknown as Record<string, unknown>);
+        if (result.success) {
+          dispatch(addTrigger(triggerData));
+          toast({
+            title: "Success",
+            description: "Trigger created successfully",
+          });
+        } else {
+          throw new Error(result.error || 'Failed to create trigger');
+        }
+      } else {
+        dispatch(addTrigger(triggerData));
+        toast({
+          title: "Success",
+          description: "Trigger created successfully",
+        });
+      }
     } catch (error) {
       console.error('Failed to create trigger:', error);
-      sonnerToast.error(`Failed to create trigger: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setControllerError(`Failed to create trigger: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
     }
   };
 
   const handleToggleStatus = async (triggerId: string, currentStatus: string) => {
+    if (!canManageTriggers) {
+      setControllerError('You do not have permission to modify triggers');
+      return;
+    }
+
     const newStatus = currentStatus === "active" ? "disabled" : "active";
     
     try {
-      dispatch(setTriggerStatus({ id: triggerId, status: newStatus }));
-      sonnerToast.success(`Trigger ${newStatus === 'active' ? 'activated' : 'disabled'}`);
+      if (pageController.isRegistered) {
+        const result = await pageController.executeAction('toggleTriggerStatus', {
+          triggerId,
+          status: newStatus
+        });
+        if (result.success) {
+          dispatch(setTriggerStatus({ id: triggerId, status: newStatus }));
+          toast({
+            title: "Success",
+            description: `Trigger ${newStatus === 'active' ? 'activated' : 'disabled'}`,
+          });
+        } else {
+          throw new Error(result.error || 'Failed to update trigger');
+        }
+      } else {
+        dispatch(setTriggerStatus({ id: triggerId, status: newStatus }));
+        toast({
+          title: "Success",
+          description: `Trigger ${newStatus === 'active' ? 'activated' : 'disabled'}`,
+        });
+      }
     } catch (error) {
       console.error('Failed to toggle trigger status:', error);
-      sonnerToast.error(`Failed to update trigger: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setControllerError(`Failed to update trigger: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
   const handleDeleteTrigger = async (triggerId: string, triggerName: string) => {
+    if (!canManageTriggers) {
+      setControllerError('You do not have permission to delete triggers');
+      return;
+    }
+
     try {
-      dispatch(deleteTrigger(triggerId));
-      sonnerToast.success('Trigger deleted successfully');
+      if (pageController.isRegistered) {
+        const result = await pageController.executeAction('deleteTrigger', { triggerId });
+        if (result.success) {
+          dispatch(deleteTrigger(triggerId));
+          toast({
+            title: "Success",
+            description: "Trigger deleted successfully",
+          });
+        } else {
+          throw new Error(result.error || 'Failed to delete trigger');
+        }
+      } else {
+        dispatch(deleteTrigger(triggerId));
+        toast({
+          title: "Success",
+          description: "Trigger deleted successfully",
+        });
+      }
     } catch (error) {
       console.error('Failed to delete trigger:', error);
-      sonnerToast.error(`Failed to delete trigger: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setControllerError(`Failed to delete trigger: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
   const handleCloneTrigger = async (sourceTrigger: ParseTrigger) => {
+    if (!canManageTriggers) {
+      setControllerError('You do not have permission to clone triggers');
+      return;
+    }
+
     const newName = prompt(`Enter a name for the cloned trigger:`, `${sourceTrigger.name}_copy`);
     if (!newName) return;
 
     if (triggers.some(t => t.name === newName)) {
-      sonnerToast.error('A trigger with that name already exists');
+      setControllerError('A trigger with that name already exists');
       return;
     }
 
@@ -160,22 +234,52 @@ const TriggersPage = () => {
         tags: [...(sourceTrigger.tags || []), 'cloned']
       };
       
-      dispatch(addTrigger(clonedTrigger));
-      sonnerToast.success(`Trigger cloned successfully as "${newName}"`);
+      if (pageController.isRegistered) {
+        const result = await pageController.executeAction('cloneTrigger', clonedTrigger as unknown as Record<string, unknown>);
+        if (result.success) {
+          dispatch(addTrigger(clonedTrigger));
+          toast({
+            title: "Success",
+            description: `Trigger cloned successfully as "${newName}"`,
+          });
+        } else {
+          throw new Error(result.error || 'Failed to clone trigger');
+        }
+      } else {
+        dispatch(addTrigger(clonedTrigger));
+        toast({
+          title: "Success",
+          description: `Trigger cloned successfully as "${newName}"`,
+        });
+      }
     } catch (error) {
       console.error('Failed to clone trigger:', error);
-      sonnerToast.error(`Failed to clone trigger: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setControllerError(`Failed to clone trigger: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
-  const handleRefreshTriggers = async () => {
+  const handleRefresh = async () => {
+    if (!pageController.isRegistered) return;
+    
+    setIsLoadingTriggers(true);
+    setControllerError(null);
+    
     try {
-      sonnerToast.info("Refreshing triggers...");
-      // In a real implementation, this would fetch from the server
-      sonnerToast.success("Triggers refreshed successfully");
+      const result = await pageController.executeAction('fetchTriggers', { includeStats: true });
+      if (result.success) {
+        // In a real implementation, this would fetch from the server
+        toast({
+          title: "Success",
+          description: "Triggers refreshed successfully",
+        });
+      } else {
+        setControllerError(result.error || 'Failed to refresh triggers');
+      }
     } catch (error) {
       console.error('Failed to refresh triggers:', error);
-      sonnerToast.error(`Failed to refresh triggers: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setControllerError(`Failed to refresh triggers: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsLoadingTriggers(false);
     }
   };
 
@@ -251,12 +355,18 @@ const TriggersPage = () => {
             </p>
           </div>
 
+          {controllerError && (
+            <div className="bg-destructive/15 text-destructive px-4 py-2 rounded-md">
+              {controllerError}
+            </div>
+          )}
+
           <div className="flex items-center gap-2">
             <Button
               size="sm"
               variant="outline"
-              onClick={handleRefreshTriggers}
-              disabled={isLoading}
+              onClick={handleRefresh}
+              disabled={isLoadingTriggers}
             >
               <RefreshCw className="h-4 w-4 mr-2" />
               Refresh
@@ -445,7 +555,10 @@ const TriggersPage = () => {
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => {
                                   navigator.clipboard.writeText(trigger.code);
-                                  sonnerToast.success('Code copied to clipboard');
+                                  toast({
+                                    title: "Success",
+                                    description: "Code copied to clipboard",
+                                  });
                                 }}>
                                   <Copy className="h-4 w-4 mr-2" />
                                   Copy code

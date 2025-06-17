@@ -5,11 +5,29 @@ import {
   ActionResult,
   PageContext
 } from './types/ActionTypes';
+import { apiService } from '../services/api';
+
+export type TokenStatus = 'pending' | 'confirmed' | 'failed';
+export type TokenType = 'ERC3643' | 'Stellar' | 'ERC20' | 'ERC721';
+
+export interface BlockchainToken {
+  id: string;
+  name: string;
+  symbol: string;
+  type: TokenType;
+  blockchain: string;
+  supply: number;
+  status: TokenStatus;
+  createdAt: string;
+  createdBy: string;
+  contractAddress?: string;
+  orgId?: string;
+}
 
 export class TokensPageController implements PageController {
   pageId = 'tokens';
   pageName = 'Tokens';
-  description = 'Manage API tokens, access keys, and authentication credentials';
+  description = 'Manage blockchain tokens, digital assets, and tokenized securities';
   actions = new Map<string, ActionDefinition>();
   context: PageContext = {
     pageId: 'tokens',
@@ -17,14 +35,14 @@ export class TokensPageController implements PageController {
     state: {},
     props: {},
     metadata: {
-      category: 'security',
-      tags: ['tokens', 'api', 'authentication', 'security', 'credentials'],
+      category: 'blockchain',
+      tags: ['tokens', 'blockchain', 'assets', 'securities', 'digital'],
       permissions: ['tokens:read', 'tokens:write', 'tokens:manage']
     }
   };
   metadata = {
-    category: 'security',
-    tags: ['tokens', 'api', 'authentication', 'security', 'credentials'],
+    category: 'blockchain',
+    tags: ['tokens', 'blockchain', 'assets', 'securities', 'digital'],
     permissions: ['tokens:read', 'tokens:write', 'tokens:manage'],
     version: '1.0.0'
   };
@@ -40,70 +58,30 @@ export class TokensPageController implements PageController {
     this.actions.set('fetchTokens', {
       id: 'fetchTokens',
       name: 'Fetch Tokens',
-      description: 'Get all API tokens and access keys for the organization',
+      description: 'Get all blockchain tokens for the organization',
       category: 'data',
       permissions: ['tokens:read'],
       parameters: [
-        { name: 'type', type: 'string', required: false, description: 'Filter by token type (api, access, refresh)' },
-        { name: 'status', type: 'string', required: false, description: 'Filter by status (active, expired, revoked)' },
-        { name: 'includeExpired', type: 'boolean', required: false, description: 'Include expired tokens' },
-        { name: 'createdBy', type: 'string', required: false, description: 'Filter by token creator' }
+        { name: 'type', type: 'string', required: false, description: 'Filter by token type (ERC3643, Stellar, ERC20, ERC721)' },
+        { name: 'status', type: 'string', required: false, description: 'Filter by status (pending, confirmed, failed)' },
+        { name: 'blockchain', type: 'string', required: false, description: 'Filter by blockchain' },
+        { name: 'search', type: 'string', required: false, description: 'Search by name or symbol' }
       ],
       execute: async (params: Record<string, unknown>, context: ActionContext): Promise<ActionResult> => {
         try {
-          const { type, status, includeExpired = false, createdBy } = params;
-          const orgId = context.user.organizationId || context.organization?.id;
-
-          if (!orgId) {
-            return {
-              success: false,
-              error: 'Organization ID is required to fetch tokens',
-              metadata: {
-                executionTime: 0,
-                timestamp: new Date(),
-                actionId: 'fetchTokens',
-                userId: context.user.userId
-              }
-            };
-          }
-
-          const query = new Parse.Query('APIToken');
-          query.equalTo('organizationId', orgId);
-
-          if (type) {
-            query.equalTo('type', type);
-          }
-
-          if (status) {
-            query.equalTo('status', status);
-          } else if (!includeExpired) {
-            query.notEqualTo('status', 'expired');
-            query.notEqualTo('status', 'revoked');
-          }
-
-          if (createdBy) {
-            query.equalTo('createdBy', createdBy);
-          }
-
-          query.descending('createdAt');
-          const tokens = await query.find();
+          const startTime = Date.now();
           
-          // Remove sensitive token values from response
-          const tokenData = tokens.map(token => {
-            const data = token.toJSON();
-            // Mask the actual token value for security
-            if (data.token) {
-              data.token = data.token.substring(0, 8) + '...';
-            }
-            return data;
-          });
+          // Use the existing API service that the Redux slice uses
+          const response = await apiService.getTokens(params);
+          
+          const executionTime = Date.now() - startTime;
 
           return {
             success: true,
-            data: { tokens: tokenData },
-            message: `Found ${tokenData.length} tokens`,
+            data: response.data,
+            message: `Found ${response.data?.tokens?.length || 0} tokens`,
             metadata: {
-              executionTime: 0,
+              executionTime,
               timestamp: new Date(),
               actionId: 'fetchTokens',
               userId: context.user.userId
@@ -114,7 +92,7 @@ export class TokensPageController implements PageController {
             success: false,
             error: error instanceof Error ? error.message : 'Failed to fetch tokens',
             metadata: {
-              executionTime: 0,
+              executionTime: Date.now(),
               timestamp: new Date(),
               actionId: 'fetchTokens',
               userId: context.user.userId
@@ -128,79 +106,33 @@ export class TokensPageController implements PageController {
     this.actions.set('createToken', {
       id: 'createToken',
       name: 'Create Token',
-      description: 'Create a new API token or access key',
+      description: 'Create a new blockchain token',
       category: 'data',
       permissions: ['tokens:write'],
       parameters: [
-        { name: 'name', type: 'string', required: true, description: 'Token name/description' },
-        { name: 'type', type: 'string', required: true, description: 'Token type (api, access, refresh)' },
-        { name: 'permissions', type: 'array', required: false, description: 'Token permissions' },
-        { name: 'expiresIn', type: 'number', required: false, description: 'Expiration time in days' },
-        { name: 'scope', type: 'string', required: false, description: 'Token scope (organization, user, specific)' },
-        { name: 'metadata', type: 'object', required: false, description: 'Additional token metadata' }
+        { name: 'name', type: 'string', required: true, description: 'Token name' },
+        { name: 'symbol', type: 'string', required: true, description: 'Token symbol' },
+        { name: 'type', type: 'string', required: true, description: 'Token type (ERC3643, Stellar, ERC20, ERC721)' },
+        { name: 'blockchain', type: 'string', required: true, description: 'Blockchain network' },
+        { name: 'supply', type: 'number', required: true, description: 'Token supply' },
+        { name: 'description', type: 'string', required: false, description: 'Token description' },
+        { name: 'decimals', type: 'number', required: false, description: 'Token decimals' }
       ],
       execute: async (params: Record<string, unknown>, context: ActionContext): Promise<ActionResult> => {
         try {
-          const { 
-            name, 
-            type, 
-            permissions = [], 
-            expiresIn, 
-            scope = 'organization',
-            metadata = {}
-          } = params;
-          const orgId = context.user.organizationId || context.organization?.id;
-
-          if (!orgId) {
-            return {
-              success: false,
-              error: 'Organization ID is required to create token',
-              metadata: {
-                executionTime: 0,
-                timestamp: new Date(),
-                actionId: 'createToken',
-                userId: context.user.userId
-              }
-            };
-          }
-
-          // Generate secure token
-          const tokenValue = this.generateSecureToken();
-
-          const APIToken = Parse.Object.extend('APIToken');
-          const token = new APIToken();
-
-          token.set('name', name);
-          token.set('type', type);
-          token.set('token', tokenValue);
-          token.set('permissions', permissions);
-          token.set('scope', scope);
-          token.set('metadata', metadata);
-          token.set('organizationId', orgId);
-          token.set('createdBy', context.user.userId);
-          token.set('status', 'active');
-          token.set('usageCount', 0);
-          token.set('lastUsed', null);
-
-          // Set expiration if specified
-          if (expiresIn && typeof expiresIn === 'number') {
-            const expirationDate = new Date();
-            expirationDate.setDate(expirationDate.getDate() + expiresIn);
-            token.set('expiresAt', expirationDate);
-          }
-
-          const savedToken = await token.save();
-          const tokenData = savedToken.toJSON();
-
-          // Return the full token value only on creation
-          tokenData.fullToken = tokenValue;
+          const startTime = Date.now();
+          
+          // Use the existing API service that the Redux slice uses
+          const response = await apiService.createToken(params);
+          
+          const executionTime = Date.now() - startTime;
 
           return {
             success: true,
-            data: { token: tokenData },
-            message: `Token "${name}" created successfully`,
+            data: response.data,
+            message: `Token "${params.name}" created successfully`,
             metadata: {
-              executionTime: 0,
+              executionTime,
               timestamp: new Date(),
               actionId: 'createToken',
               userId: context.user.userId
@@ -211,7 +143,7 @@ export class TokensPageController implements PageController {
             success: false,
             error: error instanceof Error ? error.message : 'Failed to create token',
             metadata: {
-              executionTime: 0,
+              executionTime: Date.now(),
               timestamp: new Date(),
               actionId: 'createToken',
               userId: context.user.userId
@@ -221,179 +153,45 @@ export class TokensPageController implements PageController {
       }
     });
 
-    // Revoke Token Action
-    this.actions.set('revokeToken', {
-      id: 'revokeToken',
-      name: 'Revoke Token',
-      description: 'Revoke an API token or access key',
+    // Delete Token Action
+    this.actions.set('deleteToken', {
+      id: 'deleteToken',
+      name: 'Delete Token',
+      description: 'Delete a blockchain token',
       category: 'data',
       permissions: ['tokens:write'],
       parameters: [
-        { name: 'tokenId', type: 'string', required: true, description: 'Token ID to revoke' },
-        { name: 'reason', type: 'string', required: false, description: 'Reason for revocation' }
+        { name: 'tokenId', type: 'string', required: true, description: 'Token ID to delete' }
       ],
       execute: async (params: Record<string, unknown>, context: ActionContext): Promise<ActionResult> => {
         try {
-          const { tokenId, reason } = params;
-          const orgId = context.user.organizationId || context.organization?.id;
-
-          if (!orgId) {
-            return {
-              success: false,
-              error: 'Organization ID is required to revoke token',
-              metadata: {
-                executionTime: 0,
-                timestamp: new Date(),
-                actionId: 'revokeToken',
-                userId: context.user.userId
-              }
-            };
-          }
-
-          const query = new Parse.Query('APIToken');
-          query.equalTo('objectId', tokenId);
-          query.equalTo('organizationId', orgId);
-
-          const token = await query.first();
-          if (!token) {
-            return {
-              success: false,
-              error: 'Token not found',
-              metadata: {
-                executionTime: 0,
-                timestamp: new Date(),
-                actionId: 'revokeToken',
-                userId: context.user.userId
-              }
-            };
-          }
-
-          token.set('status', 'revoked');
-          token.set('revokedAt', new Date());
-          token.set('revokedBy', context.user.userId);
-          token.set('revocationReason', reason || 'Manual revocation');
-
-          const savedToken = await token.save();
-
-          return {
-            success: true,
-            data: { token: savedToken.toJSON() },
-            message: 'Token revoked successfully',
-            metadata: {
-              executionTime: 0,
-              timestamp: new Date(),
-              actionId: 'revokeToken',
-              userId: context.user.userId
-            }
-          };
-        } catch (error) {
-          return {
-            success: false,
-            error: error instanceof Error ? error.message : 'Failed to revoke token',
-            metadata: {
-              executionTime: 0,
-              timestamp: new Date(),
-              actionId: 'revokeToken',
-              userId: context.user.userId
-            }
-          };
-        }
-      }
-    });
-
-    // Regenerate Token Action
-    this.actions.set('regenerateToken', {
-      id: 'regenerateToken',
-      name: 'Regenerate Token',
-      description: 'Regenerate a new token value for an existing token',
-      category: 'data',
-      permissions: ['tokens:write'],
-      parameters: [
-        { name: 'tokenId', type: 'string', required: true, description: 'Token ID to regenerate' }
-      ],
-      execute: async (params: Record<string, unknown>, context: ActionContext): Promise<ActionResult> => {
-        try {
+          const startTime = Date.now();
           const { tokenId } = params;
-          const orgId = context.user.organizationId || context.organization?.id;
-
-          if (!orgId) {
-            return {
-              success: false,
-              error: 'Organization ID is required to regenerate token',
-              metadata: {
-                executionTime: 0,
-                timestamp: new Date(),
-                actionId: 'regenerateToken',
-                userId: context.user.userId
-              }
-            };
-          }
-
-          const query = new Parse.Query('APIToken');
-          query.equalTo('objectId', tokenId);
-          query.equalTo('organizationId', orgId);
-
-          const token = await query.first();
-          if (!token) {
-            return {
-              success: false,
-              error: 'Token not found',
-              metadata: {
-                executionTime: 0,
-                timestamp: new Date(),
-                actionId: 'regenerateToken',
-                userId: context.user.userId
-              }
-            };
-          }
-
-          if (token.get('status') !== 'active') {
-            return {
-              success: false,
-              error: 'Cannot regenerate inactive token',
-              metadata: {
-                executionTime: 0,
-                timestamp: new Date(),
-                actionId: 'regenerateToken',
-                userId: context.user.userId
-              }
-            };
-          }
-
-          // Generate new token value
-          const newTokenValue = this.generateSecureToken();
-
-          token.set('token', newTokenValue);
-          token.set('regeneratedAt', new Date());
-          token.set('regeneratedBy', context.user.userId);
-          token.set('usageCount', 0); // Reset usage count
-          token.set('lastUsed', null);
-
-          const savedToken = await token.save();
-          const tokenData = savedToken.toJSON();
-
-          // Return the full token value only on regeneration
-          tokenData.fullToken = newTokenValue;
+          
+          // Use the existing API service that the Redux slice uses
+          const response = await apiService.deleteToken(tokenId as string);
+          
+          const executionTime = Date.now() - startTime;
 
           return {
             success: true,
-            data: { token: tokenData },
-            message: 'Token regenerated successfully',
+            data: response.data,
+            message: 'Token deleted successfully',
             metadata: {
-              executionTime: 0,
+              executionTime,
               timestamp: new Date(),
-              actionId: 'regenerateToken',
+              actionId: 'deleteToken',
               userId: context.user.userId
             }
           };
         } catch (error) {
           return {
             success: false,
-            error: error instanceof Error ? error.message : 'Failed to regenerate token',
+            error: error instanceof Error ? error.message : 'Failed to delete token',
             metadata: {
-              executionTime: 0,
+              executionTime: Date.now(),
               timestamp: new Date(),
-              actionId: 'regenerateToken',
+              actionId: 'deleteToken',
               userId: context.user.userId
             }
           };
@@ -401,89 +199,98 @@ export class TokensPageController implements PageController {
       }
     });
 
-    // Update Token Action
-    this.actions.set('updateToken', {
-      id: 'updateToken',
-      name: 'Update Token',
-      description: 'Update token metadata and permissions',
+    // Get Token Details Action
+    this.actions.set('getTokenDetails', {
+      id: 'getTokenDetails',
+      name: 'Get Token Details',
+      description: 'Get detailed information about a specific token',
+      category: 'data',
+      permissions: ['tokens:read'],
+      parameters: [
+        { name: 'tokenId', type: 'string', required: true, description: 'Token ID to fetch details for' }
+      ],
+      execute: async (params: Record<string, unknown>, context: ActionContext): Promise<ActionResult> => {
+        try {
+          const startTime = Date.now();
+          const { tokenId } = params;
+          
+          // Use the existing API service that the Redux slice uses
+          const response = await apiService.getTokenDetails(tokenId as string);
+          
+          const executionTime = Date.now() - startTime;
+
+          return {
+            success: true,
+            data: response.data,
+            message: 'Token details retrieved successfully',
+            metadata: {
+              executionTime,
+              timestamp: new Date(),
+              actionId: 'getTokenDetails',
+              userId: context.user.userId
+            }
+          };
+        } catch (error) {
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Failed to fetch token details',
+            metadata: {
+              executionTime: Date.now(),
+              timestamp: new Date(),
+              actionId: 'getTokenDetails',
+              userId: context.user.userId
+            }
+          };
+        }
+      }
+    });
+
+    // Update Token Status Action
+    this.actions.set('updateTokenStatus', {
+      id: 'updateTokenStatus',
+      name: 'Update Token Status',
+      description: 'Update the status of a blockchain token',
       category: 'data',
       permissions: ['tokens:write'],
       parameters: [
         { name: 'tokenId', type: 'string', required: true, description: 'Token ID to update' },
-        { name: 'name', type: 'string', required: false, description: 'Token name' },
-        { name: 'permissions', type: 'array', required: false, description: 'Token permissions' },
-        { name: 'metadata', type: 'object', required: false, description: 'Token metadata' },
-        { name: 'expiresAt', type: 'string', required: false, description: 'New expiration date (ISO string)' }
+        { name: 'status', type: 'string', required: true, description: 'New status (pending, confirmed, failed)' },
+        { name: 'reason', type: 'string', required: false, description: 'Reason for status change' },
+        { name: 'contractAddress', type: 'string', required: false, description: 'Contract address if confirmed' }
       ],
       execute: async (params: Record<string, unknown>, context: ActionContext): Promise<ActionResult> => {
         try {
-          const { tokenId, ...updateData } = params;
-          const orgId = context.user.organizationId || context.organization?.id;
-
-          if (!orgId) {
-            return {
-              success: false,
-              error: 'Organization ID is required to update token',
-              metadata: {
-                executionTime: 0,
-                timestamp: new Date(),
-                actionId: 'updateToken',
-                userId: context.user.userId
-              }
-            };
-          }
-
-          const query = new Parse.Query('APIToken');
-          query.equalTo('objectId', tokenId);
-          query.equalTo('organizationId', orgId);
-
-          const token = await query.first();
-          if (!token) {
-            return {
-              success: false,
-              error: 'Token not found',
-              metadata: {
-                executionTime: 0,
-                timestamp: new Date(),
-                actionId: 'updateToken',
-                userId: context.user.userId
-              }
-            };
-          }
-
-          // Update fields
-          Object.entries(updateData).forEach(([key, value]) => {
-            if (value !== undefined) {
-              if (key === 'expiresAt' && typeof value === 'string') {
-                token.set(key, new Date(value));
-              } else {
-                token.set(key, value);
-              }
-            }
-          });
-
-          token.set('updatedBy', context.user.userId);
-          const savedToken = await token.save();
+          const startTime = Date.now();
+          const { tokenId, status, reason, contractAddress } = params;
+          
+          // Use the existing API service that the Redux slice uses
+          const response = await apiService.updateTokenStatus(
+            tokenId as string, 
+            status as TokenStatus, 
+            { reason: reason as string, contractAddress: contractAddress as string }
+          );
+          
+          const executionTime = Date.now() - startTime;
 
           return {
             success: true,
-            data: { token: savedToken.toJSON() },
-            message: 'Token updated successfully',
+            data: response.data,
+            message: `Token status updated to ${status}`,
             metadata: {
-              executionTime: 0,
+              executionTime,
               timestamp: new Date(),
-              actionId: 'updateToken',
+              actionId: 'updateTokenStatus',
               userId: context.user.userId
             }
           };
         } catch (error) {
           return {
             success: false,
-            error: error instanceof Error ? error.message : 'Failed to update token',
+            error: error instanceof Error ? error.message : 'Failed to update token status',
             metadata: {
-              executionTime: 0,
+              executionTime: Date.now(),
               timestamp: new Date(),
-              actionId: 'updateToken',
+              actionId: 'updateTokenStatus',
               userId: context.user.userId
             }
           };
@@ -491,104 +298,48 @@ export class TokensPageController implements PageController {
       }
     });
 
-    // Get Token Usage Action
-    this.actions.set('getTokenUsage', {
-      id: 'getTokenUsage',
-      name: 'Get Token Usage',
-      description: 'Get usage statistics for tokens',
+    // Refresh Tokens Action
+    this.actions.set('refreshTokens', {
+      id: 'refreshTokens',
+      name: 'Refresh Tokens',
+      description: 'Refresh the tokens list from the server',
       category: 'data',
       permissions: ['tokens:read'],
-      parameters: [
-        { name: 'tokenId', type: 'string', required: false, description: 'Specific token ID (optional)' },
-        { name: 'period', type: 'string', required: false, description: 'Time period (day, week, month)' }
-      ],
+      parameters: [],
       execute: async (params: Record<string, unknown>, context: ActionContext): Promise<ActionResult> => {
         try {
-          const { tokenId, period = 'month' } = params;
-          const orgId = context.user.organizationId || context.organization?.id;
-
-          if (!orgId) {
-            return {
-              success: false,
-              error: 'Organization ID is required to get token usage',
-              metadata: {
-                executionTime: 0,
-                timestamp: new Date(),
-                actionId: 'getTokenUsage',
-                userId: context.user.userId
-              }
-            };
-          }
-
-          const query = new Parse.Query('APIToken');
-          query.equalTo('organizationId', orgId);
-
-          if (tokenId) {
-            query.equalTo('objectId', tokenId);
-          }
-
-          const tokens = await query.find();
-          const usageData = tokens.map(token => {
-            const data = token.toJSON();
-            return {
-              tokenId: data.objectId,
-              name: data.name,
-              type: data.type,
-              usageCount: data.usageCount || 0,
-              lastUsed: data.lastUsed,
-              status: data.status,
-              createdAt: data.createdAt
-            };
-          });
-
-          // Calculate summary statistics
-          const totalTokens = usageData.length;
-          const activeTokens = usageData.filter(t => t.status === 'active').length;
-          const totalUsage = usageData.reduce((sum, t) => sum + t.usageCount, 0);
+          const startTime = Date.now();
+          
+          // Use the existing API service to refresh tokens
+          const response = await apiService.getTokens({});
+          
+          const executionTime = Date.now() - startTime;
 
           return {
             success: true,
-            data: { 
-              tokens: usageData,
-              summary: {
-                totalTokens,
-                activeTokens,
-                totalUsage,
-                period
-              }
-            },
-            message: `Retrieved usage data for ${usageData.length} tokens`,
+            data: response.data,
+            message: `Refreshed ${response.data?.tokens?.length || 0} tokens`,
             metadata: {
-              executionTime: 0,
+              executionTime,
               timestamp: new Date(),
-              actionId: 'getTokenUsage',
+              actionId: 'refreshTokens',
               userId: context.user.userId
             }
           };
         } catch (error) {
           return {
             success: false,
-            error: error instanceof Error ? error.message : 'Failed to get token usage',
+            error: error instanceof Error ? error.message : 'Failed to refresh tokens',
             metadata: {
-              executionTime: 0,
+              executionTime: Date.now(),
               timestamp: new Date(),
-              actionId: 'getTokenUsage',
+              actionId: 'refreshTokens',
               userId: context.user.userId
             }
           };
         }
       }
     });
-  }
-
-  private generateSecureToken(): string {
-    // Generate a secure random token
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let result = '';
-    for (let i = 0; i < 64; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return `tnp_${result}`;
   }
 }
 

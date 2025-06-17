@@ -137,15 +137,15 @@ export const LogicNode: React.FC<BaseNodeProps> = (props) => {
   const logicDescription = getLogicDescription(data.config);
   const complexity = getLogicComplexity(data.config);
 
-  // Enhanced data with logic-specific information
-  const enhancedData = {
+  // Data with logic-specific information
+  const nodeData = {
     ...data,
     description: logicDescription,
   };
 
   return (
     <div className="relative">
-      <BaseNode {...props} data={enhancedData} />
+      <BaseNode {...props} data={nodeData} />
       
       {/* Logic-specific overlay */}
       <div className="absolute top-2 left-2 flex items-center gap-1">

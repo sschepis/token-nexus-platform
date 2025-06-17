@@ -23,6 +23,7 @@ class AnalyticsService extends BaseService {
    * @param {Object} options Initialization options
    */
   async _initializeService(options = {}) {
+    // Register cache service dependency (it's a singleton instance)
     this.registerDependency('cache', CacheService);
 
     // Initialize cache first

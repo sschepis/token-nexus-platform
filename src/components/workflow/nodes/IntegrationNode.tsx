@@ -164,15 +164,15 @@ export const IntegrationNode: React.FC<BaseNodeProps> = (props) => {
   const integrationStatus = getIntegrationStatus(data.config);
   const securityLevel = getSecurityLevel(integrationType);
 
-  // Enhanced data with integration-specific information
-  const enhancedData = {
+  // Data with integration-specific information
+  const nodeData = {
     ...data,
     description: integrationDescription,
   };
 
   return (
     <div className="relative">
-      <BaseNode {...props} data={enhancedData} />
+      <BaseNode {...props} data={nodeData} />
       
       {/* Integration-specific overlay */}
       <div className="absolute top-2 left-2 flex items-center gap-1">

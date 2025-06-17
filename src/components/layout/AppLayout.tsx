@@ -14,6 +14,7 @@ import FloatingAIChatButton from "@/components/ai-assistant/FloatingAIChatButton
 import AIChatPopup from "@/components/ai-assistant/AIChatPopup";
 import { PlatformState } from "@/services/appInitService";
 import { PageControllerProvider } from "@/contexts/PageControllerContext";
+import { useOrganizationContext } from "@/hooks/useOrganizationContext";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -51,6 +52,9 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   const [isChatPopupOpen, setIsChatPopupOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [platformState, setPlatformState] = useState<PlatformState | null>(null);
+  
+  // Initialize organization context after authentication
+  const { hasOrganizationContext } = useOrganizationContext();
 
   // Fix hydration mismatch by ensuring client-side rendering
   useEffect(() => {
@@ -93,7 +97,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
         query: { from: router.asPath }
       });
     }
-  }, [isAuthenticated, mounted, platformState, isInitialSetup, isSetupRoute, router.pathname, router.asPath, router]);
+  }, [isAuthenticated, mounted, platformState, isInitialSetup, isSetupRoute, router.pathname, router.asPath]);
 
   const toggleChatPopup = () => {
     setIsChatPopupOpen(prev => !prev);

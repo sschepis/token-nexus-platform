@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/router"; // Changed from react-router-dom
 import { useAppDispatch } from "@/store/hooks";
 import { loginStart, loginSuccess, loginFailed } from "@/store/slices/authSlice";
-import { fetchOrgsSuccess, setCurrentOrgById } from "@/store/slices/orgSlice";
+import { fetchOrgsSuccess, setCurrentOrgById, fetchUserOrganizations } from "@/store/slices/orgSlice";
 import { apiService } from "@/services/api";
 import { toast } from "@/hooks/use-toast"; // Assuming this is compatible or will be made compatible
 import Parse from "parse";
@@ -52,22 +52,13 @@ const LoginPage = () => {
         isAdmin: authResponse.isAdmin
       }));
       
-      const orgsResponse = await apiService.getUserOrgs();
-      dispatch(fetchOrgsSuccess(orgsResponse.data.orgs));
+      // Fetch user organizations and current organization details
+      const userOrgsResult = await dispatch(fetchUserOrganizations()).unwrap();
       
-      // Set the current organization if we have an orgId from login response
-      if (authResponse.orgId && orgsResponse.data.orgs.length > 0) {
-        // Check if the orgId from auth response exists in user's organizations
-        const orgExists = orgsResponse.data.orgs.some((org: any) => org.id === authResponse.orgId || org.objectId === authResponse.orgId);
-        if (orgExists) {
-          dispatch(setCurrentOrgById(authResponse.orgId));
-        } else {
-          // If the orgId doesn't exist in user's orgs, set the first available org
-          dispatch(setCurrentOrgById(orgsResponse.data.orgs[0].id || orgsResponse.data.orgs[0].objectId));
-        }
-      } else if (orgsResponse.data.orgs.length > 0) {
-        // If no orgId from auth response, set the first available org
-        dispatch(setCurrentOrgById(orgsResponse.data.orgs[0].id || orgsResponse.data.orgs[0].objectId));
+      // The fetchUserOrganizations already sets the current organization from server
+      // If no current organization was set, set the first available one
+      if (!userOrgsResult.currentOrganization && userOrgsResult.organizations.length > 0) {
+        dispatch(setCurrentOrgById(userOrgsResult.organizations[0].id));
       }
       
       toast({

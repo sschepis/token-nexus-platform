@@ -2,7 +2,7 @@
 import React, { ReactNode } from 'react';
 import { motion, Variants, useAnimation, useInView } from 'framer-motion';
 
-// Enhanced animation variants
+// Advanced animation variants
 interface AnimatedContainerProps {
   children: ReactNode;
   className?: string;
@@ -14,7 +14,7 @@ interface AnimatedContainerProps {
   amount?: 'some' | 'all' | number;
 }
 
-// Enhanced variants with more options
+// Variants with more options
 const fadeVariants: Variants = {
   hidden: { opacity: 0 },
   visible: { opacity: 1 }
@@ -133,7 +133,7 @@ export function AnimatedContainer({
   );
 }
 
-// Page transition variant with enhanced animations
+// Page transition variant
 export const pageTransition: Variants = {
   hidden: { opacity: 0, y: 20 },
   visible: { 
@@ -213,7 +213,7 @@ export const buttonVariants: Variants = {
   }
 };
 
-// Export a page wrapper component with enhanced transitions
+// Export a page wrapper component
 interface PageTransitionProps {
   children: ReactNode;
   className?: string;

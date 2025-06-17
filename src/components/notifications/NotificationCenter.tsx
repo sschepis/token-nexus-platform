@@ -40,7 +40,7 @@ const NotificationCenter = () => {
     if (isOpen && !notifications.length) {
       dispatch(fetchNotifications({}));
     }
-  }, [dispatch, isOpen, notifications.length]);
+  }, [isOpen, notifications.length]);
 
   // Filter notifications based on active tab
   const filteredNotifications = activeTab === "all" 

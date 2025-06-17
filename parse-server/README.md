@@ -97,6 +97,36 @@ const parseServer = new ParseServer({
 app.use('/parse', parseServer);
 ```
 
+## Automated Installation
+
+The Parse Server supports automated installation mode for streamlined deployment and setup. This feature allows you to configure the platform automatically on server startup using environment variables.
+
+### Quick Setup
+
+Set the `AUTO_INSTALL_CONFIG` environment variable with your configuration:
+
+```bash
+export AUTO_INSTALL_CONFIG='{"parentOrgName":"Your Company","adminUserEmail":"admin@yourcompany.com","adminUserPassword":"secure-password","adminUserFirstName":"Admin","adminUserLastName":"User","defaultPlanType":"enterprise"}'
+```
+
+### Docker Deployment
+
+```yaml
+services:
+  parse-server:
+    environment:
+      - AUTO_INSTALL_CONFIG={"parentOrgName":"Your Company","adminUserEmail":"admin@yourcompany.com","adminUserPassword":"secure-password","adminUserFirstName":"Admin","adminUserLastName":"User"}
+```
+
+### Features
+
+- **One-time Setup**: Automatically creates system admin user and parent organization
+- **Environment-based**: Configuration via environment variables
+- **Safe**: Only runs when platform is not yet configured
+- **Error Handling**: Graceful error handling with detailed logging
+
+For detailed configuration options and troubleshooting, see [AUTOMATED_INSTALL.md](./AUTOMATED_INSTALL.md).
+
 ## Data Components
 
 ### Available Components

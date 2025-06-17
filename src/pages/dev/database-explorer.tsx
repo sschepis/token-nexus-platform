@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { Database, Table as TableIcon, Plus } from "lucide-react";
+import { Database, Table as TableIcon, Plus, AlertCircle } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -15,8 +15,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
+import { usePermission } from "@/hooks/usePermission";
+import { usePageController } from "@/hooks/usePageController";
 import { DevToolsWrapper } from "@/components/dev/DevToolsWrapper";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 // Mock database tables for the UI
 const mockTables = [
@@ -89,11 +92,29 @@ const mockData = [
 ];
 
 const DatabaseExplorerPage = () => {
+  const { toast } = useToast();
+  const { hasPermission } = usePermission();
   const [selectedTable, setSelectedTable] = useState<string | null>("users");
   const [query, setQuery] = useState(`SELECT * FROM users LIMIT 100;`);
   const [queryResults, setQueryResults] = useState<Record<string, unknown>[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("browse");
+  const [error, setError] = useState<string | null>(null);
+
+  // Permission checks
+  const canRead = hasPermission('dev:read');
+  const canWrite = hasPermission('dev:write');
+  const canExecute = hasPermission('dev:execute');
+
+  // Initialize page controller
+  const pageController = usePageController({
+    pageId: 'database-explorer',
+    pageName: 'Database Explorer',
+    description: 'Browse database tables and run SQL queries',
+    category: 'development',
+    permissions: ['dev:read', 'dev:write', 'dev:execute'],
+    tags: ['database', 'sql', 'development', 'debugging']
+  });
 
   const handleSelectTable = (tableName: string) => {
     setSelectedTable(tableName);
@@ -108,24 +129,48 @@ const DatabaseExplorerPage = () => {
   };
 
   const handleExecuteQuery = () => {
+    if (!canExecute) {
+      toast({
+        title: "Permission denied",
+        description: "You don't have permission to execute database queries",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
+    setError(null);
     
     setTimeout(() => {
       try {
         if (query.toLowerCase().includes("select") && query.toLowerCase().includes("from users")) {
           setQueryResults(mockData);
-          toast.success("Query executed successfully");
+          toast({
+            title: "Query executed",
+            description: "Query executed successfully",
+          });
         } else if (query.toLowerCase().includes("select")) {
           setQueryResults([]); // For other select queries, return empty for mock
-          toast.info("Query executed (mock response: no results for non-user tables)");
+          toast({
+            title: "Query executed",
+            description: "Query executed (mock response: no results for non-user tables)",
+          });
         }
          else {
           setQueryResults(null); // For non-select queries, clear results
-          toast.info("Unsupported query type for mock explorer or no results.");
+          toast({
+            title: "Query executed",
+            description: "Unsupported query type for mock explorer or no results.",
+          });
         }
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-        toast.error(`Failed to execute query: ${errorMessage}`);
+        setError(errorMessage);
+        toast({
+          title: "Query failed",
+          description: `Failed to execute query: ${errorMessage}`,
+          variant: "destructive",
+        });
         setQueryResults(null);
       } finally {
         setIsLoading(false);
@@ -220,9 +265,14 @@ const DatabaseExplorerPage = () => {
             rows={6}
           />
         </div>
-        <Button onClick={handleExecuteQuery} disabled={isLoading}>
+        <Button onClick={handleExecuteQuery} disabled={isLoading || !canExecute}>
           {isLoading ? "Executing..." : "Execute Query"}
         </Button>
+        {!canExecute && (
+          <p className="text-sm text-muted-foreground mt-2">
+            You need execute permissions to run database queries
+          </p>
+        )}
         
         {queryResults && (
           <div className="border rounded-md mt-4">
@@ -271,6 +321,29 @@ const DatabaseExplorerPage = () => {
     );
   };
 
+  // Show permission error if user can't read dev tools
+  if (!canRead) {
+    return (
+      <DevToolsWrapper toolName="Database Explorer">
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Database Explorer</h1>
+            <p className="text-muted-foreground">
+              Browse database tables and run SQL queries.
+            </p>
+          </div>
+          
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              You don't have permission to access development tools. Please contact your administrator.
+            </AlertDescription>
+          </Alert>
+        </div>
+      </DevToolsWrapper>
+    );
+  }
+
   return (
     <DevToolsWrapper toolName="Database Explorer">
       <div className="space-y-6">
@@ -280,6 +353,13 @@ const DatabaseExplorerPage = () => {
             Browse database tables and run SQL queries.
           </p>
         </div>
+
+        {error && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
         <div className="grid grid-cols-12 gap-6">
           <div className="col-span-12 md:col-span-3">

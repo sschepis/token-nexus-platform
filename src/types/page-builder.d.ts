@@ -37,6 +37,7 @@ export interface Page {
   id: string;
   title: string;
   elements: PageElement[];
+  isPublished?: boolean; // New property
   createdAt: string;
   updatedAt: string;
 }

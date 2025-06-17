@@ -11,12 +11,15 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { toast } from "sonner";
-import { PlusCircle, Trash2, Save, Copy, Eye, EyeOff, Wrench } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { usePermission } from "@/hooks/usePermission";
+import { usePageController } from "@/hooks/usePageController";
+import { PlusCircle, Trash2, Save, Copy, Eye, EyeOff, Wrench, AlertCircle } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { DevToolsWrapper } from "@/components/dev/DevToolsWrapper";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 // Mock environment variables for demonstration
 const mockEnvVars = {
@@ -44,19 +47,54 @@ interface EnvVar {
 }
 
 const EnvManagerPage = () => {
+  const { toast } = useToast();
+  const { hasPermission } = usePermission();
   const [activeTab, setActiveTab] = useState<"development" | "staging" | "production">("development");
   const [envVars, setEnvVars] = useState<Record<string, EnvVar[]>>(mockEnvVars);
   const [newVar, setNewVar] = useState({ key: "", value: "", isSecret: false });
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
+  const [error, setError] = useState<string | null>(null);
+
+  // Permission checks
+  const canRead = hasPermission('dev:read');
+  const canWrite = hasPermission('dev:write');
+  const canExecute = hasPermission('dev:execute');
+
+  // Initialize page controller
+  const pageController = usePageController({
+    pageId: 'env-manager',
+    pageName: 'Environment Manager',
+    description: 'Manage environment variables for different environments',
+    category: 'development',
+    permissions: ['dev:read', 'dev:write', 'dev:execute'],
+    tags: ['environment', 'variables', 'development', 'configuration']
+  });
 
   const handleAddEnvVar = () => {
+    if (!canWrite) {
+      toast({
+        title: "Permission denied",
+        description: "You don't have permission to add environment variables",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!newVar.key) {
-      toast.error("Environment variable name is required");
+      toast({
+        title: "Variable name required",
+        description: "Environment variable name is required",
+        variant: "destructive",
+      });
       return;
     }
     
     if (envVars[activeTab].some(v => v.key === newVar.key)) {
-      toast.error(`Environment variable ${newVar.key} already exists`);
+      toast({
+        title: "Variable exists",
+        description: `Environment variable ${newVar.key} already exists`,
+        variant: "destructive",
+      });
       return;
     }
     
@@ -66,23 +104,54 @@ const EnvManagerPage = () => {
     });
     
     setNewVar({ key: "", value: "", isSecret: false });
-    toast.success("Environment variable added");
+    toast({
+      title: "Variable added",
+      description: "Environment variable added",
+    });
   };
 
   const handleDeleteEnvVar = (key: string) => {
+    if (!canWrite) {
+      toast({
+        title: "Permission denied",
+        description: "You don't have permission to delete environment variables",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setEnvVars({
       ...envVars,
       [activeTab]: envVars[activeTab].filter(v => v.key !== key)
     });
-    toast.success(`Environment variable ${key} deleted`);
+    toast({
+      title: "Variable deleted",
+      description: `Environment variable ${key} deleted`,
+    });
   };
 
   const handleCopyValue = (value: string) => {
+    if (!canRead) {
+      toast({
+        title: "Permission denied",
+        description: "You don't have permission to copy environment variables",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
       navigator.clipboard.writeText(value);
-      toast.success("Value copied to clipboard");
+      toast({
+        title: "Value copied",
+        description: "Value copied to clipboard",
+      });
     } else {
-      toast.error("Clipboard API not available.");
+      toast({
+        title: "Clipboard unavailable",
+        description: "Clipboard API not available.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -94,10 +163,50 @@ const EnvManagerPage = () => {
   };
 
   const handleSaveEnvironment = () => {
+    if (!canWrite) {
+      toast({
+        title: "Permission denied",
+        description: "You don't have permission to save environment variables",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // In a real app, this would save to the backend
-    toast.success(`${activeTab} environment variables saved`);
+    toast({
+      title: "Environment saved",
+      description: `${activeTab} environment variables saved`,
+    });
   };
   
+  // Show permission error if user can't read dev tools
+  if (!canRead) {
+    return (
+      <DevToolsWrapper toolName="Environment Manager">
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+                <Wrench className="h-7 w-7" />
+                Environment Variables
+              </h1>
+              <p className="text-muted-foreground">
+                Manage environment variables for different environments
+              </p>
+            </div>
+          </div>
+          
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              You don't have permission to access development tools. Please contact your administrator.
+            </AlertDescription>
+          </Alert>
+        </div>
+      </DevToolsWrapper>
+    );
+  }
+
   return (
     <DevToolsWrapper toolName="Environment Manager">
       <div className="space-y-6">
@@ -111,11 +220,18 @@ const EnvManagerPage = () => {
               Manage environment variables for different environments
             </p>
           </div>
-          <Button onClick={handleSaveEnvironment}>
+          <Button onClick={handleSaveEnvironment} disabled={!canWrite}>
             <Save className="mr-2 h-4 w-4" />
             Save Changes
           </Button>
         </div>
+
+        {error && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
         
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "development" | "staging" | "production")}>
           <TabsList className="grid w-full grid-cols-3 mb-4">
@@ -167,7 +283,7 @@ const EnvManagerPage = () => {
                         />
                         <Label htmlFor={`new-secret-${env}`}>Secret</Label>
                       </div>
-                      <Button onClick={handleAddEnvVar} className="self-end"> {/* Align button */}
+                      <Button onClick={handleAddEnvVar} className="self-end" disabled={!canWrite}> {/* Align button */}
                         <PlusCircle className="mr-2 h-4 w-4" /> Add
                       </Button>
                     </div>
@@ -223,20 +339,24 @@ const EnvManagerPage = () => {
                             </TableCell>
                             <TableCell>
                               <div className="flex space-x-1">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleCopyValue(variable.value)}
-                                >
-                                  <Copy className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleDeleteEnvVar(variable.key)}
-                                >
-                                  <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
+                                {canRead && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleCopyValue(variable.value)}
+                                  >
+                                    <Copy className="h-4 w-4" />
+                                  </Button>
+                                )}
+                                {canWrite && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleDeleteEnvVar(variable.key)}
+                                  >
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                )}
                               </div>
                             </TableCell>
                           </TableRow>

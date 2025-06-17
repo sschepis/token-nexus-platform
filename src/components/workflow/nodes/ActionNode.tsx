@@ -138,15 +138,15 @@ export const ActionNode: React.FC<BaseNodeProps> = (props) => {
   const actionDescription = getActionDescription(data.config);
   const actionStatus = getActionStatus(data.config);
 
-  // Enhanced data with action-specific information
-  const enhancedData = {
+  // Data with action-specific information
+  const nodeData = {
     ...data,
     description: actionDescription,
   };
 
   return (
     <div className="relative">
-      <BaseNode {...props} data={enhancedData} />
+      <BaseNode {...props} data={nodeData} />
       
       {/* Action-specific overlay */}
       <div className="absolute top-2 left-2 flex items-center gap-1">

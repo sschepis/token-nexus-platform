@@ -1,39 +1,56 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Grid, Save, Loader2 } from 'lucide-react';
+import { PlusCircle, Grid, Save, Loader2, RefreshCw } from 'lucide-react';
 import { useDashboardStore } from '@/store/dashboardStore';
-import { 
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuTrigger 
+  DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 
 interface DashboardControlsProps {
   isEditing: boolean;
   toggleEditing: () => void;
   openWidgetCatalog: () => void;
+  onRefresh?: () => void;
   isSaving?: boolean;
+  isLoading?: boolean;
 }
 
 export const DashboardControls: React.FC<DashboardControlsProps> = ({
   isEditing,
   toggleEditing,
   openWidgetCatalog,
-  isSaving = false
+  onRefresh,
+  isSaving = false,
+  isLoading = false
 }) => {
   const { resetDashboard, widgets } = useDashboardStore();
 
   return (
     <div className="flex items-center space-x-2">
+      {/* Refresh Button */}
+      {onRefresh && (
+        <Button
+          variant="outline"
+          onClick={onRefresh}
+          disabled={isLoading || isSaving}
+          className="flex items-center"
+        >
+          <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
+      )}
+
       <Button
         variant={isEditing ? "default" : "outline"}
         onClick={toggleEditing}
         className="flex items-center"
-        disabled={isSaving}
+        disabled={isSaving || isLoading}
       >
         {isEditing ? (
           <>
@@ -54,22 +71,22 @@ export const DashboardControls: React.FC<DashboardControlsProps> = ({
       
       {isEditing && (
         <>
-          <Button onClick={openWidgetCatalog}>
+          <Button onClick={openWidgetCatalog} disabled={isLoading}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Add Widget
           </Button>
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline">Options</Button>
+              <Button variant="outline" disabled={isLoading}>Options</Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
               <DropdownMenuLabel>Dashboard Settings</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem 
+              <DropdownMenuItem
                 onClick={resetDashboard}
                 className="text-destructive focus:text-destructive"
-                disabled={widgets.length === 0}
+                disabled={widgets.length === 0 || isLoading}
               >
                 Reset Dashboard
               </DropdownMenuItem>

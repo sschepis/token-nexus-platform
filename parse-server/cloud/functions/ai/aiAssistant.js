@@ -4,9 +4,13 @@
 // No longer requiring 'parse/node' explicitly.
 
 // Import necessary services and middleware with correct relative paths
-const AIService = require('../../services/aiService');
-const configService = require('../../services/configService');
+const AIServiceFactory = require('../../services/aiService');
+const configServiceFactory = require('../../services/configService');
 const { withOrganizationContext } = require('../../middleware/organizationContextMiddleware'); // Corrected path
+
+// Initialize services with Parse instance
+const AIService = AIServiceFactory(Parse);
+const configService = configServiceFactory(Parse);
 
 // Helper function to robustly fetch the user's current organization.
 async function getOrganizationForUser(user) {

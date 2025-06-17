@@ -473,6 +473,139 @@ module.exports = Parse => {
     }
   });
 
+  // Get user count for an organization
+  Parse.Cloud.define('getUserCount', withOrganizationContext(async (request) => {
+    const { user, organizationId } = request;
+    
+    if (!user) {
+      throw new Parse.Error(Parse.Error.OPERATION_FORBIDDEN, 'User must be authenticated');
+    }
+
+    try {
+      const { organizationId: paramOrgId } = request.params;
+      
+      // Use organizationId from middleware or params
+      const targetOrgId = organizationId || paramOrgId;
+      
+      if (!targetOrgId) {
+        throw new Parse.Error(Parse.Error.INVALID_PARAMS, 'Organization ID is required');
+      }
+
+      // Check if user has access to this organization
+      const userOrgId = user.get('organizationId');
+      if (userOrgId !== targetOrgId && !user.get('isAdmin') && !user.get('isSystemAdmin')) {
+        throw new Parse.Error(Parse.Error.OPERATION_FORBIDDEN, 'Insufficient permissions to access organization data');
+      }
+
+      // Query user count for the organization
+      const query = new Parse.Query(Parse.User);
+      query.equalTo('organizationId', targetOrgId);
+      const count = await query.count({ useMasterKey: true });
+
+      console.log(`getUserCount: Retrieved count ${count} for organization ${targetOrgId}`);
+
+      return {
+        success: true,
+        count: count
+      };
+    } catch (error) {
+      console.error('Error in getUserCount:', error);
+      throw error;
+    }
+  }));
+
+  // Get user details by ID
+  Parse.Cloud.define('getUserDetails', async (request) => {
+    const { user } = request;
+    const { userId, organizationId } = request.params;
+    
+    if (!user) {
+      throw new Parse.Error(Parse.Error.OPERATION_FORBIDDEN, 'User must be authenticated');
+    }
+
+    try {
+      // If no userId provided, return current user's details
+      const targetUserId = userId || user.id;
+      
+      // Users can always get their own details
+      if (targetUserId === user.id) {
+        console.log(`getUserDetails: User ${targetUserId} retrieving own details`);
+        
+        // Get user's organizations
+        const OrgRole = Parse.Object.extend('OrgRole');
+        const roleQuery = new Parse.Query(OrgRole);
+        roleQuery.equalTo('user', user);
+        roleQuery.equalTo('isActive', true);
+        roleQuery.include('organization');
+        const orgRoles = await roleQuery.find({ useMasterKey: true });
+
+        const organizations = orgRoles.map(role => ({
+          id: role.get('organization').id,
+          name: role.get('organization').get('name'),
+          role: role.get('role'),
+          isActive: role.get('isActive'),
+          assignedAt: role.get('assignedAt')
+        }));
+
+        const currentOrganization = organizations.length > 0 ? organizations[0] : null;
+
+        return {
+          success: true,
+          user: {
+            id: user.id,
+            username: user.get('username'),
+            email: user.get('email'),
+            firstName: user.get('firstName'),
+            lastName: user.get('lastName'),
+            roles: user.get('roles') || [],
+            permissions: user.get('permissions') || [],
+            organizationId: user.get('organizationId'),
+            isActive: user.get('isActive'),
+            lastLogin: user.get('lastLogin')
+          },
+          organizations,
+          currentOrganization
+        };
+      }
+
+      // For other users, check permissions
+      const userOrgId = user.get('organizationId');
+      if (organizationId && userOrgId !== organizationId && !user.get('isAdmin') && !user.get('isSystemAdmin')) {
+        throw new Parse.Error(Parse.Error.OPERATION_FORBIDDEN, 'Insufficient permissions to access user data');
+      }
+
+      // Query the target user
+      const userQuery = new Parse.Query(Parse.User);
+      const targetUser = await userQuery.get(targetUserId, { useMasterKey: true });
+
+      // Additional permission check - users can only see users in their org unless admin
+      if (!user.get('isAdmin') && !user.get('isSystemAdmin') && targetUser.get('organizationId') !== userOrgId) {
+        throw new Parse.Error(Parse.Error.OPERATION_FORBIDDEN, 'Insufficient permissions to access user data');
+      }
+
+      console.log(`getUserDetails: User ${user.id} retrieving details for user ${targetUserId}`);
+
+      return {
+        success: true,
+        user: {
+          id: targetUser.id,
+          username: targetUser.get('username'),
+          email: targetUser.get('email'),
+          firstName: targetUser.get('firstName'),
+          lastName: targetUser.get('lastName'),
+          roles: targetUser.get('roles') || [],
+          permissions: targetUser.get('permissions') || [],
+          organizationId: targetUser.get('organizationId'),
+          isActive: targetUser.get('isActive'),
+          lastLogin: targetUser.get('lastLogin')
+        }
+      };
+    } catch (error) {
+      console.error('Error in getUserDetails:', error);
+      throw error;
+    }
+  });
+
   // Create new user (by system admin)
   Parse.Cloud.define('createUserByAdmin', async (request) => {
     const { user } = request;

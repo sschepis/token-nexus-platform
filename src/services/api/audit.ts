@@ -1,282 +1,155 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import Parse from 'parse';
-import { apiService, mockResponse } from './base';
+import { callCloudFunction, callCloudFunctionForArray } from '../../utils/apiUtils';
 import { AuditEvent } from '../../store/slices/auditSlice';
 
 /**
- * @file Audit API services.
- * Handles operations related to audit logs via Parse Cloud Functions.
+ * Refactored audit API using the new utility functions
+ * This eliminates all the repetitive error handling and Parse.Cloud.run patterns
  */
-const auditApi = {
-  /**
-   * Fetches audit logs based on various filters.
-   * @param {object} [params] - Optional parameters for filtering and pagination.
-   * @param {string} [params.startDate] - Start date for logs (ISO string).
-   * @param {string} [params.endDate] - End date for logs (ISO string).
-   * @param {string[]} [params.actions] - Filter by specific action types.
-   * @param {string[]} [params.userIds] - Filter by user IDs.
-   * @param {string} [params.resourceType] - Filter by resource type affected (e.g., 'Token', 'User').
-   * @param {string | string[]} [params.severity] - Filter by severity level ('low', 'medium', 'high', 'critical').
-   * @param {number} [params.limit] - Maximum number of logs to return.
-   * @param {number} [params.skip] - Number of logs to skip for pagination.
-   * @returns {Promise<{ data: { auditLogs: any[]; totalCount: number; hasMore: boolean } }>} A promise that resolves with audit logs, total count, and hasMore flag.
-   * @throws {Error} Throws an error if fetching audit logs fails.
-   */
-  getAuditLogs: async (params?: {
+
+export interface AuditLogFilters {
+  startDate?: string;
+  endDate?: string;
+  actions?: string[];
+  userIds?: string[];
+  resourceType?: string;
+  severity?: string | string[];
+  limit?: number;
+  skip?: number;
+}
+
+export interface MetricsParams {
+  timeRange?: string;
+  startDate?: string;
+  endDate?: string;
+  organizationId?: string;
+}
+
+export interface ExportParams {
+  format: 'csv' | 'json' | 'pdf';
+  filters?: {
     startDate?: string;
     endDate?: string;
     actions?: string[];
     userIds?: string[];
     resourceType?: string;
-    severity?: string | string[];
-    limit?: number;
-    skip?: number;
-  }): Promise<{ data: { auditLogs: any[]; totalCount: number; hasMore: boolean } }> => {
-    try {
-      const result = await Parse.Cloud.run('getAuditLogs', params || {});
-      
-      return {
-        data: {
-          auditLogs: result.auditLogs || [],
-          totalCount: result.totalCount || 0,
-          hasMore: result.hasMore || false
-        }
-      };
-    } catch (error: any) {
-      console.debug('[Audit API] Error calling getAuditLogs cloud function:', error);
-      throw new Error(error.message || 'Failed to fetch audit logs');
-    }
+  };
+  maxRecords?: number;
+}
+
+export interface UserRoleMetricsParams {
+  organizationId?: string;
+}
+
+export const auditApi = {
+  /**
+   * Fetches audit logs based on various filters
+   */
+  async getAuditLogs(params: AuditLogFilters = {}) {
+    return callCloudFunction('getAuditLogs', params as Record<string, unknown>, {
+      errorMessage: 'Failed to fetch audit logs'
+    });
   },
 
   /**
-   * Deletes a specific audit log entry.
-   * @param {string} auditLogId - The ID of the audit log to delete.
-   * @param {string} reason - The reason for deleting the audit log.
-   * @returns {Promise<{ data: { success: boolean; deletedAuditLog: any } }>} A promise that resolves with success status and the deleted log.
-   * @throws {Error} Throws an error if deleting the audit log fails.
+   * Deletes a specific audit log entry
    */
-  deleteAuditLog: async (auditLogId: string, reason: string): Promise<{ data: { success: boolean; deletedAuditLog: any } }> => {
-    try {
-      const result = await Parse.Cloud.run('deleteAuditLog', { auditLogId, reason });
-      
-      return {
-        data: {
-          success: result.success,
-          deletedAuditLog: result.deletedAuditLog
-        }
-      };
-    } catch (error: any) {
-      console.debug('[Audit API] Error calling deleteAuditLog cloud function:', error);
-      throw new Error(error.message || 'Failed to delete audit log');
-    }
+  async deleteAuditLog(auditLogId: string, reason: string) {
+    return callCloudFunction('deleteAuditLog', { auditLogId, reason }, {
+      errorMessage: 'Failed to delete audit log'
+    });
   },
 
   /**
-   * Performs a bulk deletion of audit logs.
-   * @param {string[]} auditLogIds - An array of audit log IDs to delete.
-   * @param {string} reason - The reason for the bulk deletion.
-   * @param {string} confirmationCode - A confirmation code to authorize the bulk deletion.
-   * @returns {Promise<{ data: { success: boolean; results: any } }>} A promise that resolves with success status and deletion results.
-   * @throws {Error} Throws an error if bulk deleting audit logs fails.
+   * Performs a bulk deletion of audit logs
    */
-  bulkDeleteAuditLogs: async (auditLogIds: string[], reason: string, confirmationCode: string): Promise<{ data: { success: boolean; results: any } }> => {
-    try {
-      const result = await Parse.Cloud.run('bulkDeleteAuditLogs', { auditLogIds, reason, confirmationCode });
-      
-      return {
-        data: {
-          success: result.success,
-          results: result.results
-        }
-      };
-    } catch (error: any) {
-      console.debug('[Audit API] Error calling bulkDeleteAuditLogs cloud function:', error);
-      throw new Error(error.message || 'Failed to bulk delete audit logs');
-    }
+  async bulkDeleteAuditLogs(auditLogIds: string[], reason: string, confirmationCode: string) {
+    return callCloudFunction('bulkDeleteAuditLogs', { auditLogIds, reason, confirmationCode }, {
+      errorMessage: 'Failed to bulk delete audit logs'
+    });
   },
 
   /**
-   * Exports audit logs in a specified format.
-   * @param {object} params - Parameters for the export operation.
-   * @param {'csv' | 'json' | 'pdf'} params.format - The desired export format.
-   * @param {object} [params.filters] - Optional filters to apply before exporting.
-   * @param {string} [params.filters.startDate] - Start date for logs (ISO string).
-   * @param {string} [params.filters.endDate] - End date for logs (ISO string).
-   * @param {string[]} [params.filters.actions] - Filter by specific action types.
-   * @param {string[]} [params.filters.userIds] - Filter by user IDs.
-   * @param {string} [params.filters.resourceType] - Filter by resource type.
-   * @param {number} [params.maxRecords] - Maximum number of records to export.
-   * @returns {Promise<{ data: { data: any; metadata: any } }>} A promise that resolves with the exported data and metadata.
-   * @throws {Error} Throws an error if exporting audit logs fails.
+   * Exports audit logs in a specified format
    */
-  exportAuditLogs: async (params: {
-    format: 'csv' | 'json' | 'pdf';
-    filters?: {
-      startDate?: string;
-      endDate?: string;
-      actions?: string[];
-      userIds?: string[];
-      resourceType?: string;
-    };
-    maxRecords?: number;
-  }): Promise<{ data: { data: any; metadata: any } }> => {
-    try {
-      const result = await Parse.Cloud.run('exportAuditLogs', params);
-      
-      return {
-        data: {
-          data: result.data,
-          metadata: result.metadata
-        }
-      };
-    } catch (error: any) {
-      console.debug('[Audit API] Error calling exportAuditLogs cloud function:', error);
-      throw new Error(error.message || 'Failed to export audit logs');
-    }
+  async exportAuditLogs(params: ExportParams) {
+    return callCloudFunction('exportAuditLogs', params as unknown as Record<string, unknown>, {
+      errorMessage: 'Failed to export audit logs'
+    });
   },
 
   /**
-   * Retrieves statistics related to audit log exports.
-   * @returns {Promise<{ data: { statistics: any } }>} A promise that resolves with export statistics.
-   * @throws {Error} Throws an error if fetching export statistics fails.
+   * Retrieves statistics related to audit log exports
    */
-  getExportStatistics: async (): Promise<{ data: { statistics: any } }> => {
-    try {
-      const result = await Parse.Cloud.run('getExportStatistics');
-      
-      return {
-        data: {
-          statistics: result.statistics
-        }
-      };
-    } catch (error: any) {
-      console.debug('[Audit API] Error calling getExportStatistics cloud function:', error);
-      throw new Error(error.message || 'Failed to fetch export statistics');
-    }
+  async getExportStatistics() {
+    return callCloudFunction('getExportStatistics', {}, {
+      errorMessage: 'Failed to fetch export statistics'
+    });
   },
 
   /**
-   * Fetches token activity metrics based on time range and organization.
-   * @param {object} params - Parameters for fetching metrics.
-   * @param {string} [params.timeRange] - Predefined time range (e.g., '7d', '30d').
-   * @param {string} [params.startDate] - Custom start date (ISO string).
-   * @param {string} [params.endDate] - Custom end date (ISO string).
-   * @param {string} [params.organizationId] - Optional: Filter by organization ID.
-   * @returns {Promise<{ data: any[] }>} A promise that resolves with an array of token activity data.
-   * @throws {Error} Throws an error if fetching metrics fails.
+   * Fetches token activity metrics based on time range and organization
    */
-  fetchTokenActivityMetrics: async (params: {
-    timeRange?: string;
-    startDate?: string;
-    endDate?: string;
-    organizationId?: string;
-  }): Promise<{ data: any[] }> => {
-    try {
-      const result = await Parse.Cloud.run('fetchTokenActivityMetrics', params);
-      return { data: result.data || [] };
-    } catch (error: any) {
-      console.debug('[Audit API] Error calling fetchTokenActivityMetrics cloud function:', error);
-      throw new Error(error.message || 'Failed to fetch token activity metrics');
-    }
+  async fetchTokenActivityMetrics(params: MetricsParams) {
+    return callCloudFunctionForArray('fetchTokenActivityMetrics', params as Record<string, unknown>, {
+      errorMessage: 'Failed to fetch token activity metrics'
+    });
   },
 
   /**
-   * Fetches user activity metrics based on time range and organization.
-   * @param {object} params - Parameters for fetching user activity metrics.
-   * @param {string} [params.timeRange] - Predefined time range (e.g., '7d', '30d').
-   * @param {string} [params.startDate] - Custom start date (ISO string).
-   * @param {string} [params.endDate] - Custom end date (ISO string).
-   * @param {string} [params.organizationId] - Optional: Filter by organization ID.
-   * @returns {Promise<{ data: any[] }>} A promise that resolves with an array of user activity data.
-   * @throws {Error} Throws an error if fetching user activity metrics fails.
+   * Fetches user activity metrics based on time range and organization
    */
-  fetchUserActivityMetrics: async (params: {
-    timeRange?: string;
-    startDate?: string;
-    endDate?: string;
-    organizationId?: string;
-  }): Promise<{ data: any[] }> => {
-    try {
-      const result = await Parse.Cloud.run('fetchUserActivityMetrics', params);
-      return { data: result.data || [] };
-    } catch (error: any) {
-      console.debug('[Audit API] Error calling fetchUserActivityMetrics cloud function:', error);
-      throw new Error(error.message || 'Failed to fetch user activity metrics');
-    }
+  async fetchUserActivityMetrics(params: MetricsParams) {
+    return callCloudFunctionForArray('fetchUserActivityMetrics', params as Record<string, unknown>, {
+      errorMessage: 'Failed to fetch user activity metrics'
+    });
   },
 
   /**
-   * Fetches transaction type metrics.
-   * @param {object} params - Parameters for fetching transaction type metrics.
-   * @param {string} [params.timeRange] - Predefined time range (e.g., '7d', '30d').
-   * @param {string} [params.startDate] - Custom start date (ISO string).
-   * @param {string} [params.endDate] - Custom end date (ISO string).
-   * @param {string} [params.organizationId] - Optional: Filter by organization ID.
-   * @returns {Promise<{ data: any[] }>} A promise that resolves with an array of transaction type data.
-   * @throws {Error} Throws an error if fetching transaction type metrics fails.
+   * Fetches transaction type metrics
    */
-  fetchTransactionTypeMetrics: async (params: {
-    timeRange?: string;
-    startDate?: string;
-    endDate?: string;
-    organizationId?: string;
-  }): Promise<{ data: any[] }> => {
-    try {
-      const result = await Parse.Cloud.run('fetchTransactionTypeMetrics', params);
-      return { data: result.data || [] };
-    } catch (error: any) {
-      console.debug('[Audit API] Error calling fetchTransactionTypeMetrics cloud function:', error);
-      throw new Error(error.message || 'Failed to fetch transaction type metrics');
-    }
+  async fetchTransactionTypeMetrics(params: MetricsParams) {
+    return callCloudFunctionForArray('fetchTransactionTypeMetrics', params as Record<string, unknown>, {
+      errorMessage: 'Failed to fetch transaction type metrics'
+    });
   },
 
   /**
-   * Fetches user role metrics.
-   * @param {object} params - Parameters for fetching user role metrics.
-   * @param {string} [params.organizationId] - Optional: Filter by organization ID.
-   * @returns {Promise<{ data: any[] }>} A promise that resolves with an array of user role data.
-   * @throws {Error} Throws an error if fetching user role metrics fails.
+   * Fetches user role metrics
    */
-  fetchUserRoleMetrics: async (params: {
-    organizationId?: string;
-  }): Promise<{ data: any[] }> => {
-    try {
-      const result = await Parse.Cloud.run('fetchUserRoleMetrics', params);
-      return { data: result.data || [] };
-    } catch (error: any) {
-      console.debug('[Audit API] Error calling fetchUserRoleMetrics cloud function:', error);
-      throw new Error(error.message || 'Failed to fetch user role metrics');
-    }
+  async fetchUserRoleMetrics(params: UserRoleMetricsParams) {
+    return callCloudFunctionForArray('fetchUserRoleMetrics', params as Record<string, unknown>, {
+      errorMessage: 'Failed to fetch user role metrics'
+    });
   },
 
   /**
-   * Fetches API usage metrics based on time range and organization.
-   * @param {object} params - Parameters for fetching API usage metrics.
-   * @param {string} [params.timeRange] - Predefined time range (e.g., '7d', '30d').
-   * @param {string} [params.startDate] - Custom start date (ISO string).
-   * @param {string} [params.endDate] - Custom end date (ISO string).
-   * @param {string} [params.organizationId] - Optional: Filter by organization ID.
-   * @returns {Promise<{ data: any[] }>} A promise that resolves with an array of API usage data.
-   * @throws {Error} Throws an error if fetching API usage metrics fails.
+   * Fetches API usage metrics based on time range and organization
    */
-  fetchAPIMetrics: async (params: {
-    timeRange?: string;
-    startDate?: string;
-    endDate?: string;
-    organizationId?: string;
-  }): Promise<{ data: any[] }> => {
-    try {
-      const result = await Parse.Cloud.run('fetchAPIMetrics', params);
-      return { data: result.data || [] };
-    } catch (error: any) {
-      console.debug('[Audit API] Error calling fetchAPIMetrics cloud function:', error);
-      throw new Error(error.message || 'Failed to fetch API metrics');
-    }
+  async fetchAPIMetrics(params: MetricsParams) {
+    return callCloudFunctionForArray('fetchAPIMetrics', params as Record<string, unknown>, {
+      errorMessage: 'Failed to fetch API metrics'
+    });
   },
+
+  /**
+   * Batch delete multiple audit logs with retry mechanism
+   */
+  async batchDeleteAuditLogs(deletions: Array<{ auditLogId: string; reason: string }>) {
+    const operations = deletions.map(({ auditLogId, reason }) => 
+      () => this.deleteAuditLog(auditLogId, reason)
+    );
+
+    const { batchApiCalls } = await import('../../utils/apiUtils');
+    return batchApiCalls(operations, {
+      continueOnError: true,
+      showErrorToast: false
+    });
+  }
 };
 
+// Mock data for development/testing
 const mockAuditApis = {
-  getAuditLogs: (filters?: any) => {
+  getAuditLogs: (filters?: AuditLogFilters) => {
     const auditEvents: AuditEvent[] = [
       {
         id: "audit-1",
@@ -352,38 +225,130 @@ const mockAuditApis = {
         filteredEvents = filteredEvents.filter(e => new Date(e.createdAt) <= end);
       }
       if (filters.actions && filters.actions.length > 0) {
-        filteredEvents = filteredEvents.filter(e => filters.actions.includes(e.eventType));
+        filteredEvents = filteredEvents.filter(e => filters.actions!.includes(e.eventType));
       }
       if (filters.severity && filters.severity.length > 0) {
         const severities = Array.isArray(filters.severity) ? filters.severity : [filters.severity];
         filteredEvents = filteredEvents.filter(e => severities.includes(e.severity));
       }
-      // Implement other filters as needed for userId, resourceType etc.
     }
 
-    return mockResponse({
-      auditLogs: filteredEvents,
-      totalCount: filteredEvents.length,
-      hasMore: false,
+    return Promise.resolve({
+      success: true,
+      data: {
+        auditLogs: filteredEvents,
+        totalCount: filteredEvents.length,
+        hasMore: false,
+      }
     });
   },
 
   deleteAuditLog: (auditLogId: string, reason: string) => {
-    return mockResponse({ success: true, deletedAuditLog: { id: auditLogId, reason } });
+    return Promise.resolve({
+      success: true,
+      data: { success: true, deletedAuditLog: { id: auditLogId, reason } }
+    });
   },
 
   bulkDeleteAuditLogs: (auditLogIds: string[], reason: string, confirmationCode: string) => {
-    return mockResponse({ success: true, results: auditLogIds.map(id => ({ id, status: 'deleted' })) });
+    return Promise.resolve({
+      success: true,
+      data: { success: true, results: auditLogIds.map(id => ({ id, status: 'deleted' })) }
+    });
   },
 
-  exportAuditLogs: (params: any) => {
-    return mockResponse({ data: 'mock_export_data', metadata: { format: params.format, count: 10 } });
+  exportAuditLogs: (params: ExportParams) => {
+    return Promise.resolve({
+      success: true,
+      data: { data: 'mock_export_data', metadata: { format: params.format, count: 10 } }
+    });
   },
 
   getExportStatistics: () => {
-    return mockResponse({ statistics: { totalExports: 5, lastExport: new Date().toISOString() } });
+    return Promise.resolve({
+      success: true,
+      data: { statistics: { totalExports: 5, lastExport: new Date().toISOString() } }
+    });
   },
+
+  fetchTokenActivityMetrics: (params: MetricsParams) => {
+    return Promise.resolve({
+      success: true,
+      data: [
+        { date: '2024-01-01', count: 10, value: 1000 },
+        { date: '2024-01-02', count: 15, value: 1500 }
+      ]
+    });
+  },
+
+  fetchUserActivityMetrics: (params: MetricsParams) => {
+    return Promise.resolve({
+      success: true,
+      data: [
+        { date: '2024-01-01', activeUsers: 25, newUsers: 5 },
+        { date: '2024-01-02', activeUsers: 30, newUsers: 3 }
+      ]
+    });
+  },
+
+  fetchTransactionTypeMetrics: (params: MetricsParams) => {
+    return Promise.resolve({
+      success: true,
+      data: [
+        { type: 'transfer', count: 100 },
+        { type: 'mint', count: 50 },
+        { type: 'burn', count: 25 }
+      ]
+    });
+  },
+
+  fetchUserRoleMetrics: (params: UserRoleMetricsParams) => {
+    return Promise.resolve({
+      success: true,
+      data: [
+        { role: 'admin', count: 5 },
+        { role: 'developer', count: 15 },
+        { role: 'user', count: 100 }
+      ]
+    });
+  },
+
+  fetchAPIMetrics: (params: MetricsParams) => {
+    return Promise.resolve({
+      success: true,
+      data: [
+        { endpoint: '/api/tokens', calls: 1000, errors: 10 },
+        { endpoint: '/api/users', calls: 500, errors: 5 }
+      ]
+    });
+  },
+
+  batchDeleteAuditLogs: (deletions: Array<{ auditLogId: string; reason: string }>) => {
+    return Promise.resolve({
+      results: deletions.map(() => ({ success: true })),
+      successCount: deletions.length,
+      errorCount: 0
+    });
+  }
 };
 
-// Merge Audit APIs into the global apiService
-Object.assign(apiService, process.env.NEXT_PUBLIC_USE_MOCK_API === 'true' ? mockAuditApis : auditApi);
+// Export individual functions for backward compatibility
+export const {
+  getAuditLogs,
+  deleteAuditLog,
+  bulkDeleteAuditLogs,
+  exportAuditLogs,
+  getExportStatistics,
+  fetchTokenActivityMetrics,
+  fetchUserActivityMetrics,
+  fetchTransactionTypeMetrics,
+  fetchUserRoleMetrics,
+  fetchAPIMetrics,
+  batchDeleteAuditLogs
+} = auditApi;
+
+// Use mock or real API based on environment
+const finalAuditApi = process.env.NEXT_PUBLIC_USE_MOCK_API === 'true' ? mockAuditApis : auditApi;
+
+// Default export
+export default finalAuditApi;

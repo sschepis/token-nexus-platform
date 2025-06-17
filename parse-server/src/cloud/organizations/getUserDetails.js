@@ -90,7 +90,7 @@ Parse.Cloud.define("getUserDetails", async (request) => {
     });
 
     // Build response with organization details and user's roles
-    const organizationsData = (organizations || []).map(org => {
+    const organizationsData = (Array.isArray(organizations) ? organizations : []).map(org => {
       const orgId = org.id;
       const orgRoles = userOrgRoles.get(orgId) || [];
       const isCurrentOrg = currentOrg && currentOrg.id === orgId;
@@ -132,7 +132,8 @@ Parse.Cloud.define("getUserDetails", async (request) => {
         createdAt: targetUser.get('createdAt'),
         lastLogin: targetUser.get('lastLogin')
       },
-      organizations: organizationsData
+      organizations: organizationsData,
+      currentOrganization: currentOrg ? currentOrg.toJSON() : null // Include the current organization object
     };
 
   } catch (error) {

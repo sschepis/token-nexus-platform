@@ -244,7 +244,7 @@ export const WorkflowEditor: React.FC<WorkflowEditorProps> = ({
     } finally {
       setIsExecuting(false);
     }
-  }, [workflow, isExecuting, validationErrors.length, onExecute, dispatch]);
+  }, [workflow, isExecuting, validationErrors.length]);
 
   // Toggle workflow status
   const handleToggleStatus = useCallback(async () => {

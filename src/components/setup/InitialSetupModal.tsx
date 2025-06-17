@@ -40,7 +40,7 @@ const InitialSetupModal: React.FC<InitialSetupModalProps> = ({ onClose }) => {
         console.error('Error parsing platform status:', e);
       }
     }
-  }, [router]);
+  }, []);
 
   const handleProceedToSetup = () => {
     // Navigate to the appropriate setup route based on platform state

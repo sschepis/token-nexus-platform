@@ -3,6 +3,7 @@ import { immer } from 'zustand/middleware/immer';
 import { devtools } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
 import { PageElement, Page, PageElementProps } from '@/types/page-builder';
+import { CustomComponent } from '@/types/component-library';
 
 // Add a new interface for uploaded media files
 export interface UploadedMedia {
@@ -14,16 +15,114 @@ export interface UploadedMedia {
   createdAt: string;
 }
 
+// Component library types
+export interface ComponentCategory {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  order: number;
+}
+
+export interface ComponentFilter {
+  category?: string;
+  type?: string;
+  tags?: string[];
+  objectBinding?: string;
+}
+
+export interface ComponentSuggestion {
+  id: string;
+  component: CustomComponent;
+  relevanceScore: number;
+  confidence: number;
+  reason: string;
+  context: string;
+}
+
+export interface LayoutSuggestion {
+  id: string;
+  type: 'spacing' | 'alignment' | 'responsive' | 'performance';
+  description: string;
+  elementIds: string[];
+  changes: Record<string, any>;
+  impact: 'low' | 'medium' | 'high';
+}
+
+export interface BindingSuggestion {
+  id: string;
+  componentId: string;
+  sourceObject: string;
+  sourceField: string;
+  targetProperty: string;
+  confidence: number;
+  description: string;
+}
+
+export interface ContentSuggestion {
+  id: string;
+  type: 'headline' | 'description' | 'cta' | 'list' | 'paragraph';
+  content: string;
+  context: string;
+  tone: string;
+}
+
+export interface AIInteraction {
+  id: string;
+  type: 'query' | 'suggestion' | 'optimization';
+  content: string;
+  timestamp: Date;
+  response?: string;
+}
+
 interface PageBuilderState {
   pages: Page[];
   currentPageId: string | null;
   selectedElementId: string | null;
   isDragging: boolean;
   clipboard: PageElement | null;
-  uploadedMedia: UploadedMedia[]; // Add this to store uploaded files
+  uploadedMedia: UploadedMedia[];
   history: {
     past: Page[][];
     future: Page[][];
+  };
+  
+  // Component library state
+  componentLibrary: {
+    components: CustomComponent[];
+    categories: ComponentCategory[];
+    selectedComponent: CustomComponent | null;
+    searchQuery: string;
+    filters: ComponentFilter;
+    isLoading: boolean;
+    error: string | null;
+  };
+  
+  // AI assistant state
+  aiAssistant: {
+    isActive: boolean;
+    isLoading: boolean;
+    suggestions: ComponentSuggestion[];
+    layoutOptimizations: LayoutSuggestion[];
+    bindingSuggestions: BindingSuggestion[];
+    contentSuggestions: ContentSuggestion[];
+    interactions: AIInteraction[];
+    autoBindingEnabled: boolean;
+    lastSuggestionTime: Date | null;
+  };
+  
+  // Enhanced UI state
+  ui: {
+    leftPanelWidth: number;
+    rightPanelWidth: number;
+    showComponentLibrary: boolean;
+    showAIAssistant: boolean;
+    showLayers: boolean;
+    showStyles: boolean;
+    showPageList: boolean;
+    currentView: 'design' | 'code' | 'preview';
+    deviceMode: 'desktop' | 'tablet' | 'mobile';
+    isFullscreen: boolean;
   };
 }
 
@@ -60,6 +159,40 @@ interface PageBuilderActions {
   undo: () => void;
   redo: () => void;
   saveHistoryState: () => void;
+  
+  // Component library actions
+  setComponents: (components: CustomComponent[]) => void;
+  addComponent: (component: CustomComponent) => void;
+  updateComponent: (componentId: string, updates: Partial<CustomComponent>) => void;
+  deleteComponent: (componentId: string) => void;
+  selectComponent: (component: CustomComponent | null) => void;
+  setComponentSearchQuery: (query: string) => void;
+  setComponentFilters: (filters: ComponentFilter) => void;
+  setComponentLibraryLoading: (isLoading: boolean) => void;
+  setComponentLibraryError: (error: string | null) => void;
+  
+  // AI assistant actions
+  toggleAIAssistant: () => void;
+  setAILoading: (isLoading: boolean) => void;
+  setComponentSuggestions: (suggestions: ComponentSuggestion[]) => void;
+  setLayoutOptimizations: (optimizations: LayoutSuggestion[]) => void;
+  setBindingSuggestions: (suggestions: BindingSuggestion[]) => void;
+  setContentSuggestions: (suggestions: ContentSuggestion[]) => void;
+  addAIInteraction: (interaction: AIInteraction) => void;
+  toggleAutoBinding: () => void;
+  clearAISuggestions: () => void;
+  
+  // UI actions
+  setLeftPanelWidth: (width: number) => void;
+  setRightPanelWidth: (width: number) => void;
+  toggleComponentLibrary: () => void;
+  toggleAIAssistantPanel: () => void;
+  toggleLayers: () => void;
+  toggleStyles: () => void;
+  togglePageList: () => void;
+  setCurrentView: (view: 'design' | 'code' | 'preview') => void;
+  setDeviceMode: (mode: 'desktop' | 'tablet' | 'mobile') => void;
+  toggleFullscreen: () => void;
 }
 
 const initialState: PageBuilderState = {
@@ -72,7 +205,52 @@ const initialState: PageBuilderState = {
   history: {
     past: [],
     future: [],
-  }
+  },
+  
+  // Component library initial state
+  componentLibrary: {
+    components: [],
+    categories: [
+      { id: 'layout', name: 'Layout', description: 'Layout components', icon: 'layout', order: 1 },
+      { id: 'data-display', name: 'Data Display', description: 'Data display components', icon: 'table', order: 2 },
+      { id: 'forms', name: 'Forms', description: 'Form components', icon: 'form-input', order: 3 },
+      { id: 'charts', name: 'Charts', description: 'Chart components', icon: 'bar-chart', order: 4 },
+      { id: 'apps', name: 'Apps', description: 'Mini-app components', icon: 'app-window', order: 5 },
+      { id: 'custom', name: 'Custom', description: 'Custom components', icon: 'puzzle', order: 6 }
+    ],
+    selectedComponent: null,
+    searchQuery: '',
+    filters: {},
+    isLoading: false,
+    error: null,
+  },
+  
+  // AI assistant initial state
+  aiAssistant: {
+    isActive: false,
+    isLoading: false,
+    suggestions: [],
+    layoutOptimizations: [],
+    bindingSuggestions: [],
+    contentSuggestions: [],
+    interactions: [],
+    autoBindingEnabled: true,
+    lastSuggestionTime: null,
+  },
+  
+  // Enhanced UI initial state
+  ui: {
+    leftPanelWidth: 280,
+    rightPanelWidth: 320,
+    showComponentLibrary: true,
+    showAIAssistant: false,
+    showLayers: true,
+    showStyles: true,
+    showPageList: true, // Show page list by default
+    currentView: 'design',
+    deviceMode: 'desktop',
+    isFullscreen: false,
+  },
 };
 
 export const usePageBuilderStore = create<PageBuilderState & PageBuilderActions>()(
@@ -525,6 +703,198 @@ export const usePageBuilderStore = create<PageBuilderState & PageBuilderActions>
         set((state) => {
           state.history.past.push([...state.pages]);
           state.history.future = [];
+        });
+      },
+      
+      // Component library actions
+      setComponents: (components) => {
+        set((state) => {
+          state.componentLibrary.components = components;
+        });
+      },
+      
+      addComponent: (component) => {
+        set((state) => {
+          state.componentLibrary.components.push(component);
+        });
+      },
+      
+      updateComponent: (componentId, updates) => {
+        set((state) => {
+          const index = state.componentLibrary.components.findIndex(c => c.id === componentId);
+          if (index !== -1) {
+            state.componentLibrary.components[index] = {
+              ...state.componentLibrary.components[index],
+              ...updates
+            };
+          }
+        });
+      },
+      
+      deleteComponent: (componentId) => {
+        set((state) => {
+          state.componentLibrary.components = state.componentLibrary.components.filter(
+            c => c.id !== componentId
+          );
+          if (state.componentLibrary.selectedComponent?.id === componentId) {
+            state.componentLibrary.selectedComponent = null;
+          }
+        });
+      },
+      
+      selectComponent: (component) => {
+        set((state) => {
+          state.componentLibrary.selectedComponent = component;
+        });
+      },
+      
+      setComponentSearchQuery: (query) => {
+        set((state) => {
+          state.componentLibrary.searchQuery = query;
+        });
+      },
+      
+      setComponentFilters: (filters) => {
+        set((state) => {
+          state.componentLibrary.filters = filters;
+        });
+      },
+      
+      setComponentLibraryLoading: (isLoading) => {
+        set((state) => {
+          state.componentLibrary.isLoading = isLoading;
+        });
+      },
+      
+      setComponentLibraryError: (error) => {
+        set((state) => {
+          state.componentLibrary.error = error;
+        });
+      },
+      
+      // AI assistant actions
+      toggleAIAssistant: () => {
+        set((state) => {
+          state.aiAssistant.isActive = !state.aiAssistant.isActive;
+          state.ui.showAIAssistant = state.aiAssistant.isActive;
+        });
+      },
+      
+      setAILoading: (isLoading) => {
+        set((state) => {
+          state.aiAssistant.isLoading = isLoading;
+        });
+      },
+      
+      setComponentSuggestions: (suggestions) => {
+        set((state) => {
+          state.aiAssistant.suggestions = suggestions;
+          state.aiAssistant.lastSuggestionTime = new Date();
+        });
+      },
+      
+      setLayoutOptimizations: (optimizations) => {
+        set((state) => {
+          state.aiAssistant.layoutOptimizations = optimizations;
+        });
+      },
+      
+      setBindingSuggestions: (suggestions) => {
+        set((state) => {
+          state.aiAssistant.bindingSuggestions = suggestions;
+        });
+      },
+      
+      setContentSuggestions: (suggestions) => {
+        set((state) => {
+          state.aiAssistant.contentSuggestions = suggestions;
+        });
+      },
+      
+      addAIInteraction: (interaction) => {
+        set((state) => {
+          state.aiAssistant.interactions.push(interaction);
+          // Keep only the last 50 interactions to prevent memory issues
+          if (state.aiAssistant.interactions.length > 50) {
+            state.aiAssistant.interactions = state.aiAssistant.interactions.slice(-50);
+          }
+        });
+      },
+      
+      toggleAutoBinding: () => {
+        set((state) => {
+          state.aiAssistant.autoBindingEnabled = !state.aiAssistant.autoBindingEnabled;
+        });
+      },
+      
+      clearAISuggestions: () => {
+        set((state) => {
+          state.aiAssistant.suggestions = [];
+          state.aiAssistant.layoutOptimizations = [];
+          state.aiAssistant.bindingSuggestions = [];
+          state.aiAssistant.contentSuggestions = [];
+        });
+      },
+      
+      // UI actions
+      setLeftPanelWidth: (width) => {
+        set((state) => {
+          state.ui.leftPanelWidth = Math.max(200, Math.min(400, width));
+        });
+      },
+      
+      setRightPanelWidth: (width) => {
+        set((state) => {
+          state.ui.rightPanelWidth = Math.max(250, Math.min(500, width));
+        });
+      },
+      
+      toggleComponentLibrary: () => {
+        set((state) => {
+          state.ui.showComponentLibrary = !state.ui.showComponentLibrary;
+        });
+      },
+      
+      toggleAIAssistantPanel: () => {
+        set((state) => {
+          state.ui.showAIAssistant = !state.ui.showAIAssistant;
+          state.aiAssistant.isActive = state.ui.showAIAssistant;
+        });
+      },
+      
+      toggleLayers: () => {
+        set((state) => {
+          state.ui.showLayers = !state.ui.showLayers;
+        });
+      },
+      
+      toggleStyles: () => {
+        set((state) => {
+          state.ui.showStyles = !state.ui.showStyles;
+        });
+      },
+
+      togglePageList: () => {
+        set((state) => {
+          state.ui.showPageList = !state.ui.showPageList;
+        });
+      },
+      
+      setCurrentView: (view) => {
+        set((state) => {
+          state.ui.currentView = view;
+        });
+      },
+      
+      setDeviceMode: (mode) => {
+        set((state) => {
+          state.ui.deviceMode = mode;
+        });
+      },
+      
+      toggleFullscreen: () => {
+        set((state) => {
+          state.ui.isFullscreen = !state.ui.isFullscreen;
         });
       },
     }))

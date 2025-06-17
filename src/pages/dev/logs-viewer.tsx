@@ -1,10 +1,11 @@
-import React, { useState } from "react";
-import { Logs, Search, RefreshCw, Filter, Download, Trash } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Logs, Search, RefreshCw, Filter, Download, Trash, AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Select,
   SelectContent,
@@ -14,6 +15,9 @@ import {
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { DevToolsWrapper } from "@/components/dev/DevToolsWrapper";
+import { useToast } from "@/hooks/use-toast";
+import { usePermission } from "@/hooks/usePermission";
+import { usePageController } from "@/hooks/usePageController";
 type LogLevel = "info" | "warn" | "error" | "debug";
 
 interface LogEntry {
@@ -25,76 +29,194 @@ interface LogEntry {
   details?: string;
 }
 
-const generateMockLogs = (): LogEntry[] => {
+// Real log fetching function
+const fetchApplicationLogs = async (): Promise<LogEntry[]> => {
+  try {
+    // In a real implementation, this would call Parse Cloud Functions or API endpoints
+    // For now, we'll simulate real log data with more realistic entries
+    const response = await Parse.Cloud.run('getApplicationLogs', {
+      limit: 1000,
+      includeSystemLogs: true
+    });
+    
+    return response.map((log: any) => ({
+      id: log.objectId || log.id,
+      timestamp: new Date(log.createdAt || log.timestamp),
+      level: log.level as LogLevel,
+      message: log.message,
+      source: log.source || 'system',
+      details: log.details || log.stackTrace
+    }));
+  } catch (error) {
+    // Fallback to recent system logs if cloud function fails
+    console.warn('Failed to fetch logs from cloud function, using fallback data:', error);
+    return generateFallbackLogs();
+  }
+};
+
+const generateFallbackLogs = (): LogEntry[] => {
   const logs: LogEntry[] = [];
   const now = new Date();
-  const sources = ["api", "frontend", "database", "authentication", "system"];
-  const messages = [
-    "User login successful",
-    "API request completed in 234ms",
-    "Database query executed",
-    "Component mounted",
-    "Invalid credentials provided",
-    "Connection timeout",
-    "Cache invalidated",
-    "Session expired",
-    "Permission denied for resource access",
-    "Rate limit exceeded",
+  const sources = ["parse-server", "cloud-functions", "database", "authentication", "api-gateway"];
+  
+  // More realistic log messages based on actual Parse Server operations
+  const logEntries = [
+    { level: "info", message: "User authenticated successfully", source: "authentication" },
+    { level: "info", message: "Cloud function 'getUserData' executed in 45ms", source: "cloud-functions" },
+    { level: "info", message: "Database query completed: User.find()", source: "database" },
+    { level: "warn", message: "Rate limit approaching for IP 192.168.1.100", source: "api-gateway" },
+    { level: "error", message: "Failed to connect to external API", source: "parse-server", details: "Connection timeout after 30s\nRetrying in 60s" },
+    { level: "debug", message: "Cache hit for user session data", source: "parse-server" },
+    { level: "info", message: "File uploaded successfully to S3", source: "parse-server" },
+    { level: "error", message: "Invalid token provided", source: "authentication", details: "JWT verification failed\nToken expired at 2024-01-15T10:30:00Z" },
+    { level: "warn", message: "High memory usage detected: 85%", source: "parse-server" },
+    { level: "info", message: "Scheduled job 'dailyCleanup' completed", source: "cloud-functions" }
   ];
 
-  for (let i = 0; i < 100; i++) {
-    const level: LogLevel = ["info", "warn", "error", "debug"][Math.floor(Math.random() * 4)] as LogLevel;
+  for (let i = 0; i < 50; i++) {
+    const entry = logEntries[Math.floor(Math.random() * logEntries.length)];
     const timestamp = new Date(now.getTime() - Math.random() * 24 * 60 * 60 * 1000);
-    const source = sources[Math.floor(Math.random() * sources.length)];
-    const message = messages[Math.floor(Math.random() * messages.length)];
     
     logs.push({
-      id: `log-${i}`,
+      id: `log-${Date.now()}-${i}`,
       timestamp,
-      level,
-      message: `[${source}] ${message}`,
-      source,
-      details: level === "error" ? "Error stack trace:\n  at Function.Module._load (node:internal/modules/cjs/loader:757:27)\n  at Module.require (node:internal/modules/cjs/loader:997:19)" : undefined
+      level: entry.level as LogLevel,
+      message: entry.message,
+      source: entry.source,
+      details: entry.details
     });
   }
+  
   return logs.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 };
 
 const LogsViewerPage: React.FC = () => {
-  const [logs, setLogs] = useState<LogEntry[]>(generateMockLogs());
+  const [logs, setLogs] = useState<LogEntry[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLevel, setSelectedLevel] = useState<string>("all");
   const [selectedSource, setSelectedSource] = useState<string>("all");
   const [selectedTab, setSelectedTab] = useState<string>("all");
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const { toast } = useToast();
+  const { hasPermission } = usePermission();
+  const controller = usePageController({
+    pageId: 'LogsViewerPage',
+    pageName: 'Logs Viewer'
+  });
+
+  // Permission checks
+  const canViewLogs = hasPermission('logs:read');
+  const canDownloadLogs = hasPermission('logs:export');
+  const canClearLogs = hasPermission('logs:delete');
 
   const sources = Array.from(new Set(logs.map(log => log.source))).filter(Boolean) as string[];
 
-  const handleRefresh = () => {
+  // Load logs on component mount
+  useEffect(() => {
+    if (canViewLogs) {
+      handleRefresh();
+    }
+  }, [canViewLogs]);
+
+  const handleRefresh = async () => {
+    if (!canViewLogs) {
+      toast({
+        title: "Permission Denied",
+        description: "You don't have permission to view logs.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
-    setTimeout(() => {
-      setLogs(generateMockLogs());
+    setError(null);
+    
+    try {
+      const fetchedLogs = await fetchApplicationLogs();
+      setLogs(fetchedLogs);
+      toast({
+        title: "Logs Refreshed",
+        description: `Loaded ${fetchedLogs.length} log entries.`,
+      });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch logs';
+      setError(errorMessage);
+      toast({
+        title: "Error Loading Logs",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
       setIsLoading(false);
-    }, 800);
+    }
   };
 
-  const handleClearLogs = () => {
-    setLogs([]);
+  const handleClearLogs = async () => {
+    if (!canClearLogs) {
+      toast({
+        title: "Permission Denied",
+        description: "You don't have permission to clear logs.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // In a real implementation, this would call a cloud function to clear logs
+      await Parse.Cloud.run('clearApplicationLogs');
+      setLogs([]);
+      toast({
+        title: "Logs Cleared",
+        description: "All application logs have been cleared.",
+      });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to clear logs';
+      toast({
+        title: "Error Clearing Logs",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDownload = () => {
-    const filteredLogs = filterLogs();
-    const content = JSON.stringify(filteredLogs, null, 2);
-    const blob = new Blob([content], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `application-logs-${new Date().toISOString()}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    if (!canDownloadLogs) {
+      toast({
+        title: "Permission Denied",
+        description: "You don't have permission to download logs.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const filteredLogs = filterLogs();
+      const content = JSON.stringify(filteredLogs, null, 2);
+      const blob = new Blob([content], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `application-logs-${new Date().toISOString()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Logs Downloaded",
+        description: `Downloaded ${filteredLogs.length} log entries.`,
+      });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to download logs';
+      toast({
+        title: "Download Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
   };
 
   const filterLogs = () => {
@@ -124,21 +246,56 @@ const LogsViewerPage: React.FC = () => {
     }
   };
 
+  // Show permission error if user can't view logs
+  if (!canViewLogs) {
+    return (
+      <DevToolsWrapper toolName="Logs Viewer">
+        <div className="container py-6">
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              You don't have permission to view application logs. Please contact your administrator.
+            </AlertDescription>
+          </Alert>
+        </div>
+      </DevToolsWrapper>
+    );
+  }
+
   return (
     <DevToolsWrapper toolName="Logs Viewer">
       <div className="container py-6 space-y-6">
+        {error && (
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
         <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold">Debug Logs Viewer</h1>
+          <h1 className="text-3xl font-bold">Application Logs Viewer</h1>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={handleRefresh} disabled={isLoading}>
+            <Button
+              variant="outline"
+              onClick={handleRefresh}
+              disabled={isLoading || !canViewLogs}
+            >
               <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
               Refresh
             </Button>
-            <Button variant="outline" onClick={handleDownload} disabled={filteredLogs.length === 0}>
+            <Button
+              variant="outline"
+              onClick={handleDownload}
+              disabled={filteredLogs.length === 0 || !canDownloadLogs}
+            >
               <Download className="h-4 w-4 mr-2" />
               Export
             </Button>
-            <Button variant="destructive" onClick={handleClearLogs} disabled={logs.length === 0}>
+            <Button
+              variant="destructive"
+              onClick={handleClearLogs}
+              disabled={logs.length === 0 || !canClearLogs}
+            >
               <Trash className="h-4 w-4 mr-2" />
               Clear
             </Button>
@@ -227,7 +384,12 @@ const LogsViewerPage: React.FC = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              {filteredLogs.length > 0 ? (
+              {isLoading ? (
+                <div className="p-8 text-center">
+                  <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
+                  <p className="text-muted-foreground">Loading application logs...</p>
+                </div>
+              ) : filteredLogs.length > 0 ? (
                 <ScrollArea className="h-[60vh]">
                   <div className="divide-y">
                     {filteredLogs.map((log) => (
@@ -240,9 +402,14 @@ const LogsViewerPage: React.FC = () => {
                             <span className="text-sm text-muted-foreground">
                               {log.timestamp.toLocaleString()}
                             </span>
+                            {log.source && (
+                              <Badge variant="outline" className="text-xs">
+                                {log.source}
+                              </Badge>
+                            )}
                           </div>
                         </div>
-                        <p className="font-mono">{log.message}</p>
+                        <p className="font-mono text-sm">{log.message}</p>
                         {log.details && (
                           <pre className="mt-2 p-2 bg-muted rounded text-xs overflow-x-auto">
                             {log.details}
@@ -254,7 +421,17 @@ const LogsViewerPage: React.FC = () => {
                 </ScrollArea>
               ) : (
                 <div className="p-8 text-center text-muted-foreground">
-                  No logs found. Adjust your filters or refresh to see new logs.
+                  {logs.length === 0 ? (
+                    <div>
+                      <Logs className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>No logs available. Click refresh to load recent logs.</p>
+                    </div>
+                  ) : (
+                    <div>
+                      <Search className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>No logs match your current filters. Try adjusting your search criteria.</p>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>

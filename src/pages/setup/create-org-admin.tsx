@@ -15,7 +15,7 @@ export default function CreateOrgAdmin() {
   const [success, setSuccess] = useState(false);
   
   const [formData, setFormData] = useState({
-    parentOrgName: '',
+    parentOrgName: 'Nomyx, Inc.',
     adminUserEmail: '',
     adminUserPassword: '',
     adminUserPasswordConfirm: '',

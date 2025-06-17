@@ -187,7 +187,7 @@ export const AppComponentRenderer: React.FC<AppComponentRendererProps> = ({ appI
     );
   }
 
-  // Enhanced permission checking with app-specific permissions
+  // Permission checking with app-specific permissions
   if (route.permissions && route.permissions.length > 0) {
     const hasPermissions = route.permissions.every(permission => {
       // Check global permissions (app-specific permissions would be checked via backend)
@@ -221,7 +221,7 @@ export const AppComponentRenderer: React.FC<AppComponentRendererProps> = ({ appI
     }
   }
 
-  // Enhanced component props with app framework context
+  // Component props with app framework context
   const componentProps: AppComponentProps = {
     appId,
     config: app.installation.appSpecificConfig || {},
@@ -245,7 +245,7 @@ export const AppComponentRenderer: React.FC<AppComponentRendererProps> = ({ appI
       email: ''
     },
     permissions: permissions || [],
-    // Enhanced context for app framework features
+    // Context for app framework features
     appFramework: {
       manifest: app.manifest,
       installation: app.installation,

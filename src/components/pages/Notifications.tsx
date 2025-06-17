@@ -35,7 +35,7 @@ const Notifications = () => {
     if (!notifications.length) {
       dispatch(fetchNotifications({}));
     }
-  }, [dispatch, notifications.length]);
+  }, [notifications.length]);
 
   // Filter notifications based on active tab
   const filteredNotifications = activeTab === "all" 

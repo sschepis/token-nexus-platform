@@ -1,143 +1,122 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import Parse from 'parse';
-import { apiService, mockResponse } from './base'; // Import apiService and mockResponse
+import { callCloudFunction, callCloudFunctionForArray } from '../../utils/apiUtils';
 
 /**
- * @file OAuth Applications API services.
- * Handles operations related to OAuth applications via Parse Cloud Functions.
+ * Refactored OAuth Apps API using the new utility functions
+ * This eliminates all the repetitive error handling and Parse.Cloud.run patterns
  */
+
+export interface CreateOAuthAppParams {
+  name: string;
+  redirectUris: string[];
+  description?: string;
+}
+
+export interface UpdateOAuthAppParams {
+  name?: string;
+  redirectUris?: string[];
+  description?: string;
+}
+
+export interface OAuthAppFilters {
+  limit?: number;
+  skip?: number;
+}
+
 export const oauthAppsApi = {
   /**
-   * Creates a new OAuth application.
-   * @param {object} params - Parameters for the new OAuth application.
-   * @param {string} params.name - The name of the OAuth application.
-   * @param {string[]} params.redirectUris - An array of valid redirect URIs for the application.
-   * @param {string} [params.description] - A description for the OAuth application.
-   * @returns {Promise<{ data: { oauthApp: any } }>} A promise that resolves with an object containing the newly created OAuth application.
-   * @throws {Error} Throws an error if OAuth application creation fails.
+   * Creates a new OAuth application
    */
-  createOAuthApp: async (params: {
-    name: string;
-    redirectUris: string[];
-    description?: string;
-  }): Promise<{ data: { oauthApp: any } }> => {
-    try {
-      const result = await Parse.Cloud.run('createOAuthApp', params);
-      
-      return {
-        data: {
-          oauthApp: result.oauthApp
-        }
-      };
-    } catch (error: any) {
-      console.debug('[OAuth Apps API] Error calling createOAuthApp cloud function:', error);
-      throw new Error(error.message || 'Failed to create OAuth App');
-    }
+  async createOAuthApp(params: CreateOAuthAppParams) {
+    return callCloudFunction('createOAuthApp', params as unknown as Record<string, unknown>, {
+      errorMessage: 'Failed to create OAuth App'
+    });
   },
 
   /**
-   * Fetches a list of OAuth applications.
-   * @param {object} [params] - Optional parameters for filtering and pagination.
-   * @param {number} [params.limit] - Maximum number of OAuth applications to return.
-   * @param {number} [params.skip] - Number of OAuth applications to skip for pagination.
-   * @returns {Promise<{ data: { oauthApps: any[]; totalCount: number } }>} A promise that resolves with an object containing the list of OAuth applications and total count.
-   * @throws {Error} Throws an error if fetching OAuth applications fails.
+   * Fetches a list of OAuth applications
    */
-  getOAuthApps: async (params?: {
-    limit?: number;
-    skip?: number;
-  }): Promise<{ data: { oauthApps: any[]; totalCount: number } }> => {
-    try {
-      const result = await Parse.Cloud.run('getOAuthApps', params || {});
-      
-      return {
-        data: {
-          oauthApps: result.oauthApps || [],
-          totalCount: result.totalCount || 0
-        }
-      };
-    } catch (error: any) {
-      console.debug('[OAuth Apps API] Error calling getOAuthApps cloud function:', error);
-      throw new Error(error.message || 'Failed to fetch OAuth Apps');
-    }
+  async getOAuthApps(params: OAuthAppFilters = {}) {
+    return callCloudFunction('getOAuthApps', params as Record<string, unknown>, {
+      errorMessage: 'Failed to fetch OAuth Apps'
+    });
   },
 
   /**
-   * Updates an existing OAuth application.
-   * @param {string} oauthAppId - The ID of the OAuth application to update.
-   * @param {object} params - Parameters to update for the OAuth application.
-   * @param {string} [params.name] - New name for the OAuth application.
-   * @param {string[]} [params.redirectUris] - New array of redirect URIs.
-   * @param {string} [params.description] - New description for the OAuth application.
-   * @returns {Promise<{ data: { oauthApp: any } }>} A promise that resolves with an object containing the updated OAuth application.
-   * @throws {Error} Throws an error if updating the OAuth application fails.
+   * Updates an existing OAuth application
    */
-  updateOAuthApp: async (oauthAppId: string, params: {
-    name?: string;
-    redirectUris?: string[];
-    description?: string;
-  }): Promise<{ data: { oauthApp: any } }> => {
-    try {
-      const result = await Parse.Cloud.run('updateOAuthApp', { oauthAppId, ...params });
-      
-      return {
-        data: {
-          oauthApp: result.oauthApp
-        }
-      };
-    } catch (error: any) {
-      console.debug('[OAuth Apps API] Error calling updateOAuthApp cloud function:', error);
-      throw new Error(error.message || 'Failed to update OAuth App');
-    }
+  async updateOAuthApp(oauthAppId: string, params: UpdateOAuthAppParams) {
+    return callCloudFunction('updateOAuthApp', { oauthAppId, ...params }, {
+      errorMessage: 'Failed to update OAuth App'
+    });
   },
 
   /**
-   * Regenerates the client secret for an OAuth application.
-   * @param {string} oauthAppId - The ID of the OAuth application to regenerate the secret for.
-   * @returns {Promise<{ data: { clientSecret: string; message: string } }>} A promise that resolves with the new client secret and a message.
-   * @throws {Error} Throws an error if regenerating the OAuth secret fails.
+   * Regenerates the client secret for an OAuth application
    */
-  regenerateOAuthSecret: async (oauthAppId: string): Promise<{ data: { clientSecret: string; message: string } }> => {
-    try {
-      const result = await Parse.Cloud.run('regenerateOAuthSecret', { oauthAppId });
-      
-      return {
-        data: {
-          clientSecret: result.clientSecret,
-          message: result.message
-        }
-      };
-    } catch (error: any) {
-      console.debug('[OAuth Apps API] Error calling regenerateOAuthSecret cloud function:', error);
-      throw new Error(error.message || 'Failed to regenerate OAuth secret');
-    }
+  async regenerateOAuthSecret(oauthAppId: string) {
+    return callCloudFunction('regenerateOAuthSecret', { oauthAppId }, {
+      errorMessage: 'Failed to regenerate OAuth secret'
+    });
   },
 
   /**
-   * Deletes an OAuth application.
-   * @param {string} oauthAppId - The ID of the OAuth application to delete.
-   * @returns {Promise<{ data: { success: boolean; message: string } }>} A promise that resolves with a success status.
-   * @throws {Error} Throws an error if deleting the OAuth application fails.
+   * Deletes an OAuth application
    */
-  deleteOAuthApp: async (oauthAppId: string): Promise<{ data: { success: boolean; message: string } }> => {
-    try {
-      const result = await Parse.Cloud.run('deleteOAuthApp', { oauthAppId });
-      
-      return {
-        data: {
-          success: result.success,
-          message: result.message
-        }
-      };
-    } catch (error: any) {
-      console.debug('[OAuth Apps API] Error calling deleteOAuthApp cloud function:', error);
-      throw new Error(error.message || 'Failed to delete OAuth App');
-    }
+  async deleteOAuthApp(oauthAppId: string) {
+    return callCloudFunction('deleteOAuthApp', { oauthAppId }, {
+      errorMessage: 'Failed to delete OAuth App'
+    });
   },
+
+  /**
+   * Batch delete multiple OAuth applications
+   */
+  async batchDeleteOAuthApps(oauthAppIds: string[]) {
+    const operations = oauthAppIds.map(oauthAppId => 
+      () => this.deleteOAuthApp(oauthAppId)
+    );
+
+    const { batchApiCalls } = await import('../../utils/apiUtils');
+    return batchApiCalls(operations, {
+      continueOnError: true,
+      showErrorToast: false
+    });
+  },
+
+  /**
+   * Batch update multiple OAuth applications
+   */
+  async batchUpdateOAuthApps(updates: Array<{ oauthAppId: string; params: UpdateOAuthAppParams }>) {
+    const operations = updates.map(({ oauthAppId, params }) => 
+      () => this.updateOAuthApp(oauthAppId, params)
+    );
+
+    const { batchApiCalls } = await import('../../utils/apiUtils');
+    return batchApiCalls(operations, {
+      continueOnError: true,
+      showErrorToast: false
+    });
+  },
+
+  /**
+   * Batch regenerate secrets for multiple OAuth applications
+   */
+  async batchRegenerateOAuthSecrets(oauthAppIds: string[]) {
+    const operations = oauthAppIds.map(oauthAppId => 
+      () => this.regenerateOAuthSecret(oauthAppId)
+    );
+
+    const { batchApiCalls } = await import('../../utils/apiUtils');
+    return batchApiCalls(operations, {
+      continueOnError: true,
+      showErrorToast: false
+    });
+  }
 };
 
-export const mockOauthAppsApis = {
-  createOAuthApp: (params: any) => {
+// Mock implementations for development
+const mockOauthAppsApis = {
+  createOAuthApp: (params: CreateOAuthAppParams) => {
     const newApp = {
       id: `oa-${Math.floor(Math.random() * 1000)}`,
       clientId: `client-${Math.floor(Math.random() * 1000)}`,
@@ -145,37 +124,103 @@ export const mockOauthAppsApis = {
       createdAt: new Date().toISOString(),
       ...params,
     };
-    return mockResponse({ oauthApp: newApp });
-  },
-
-  getOAuthApps: () => {
-    return mockResponse({
-      oauthApps: [
-        {
-          id: 'oa-1',
-          name: 'My OAuth App',
-          clientId: 'client-123',
-          redirectUris: ['https://app.example.com/oauth/callback'],
-          description: 'App for testing OAuth flows.',
-          createdAt: new Date().toISOString(),
-        },
-      ],
-      totalCount: 1,
+    return Promise.resolve({
+      success: true,
+      data: { oauthApp: newApp }
     });
   },
 
-  updateOAuthApp: (oauthAppId: string, params: any) => {
-    return mockResponse({ oauthApp: { id: oauthAppId, ...params } });
+  getOAuthApps: (params?: OAuthAppFilters) => {
+    return Promise.resolve({
+      success: true,
+      data: {
+        oauthApps: [
+          {
+            id: 'oa-1',
+            name: 'My OAuth App',
+            clientId: 'client-123',
+            redirectUris: ['https://app.example.com/oauth/callback'],
+            description: 'App for testing OAuth flows.',
+            createdAt: new Date().toISOString(),
+          },
+          {
+            id: 'oa-2',
+            name: 'Mobile App OAuth',
+            clientId: 'client-456',
+            redirectUris: ['https://mobile.example.com/oauth/callback', 'https://mobile.example.com/oauth/redirect'],
+            description: 'OAuth app for mobile application.',
+            createdAt: new Date(Date.now() - 86400000).toISOString(),
+          },
+        ],
+        totalCount: 2,
+      }
+    });
+  },
+
+  updateOAuthApp: (oauthAppId: string, params: UpdateOAuthAppParams) => {
+    return Promise.resolve({
+      success: true,
+      data: { oauthApp: { id: oauthAppId, ...params, updatedAt: new Date().toISOString() } }
+    });
   },
 
   regenerateOAuthSecret: (oauthAppId: string) => {
-    return mockResponse({ clientSecret: `new-secret-${Math.floor(Math.random() * 1000)}`, message: 'OAuth secret regenerated.' });
+    return Promise.resolve({
+      success: true,
+      data: { 
+        clientSecret: `new-secret-${Math.floor(Math.random() * 1000)}`, 
+        message: 'OAuth secret regenerated successfully.',
+        regeneratedAt: new Date().toISOString()
+      }
+    });
   },
 
   deleteOAuthApp: (oauthAppId: string) => {
-    return mockResponse({ success: true, message: `OAuth App ${oauthAppId} deleted successfully` });
+    return Promise.resolve({
+      success: true,
+      data: { success: true, message: `OAuth App ${oauthAppId} deleted successfully` }
+    });
   },
+
+  batchDeleteOAuthApps: (oauthAppIds: string[]) => {
+    return Promise.resolve({
+      results: oauthAppIds.map(() => ({ success: true })),
+      successCount: oauthAppIds.length,
+      errorCount: 0
+    });
+  },
+
+  batchUpdateOAuthApps: (updates: Array<{ oauthAppId: string; params: UpdateOAuthAppParams }>) => {
+    return Promise.resolve({
+      results: updates.map(() => ({ success: true })),
+      successCount: updates.length,
+      errorCount: 0
+    });
+  },
+
+  batchRegenerateOAuthSecrets: (oauthAppIds: string[]) => {
+    return Promise.resolve({
+      results: oauthAppIds.map(() => ({ success: true })),
+      successCount: oauthAppIds.length,
+      errorCount: 0
+    });
+  }
 };
 
-// Merge OAuth Apps APIs into the global apiService
-Object.assign(apiService, process.env.NEXT_PUBLIC_USE_MOCK_API === 'true' ? mockOauthAppsApis : oauthAppsApi);
+// Export individual functions for backward compatibility
+export const {
+  createOAuthApp,
+  getOAuthApps,
+  updateOAuthApp,
+  regenerateOAuthSecret,
+  deleteOAuthApp,
+  batchDeleteOAuthApps,
+  batchUpdateOAuthApps,
+  batchRegenerateOAuthSecrets
+} = oauthAppsApi;
+
+// Use mock or real API based on environment
+const finalOAuthAppsApi = process.env.NEXT_PUBLIC_USE_MOCK_API === 'true' ? mockOauthAppsApis : oauthAppsApi;
+
+// Default export
+export default finalOAuthAppsApi;

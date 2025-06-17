@@ -171,7 +171,7 @@ export const ColorEditor: React.FC<ColorEditorProps> = ({ theme, organizationId 
         neutral: palette
       }
     }));
-  }, [theme.colors.primary, generateColorPalette, dispatch]);
+  }, [theme.colors.primary]);
 
   const resetToDefaults = useCallback(() => {
     // Reset to platform defaults

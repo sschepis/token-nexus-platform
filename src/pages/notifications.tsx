@@ -10,30 +10,98 @@ import {
   clearNotificationErrors, // Added clearNotificationErrors
 } from "@/store/slices/notificationSlice";
 import {
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle 
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BellRing, CheckCheck, Bell, ShieldAlert, BarChart, MessageSquare, Loader2 } from "lucide-react"; // Added Loader2
+import { BellRing, CheckCheck, Bell, ShieldAlert, BarChart, MessageSquare, Loader2, RefreshCw, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import NextLink from "next/link";
-import { useToast } from "@/hooks/use-toast"; // Import useToast
+import { useToast } from "@/hooks/use-toast";
+import { usePermission } from "@/hooks/usePermission";
+import { usePageController } from "@/hooks/usePageController";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const NotificationsPage = () => {
-  const { toast } = useToast(); // Initialize toast
+  const { toast } = useToast();
+  const { hasPermission } = usePermission();
   const dispatch = useAppDispatch();
   const { notifications, unreadCount, isLoading, notificationError } = useAppSelector((state) => state.notification);
   const [activeTab, setActiveTab] = useState<NotificationType | "all">("all");
+  const [controllerNotifications, setControllerNotifications] = useState<any[]>([]);
+  const [isControllerLoading, setIsControllerLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Permission checks
+  const canRead = hasPermission('notifications:read');
+  const canWrite = hasPermission('notifications:write');
+
+  // Initialize page controller
+  const pageController = usePageController({
+    pageId: 'notifications',
+    pageName: 'Notifications',
+    description: 'Manage system notifications and alerts',
+    category: 'communication',
+    permissions: ['notifications:read', 'notifications:write'],
+    tags: ['notifications', 'alerts', 'communication', 'system']
+  });
   
+  // Load notifications from controller
+  const loadNotifications = async () => {
+    if (!pageController.isRegistered || !canRead) return;
+    
+    setIsControllerLoading(true);
+    setError(null);
+    
+    try {
+      const result = await pageController.executeAction('fetchNotifications', { includeRead: true });
+      
+      if (result.success && result.data) {
+        const notificationsData = result.data as { notifications: any[] };
+        setControllerNotifications(notificationsData.notifications || []);
+        toast({
+          title: "Notifications loaded",
+          description: "Notifications loaded successfully",
+        });
+      } else {
+        setError(result.error || 'Failed to load notifications');
+        toast({
+          title: "Error loading notifications",
+          description: result.error || 'Failed to load notifications',
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error loading notifications:', error);
+      setError('Failed to load notifications');
+      toast({
+        title: "Error loading notifications",
+        description: 'Failed to load notifications',
+        variant: "destructive",
+      });
+    } finally {
+      setIsControllerLoading(false);
+    }
+  };
+
   useEffect(() => {
-    dispatch(fetchNotifications({})); // Fetch all notifications
-    dispatch(clearNotificationErrors()); // Clear errors on mount
-  }, [dispatch]);
+    if (pageController.isRegistered && canRead) {
+      loadNotifications();
+    }
+  }, [pageController.isRegistered, canRead]);
+
+  useEffect(() => {
+    // Keep Redux calls for backward compatibility
+    if (canRead) {
+      dispatch(fetchNotifications({}));
+      dispatch(clearNotificationErrors());
+    }
+  }, [canRead]);
 
   useEffect(() => {
     if (notificationError) {
@@ -47,11 +115,51 @@ const NotificationsPage = () => {
   }, [notificationError, toast, dispatch]);
 
 
-  const filteredNotifications = activeTab === "all" 
-    ? notifications 
-    : notifications.filter(notif => notif.type === activeTab);
+  // Use controller notifications if available, fallback to Redux notifications
+  const allNotifications = controllerNotifications.length > 0 ? controllerNotifications : notifications;
+  
+  const filteredNotifications = activeTab === "all"
+    ? allNotifications
+    : allNotifications.filter(notif => notif.type === activeTab);
   
   const handleMarkAllAsRead = async () => {
+    if (!canWrite) {
+      toast({
+        title: "Permission denied",
+        description: "You don't have permission to mark notifications as read",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (pageController.isRegistered) {
+      try {
+        const result = await pageController.executeAction('markAllAsRead', {});
+        
+        if (result.success) {
+          toast({
+            title: "All notifications marked as read",
+            description: "All notifications marked as read",
+          });
+          await loadNotifications(); // Refresh notifications
+        } else {
+          toast({
+            title: "Error marking notifications as read",
+            description: result.error || 'Failed to mark notifications as read',
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error('Error marking notifications as read:', error);
+        toast({
+          title: "Error marking notifications as read",
+          description: 'Failed to mark notifications as read',
+          variant: "destructive",
+        });
+      }
+    }
+
+    // Also keep Redux call for backward compatibility
     try {
       await dispatch(markAllNotificationsAsReadAsync("all")).unwrap();
       toast({
@@ -61,6 +169,10 @@ const NotificationsPage = () => {
     } catch (error) {
       // Error handled by useEffect
     }
+  };
+
+  const handleRefreshNotifications = async () => {
+    await loadNotifications();
   };
   
   const getNotificationIcon = (type: NotificationType, size = 16) => {
@@ -95,6 +207,29 @@ const NotificationsPage = () => {
     }
   };
 
+  // Show permission error if user can't read notifications
+  if (!canRead) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Notifications</h1>
+            <p className="text-muted-foreground">
+              Stay updated with important alerts and notifications
+            </p>
+          </div>
+        </div>
+        
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            You don't have permission to view notifications. Please contact your administrator.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -104,13 +239,34 @@ const NotificationsPage = () => {
             Stay updated with important alerts and notifications
           </p>
         </div>
-        {unreadCount > 0 && (
-          <Button variant="outline" onClick={handleMarkAllAsRead} disabled={isLoading}>
-            {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCheck className="h-4 w-4 mr-2" />}
-            Mark All as Read
+        <div className="flex items-center space-x-2">
+          <Button
+            variant="outline"
+            onClick={handleRefreshNotifications}
+            disabled={isControllerLoading}
+          >
+            {isControllerLoading ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4 mr-2" />
+            )}
+            Refresh
           </Button>
-        )}
+          {canWrite && unreadCount > 0 && (
+            <Button variant="outline" onClick={handleMarkAllAsRead} disabled={isLoading || isControllerLoading}>
+              {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCheck className="h-4 w-4 mr-2" />}
+              Mark All as Read
+            </Button>
+          )}
+        </div>
       </div>
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
       <Card>
         <CardHeader className="pb-3">
@@ -161,7 +317,7 @@ const NotificationsPage = () => {
                         "p-4 rounded-lg border cursor-pointer", // Added cursor-pointer
                         !notification.isRead && getNotificationBgColor(notification.type, notification.isRead)
                       )}
-                      onClick={() => !notification.isRead && dispatch(markNotificationAsReadAsync(notification.id))}
+                      onClick={() => canWrite && !notification.isRead && dispatch(markNotificationAsReadAsync(notification.id))}
                     >
                       <div className="flex items-start gap-4">
                         <div className={cn(

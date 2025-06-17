@@ -1,9 +1,11 @@
-
 import React, { useEffect, useState } from "react";
 import Parse from 'parse';
-import { useAppDispatch, useAppSelector } from "@/store/hooks"; // Import Redux hooks
-import { fetchOrgUsers, removeUserFromOrganization, OrgUser } from "@/store/slices/userSlice"; // Import new actions and type
-import { KycStatus, UserRole } from "@/store/slices/userSlice"; // Keep these if still used by UI helpers
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { fetchOrgUsers, removeUserFromOrganization, OrgUser } from "@/store/slices/userSlice";
+import { KycStatus, UserRole } from "@/store/slices/userSlice";
+import { usePageController } from "@/hooks/usePageController";
+import { usePermission } from "@/hooks/usePermission";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -36,11 +38,9 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { toast as sonnerToast } from "sonner"; // Assuming sonner is used project-wide
 import UserInviteDialog from "@/components/user/UserInviteDialog";
 import UserRoleManagement from "@/components/user/UserRoleManagement";
 import UserDetailView from "@/components/user/UserDetailView";
-import { usePageController, useDataAction, useUIAction, useNavigationAction } from "@/hooks/usePageController";
 
 const Users = () => {
   const dispatch = useAppDispatch();
@@ -48,16 +48,9 @@ const Users = () => {
   const { currentOrg } = useAppSelector((state) => state.org);
   const { orgId: authOrgId } = useAppSelector((state) => state.auth);
   
-  // Use currentOrg.id if available, otherwise fall back to authOrgId
   const effectiveOrgId = currentOrg?.id || authOrgId;
 
-  const [searchTerm, setSearchTerm] = useState("");
-  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
-  const [roleManagementOpen, setRoleManagementOpen] = useState(false);
-  const [userDetailOpen, setUserDetailOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<OrgUser | null>(null);
-
-  // Register page with controller registry
+  // Use modern page controller integration
   const pageController = usePageController({
     pageId: 'users',
     pageName: 'User Management',
@@ -66,6 +59,17 @@ const Users = () => {
     permissions: ['organization-admin', 'organization-member'],
     tags: ['users', 'administration', 'permissions', 'organization']
   });
+  const canManageUsers = usePermission();
+  const canInviteUsers = usePermission();
+  const { toast } = useToast();
+
+  const [localSearchTerm, setLocalSearchTerm] = useState("");
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [roleManagementOpen, setRoleManagementOpen] = useState(false);
+  const [userDetailOpen, setUserDetailOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<OrgUser | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [controllerError, setControllerError] = useState<string | null>(null);
 
   useEffect(() => {
     console.log('Users page - currentOrg:', currentOrg);
@@ -79,12 +83,22 @@ const Users = () => {
     }
   }, [dispatch, effectiveOrgId, authOrgId, currentOrg]);
 
+  const runSearchAction = async (term: string) => {
+    if (!pageController.isRegistered) return;
+    
+    try {
+      await pageController.executeAction('searchUsers', { query: term });
+    } catch (error) {
+      console.error('Search action failed:', error);
+    }
+  };
+
   const filteredUsers = (orgUsers || []).filter(
     (user) =>
-      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      `${user.firstName || ''} ${user.lastName || ''}` // Handle potentially undefined names
+      user.email.toLowerCase().includes(localSearchTerm.toLowerCase()) ||
+      `${user.firstName || ''} ${user.lastName || ''}`
         .toLowerCase()
-        .includes(searchTerm.toLowerCase())
+        .includes(localSearchTerm.toLowerCase())
   );
   
   useEffect(() => {
@@ -92,181 +106,9 @@ const Users = () => {
     console.log('Users page - isLoading:', isLoading);
     console.log('Users page - error:', error);
     if (error) {
-        sonnerToast.error(`Failed to load users: ${error}`);
+        setControllerError(`Failed to load users: ${error}`);
     }
   }, [orgUsers, isLoading, error]);
-
-  // Data Actions for Controller Registry
-  const fetchUsersAction = useDataAction(
-    pageController,
-    'fetch-users',
-    'Fetch Organization Users',
-    'Retrieve all users in the current organization with their roles and status',
-    async (params) => {
-      const orgId = (params.orgId as string) || effectiveOrgId;
-      if (!orgId) {
-        throw new Error('No organization ID provided');
-      }
-      
-      const result = await dispatch(fetchOrgUsers({ orgId }));
-      const users = Array.isArray(result.payload) ? result.payload : [];
-      return {
-        users,
-        total: users.length,
-        message: 'Users fetched successfully'
-      };
-    },
-    [
-      {
-        name: 'orgId',
-        type: 'string',
-        required: false,
-        description: 'Organization ID (defaults to current organization)',
-        defaultValue: currentOrg?.id
-      }
-    ],
-    ['organization-admin', 'organization-member']
-  );
-
-  const removeUserAction = useDataAction(
-    pageController,
-    'remove-user',
-    'Remove User from Organization',
-    'Remove a user from the current organization (requires confirmation)',
-    async (params) => {
-      const userId = params.userId as string;
-      const reason = params.reason as string;
-      const orgId = effectiveOrgId;
-      
-      if (!orgId) {
-        throw new Error('No organization context available');
-      }
-      
-      const user = orgUsers?.find(u => u.id === userId);
-      if (!user) {
-        throw new Error('User not found');
-      }
-
-      await dispatch(removeUserFromOrganization({ orgId, userId }));
-      
-      return {
-        message: `User ${user.firstName} ${user.lastName} has been removed from the organization`,
-        removedUser: user,
-        reason: reason || 'No reason provided'
-      };
-    },
-    [
-      {
-        name: 'userId',
-        type: 'string',
-        required: true,
-        description: 'ID of the user to remove from the organization'
-      },
-      {
-        name: 'reason',
-        type: 'string',
-        required: false,
-        description: 'Reason for removing the user (for audit log)'
-      }
-    ],
-    ['organization-admin']
-  );
-
-  // UI Actions for Controller Registry
-  const searchUsersAction = useUIAction(
-    pageController,
-    'search-users',
-    'Search Users',
-    'Filter the user list based on search criteria like name or email',
-    (params) => {
-      const { searchTerm: term } = params;
-      setSearchTerm(term as string || '');
-    },
-    [
-      {
-        name: 'searchTerm',
-        type: 'string',
-        required: false,
-        description: 'Search term to filter users by name or email',
-        defaultValue: ''
-      }
-    ],
-    ['organization-admin', 'organization-member']
-  );
-
-  const openInviteDialogAction = useUIAction(
-    pageController,
-    'open-invite-dialog',
-    'Open User Invite Dialog',
-    'Show the dialog to invite a new user to the organization',
-    () => {
-      setInviteDialogOpen(true);
-    },
-    [],
-    ['organization-admin']
-  );
-
-  const openUserDetailAction = useUIAction(
-    pageController,
-    'open-user-detail',
-    'Open User Detail View',
-    'Show detailed information about a specific user',
-    (params) => {
-      const { userId } = params;
-      const user = orgUsers?.find(u => u.id === userId);
-      if (user) {
-        setSelectedUser(user);
-        setUserDetailOpen(true);
-      } else {
-        throw new Error('User not found');
-      }
-    },
-    [
-      {
-        name: 'userId',
-        type: 'string',
-        required: true,
-        description: 'ID of the user to view details for'
-      }
-    ],
-    ['organization-admin', 'organization-member']
-  );
-
-  const openRoleManagementAction = useUIAction(
-    pageController,
-    'open-role-management',
-    'Open Role Management',
-    'Show the role management interface for a specific user',
-    (params) => {
-      const { userId } = params;
-      const user = orgUsers?.find(u => u.id === userId);
-      if (user) {
-        setSelectedUser(user);
-        setRoleManagementOpen(true);
-      } else {
-        throw new Error('User not found');
-      }
-    },
-    [
-      {
-        name: 'userId',
-        type: 'string',
-        required: true,
-        description: 'ID of the user to manage roles for'
-      }
-    ],
-    ['organization-admin']
-  );
-
-  // Navigation Actions
-  const navigateToUserDetail = useNavigationAction(
-    pageController,
-    'navigate-to-user-detail',
-    'Navigate to User Detail Page',
-    'Navigate to a dedicated user detail page',
-    '', // Will be set dynamically
-    ['organization-admin', 'organization-member']
-  );
 
   const formatDate = (dateString: string | undefined) => {
     if (!dateString) return "N/A";
@@ -291,15 +133,14 @@ const Users = () => {
     }
   };
 
-  const getRoleBadges = (roles: string[]) => { // Roles are now string[] from orgRoles
+  const getRoleBadges = (roles: string[]) => {
     return (roles || []).map((role) => {
-      // Extract base role name if it's like 'editor_ORGID'
       const displayRole = role.includes(`_${currentOrg?.id}`)
         ? role.substring(0, role.lastIndexOf(`_${currentOrg?.id}`))
         : role;
 
       const variant =
-        displayRole === "org_admin" || displayRole === "admin" // Assuming 'admin' might be a base role name
+        displayRole === "org_admin" || displayRole === "admin"
           ? "default"
           : displayRole === "token_manager" || displayRole === "editor"
           ? "secondary"
@@ -324,43 +165,79 @@ const Users = () => {
   };
 
   const handleRefreshUsers = async () => {
+    if (!pageController.isRegistered || !effectiveOrgId) {
+      setControllerError("Cannot refresh: No organization context");
+      return;
+    }
+    
+    setIsRefreshing(true);
+    setControllerError(null);
+    
     try {
-      await fetchUsersAction({ orgId: effectiveOrgId });
-      sonnerToast.success("User list refreshed successfully");
+      const result = await pageController.executeAction('viewUsers', { orgId: effectiveOrgId });
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: "User list refreshed successfully",
+        });
+        // Refresh the Redux store as well
+        dispatch(fetchOrgUsers({ orgId: effectiveOrgId }));
+      } else {
+        setControllerError(`Failed to refresh user list: ${result.error}`);
+        console.error('Refresh users error:', result.error);
+      }
     } catch (error) {
-      sonnerToast.error("Failed to refresh user list");
+      setControllerError("Failed to refresh user list");
       console.error('Refresh users error:', error);
+    } finally {
+      setIsRefreshing(false);
     }
   };
   
-  const handleRemoveUser = (userIdToRemove: string) => {
+  const handleRemoveUser = async (userIdToRemove: string) => {
+    if (!canManageUsers) {
+      setControllerError('You do not have permission to remove users');
+      return;
+    }
+
     if (!effectiveOrgId) {
-        sonnerToast.error("Cannot remove user: No organization context.");
+        setControllerError("Cannot remove user: No organization context.");
         return;
     }
     
     const user = orgUsers?.find(u => u.id === userIdToRemove);
     const userName = user ? `${user.firstName} ${user.lastName}` : userIdToRemove;
     
-    // Add confirmation dialog here if desired
-    sonnerToast.warning(`Are you sure you want to remove ${userName} from this organization? This action cannot be undone.`, {
-        action: {
-            label: "Confirm Remove",
-            onClick: async () => {
-              try {
-                await removeUserAction({ userId: userIdToRemove, reason: 'Removed by admin' });
-                sonnerToast.success(`${userName} has been removed from the organization`);
-              } catch (error) {
-                sonnerToast.error("Failed to remove user");
-                console.error('Remove user error:', error);
-              }
-            },
-        },
-        cancel: {
-            label: "Cancel",
-            onClick: () => {},
+    // Use browser confirm for now - in a real app you'd use a proper dialog
+    if (confirm(`Are you sure you want to remove ${userName} from this organization? This action cannot be undone.`)) {
+      try {
+        if (pageController.isRegistered) {
+          const result = await pageController.executeAction('removeUser', {
+            userId: userIdToRemove,
+            reason: 'Removed by admin'
+          });
+          if (result.success) {
+            toast({
+              title: "Success",
+              description: `${userName} has been removed from the organization`,
+            });
+            dispatch(removeUserFromOrganization({ userId: userIdToRemove, orgId: effectiveOrgId }));
+          } else {
+            setControllerError(`Failed to remove user: ${result.error}`);
+            console.error('Remove user error:', result.error);
+          }
+        } else {
+          dispatch(removeUserFromOrganization({ userId: userIdToRemove, orgId: effectiveOrgId }));
+          toast({
+            title: "Success",
+            description: `${userName} has been removed from the organization`,
+          });
         }
-    });
+      } catch (error) {
+        setControllerError("Failed to remove user");
+        console.error('Remove user error:', error);
+      }
+    }
   };
 
   // Debug function to check user setup
@@ -368,16 +245,16 @@ const Users = () => {
     try {
       const result = await Parse.Cloud.run('debugUserOrgSetup', { orgId: effectiveOrgId });
       console.log('Debug User Setup:', result);
-      sonnerToast.info('Debug info logged to console. Check browser console for details.');
+      toast({
+        title: "Debug Info",
+        description: "Debug info logged to console. Check browser console for details.",
+      });
     } catch (error) {
       console.error('Debug error:', error);
-      sonnerToast.error('Debug failed: ' + (error as Error).message);
+      setControllerError('Debug failed: ' + (error as Error).message);
     }
   };
-
-  // handleInviteSuccess can be removed if UserInviteDialog dispatches fetchOrgUsers on success
-  // or if inviteUserToOrganization thunk handles re-fetching.
-
+ 
   return (
     <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -392,6 +269,12 @@ const Users = () => {
               </div>
             </div>
           </div>
+
+          {controllerError && (
+            <div className="bg-destructive/15 text-destructive px-4 py-2 rounded-md">
+              {controllerError}
+            </div>
+          )}
 
           <div className="flex items-center gap-2">
             {pageController.isRegistered && (
@@ -419,7 +302,7 @@ const Users = () => {
               <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
-            <Button onClick={() => openInviteDialogAction()} size="sm">
+            <Button onClick={() => setInviteDialogOpen(true)} size="sm">
               <Plus className="h-4 w-4 mr-2" />
               Invite User
             </Button>
@@ -433,11 +316,10 @@ const Users = () => {
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search users..."
-                  value={searchTerm}
+                  value={localSearchTerm}
                   onChange={(e) => {
-                    const value = e.target.value;
-                    setSearchTerm(value);
-                    searchUsersAction({ searchTerm: value });
+                    setLocalSearchTerm(e.target.value);
+                    runSearchAction(e.target.value);
                   }}
                   className="pl-8"
                 />
@@ -533,10 +415,13 @@ const Users = () => {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem onClick={() => openUserDetailAction({ userId: user.id })}>
+                            <DropdownMenuItem onClick={() => handleOpenUserDetail(user)}>
                               View details
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => openRoleManagementAction({ userId: user.id })}>
+                            <DropdownMenuItem onClick={() => {
+                              setSelectedUser(user);
+                              setRoleManagementOpen(true);
+                            }}>
                               Manage roles
                             </DropdownMenuItem>
                             {/* <DropdownMenuItem>Reset password</DropdownMenuItem> */}
@@ -563,9 +448,9 @@ const Users = () => {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={7} className="h-24 text-center">
-                      {searchTerm ? (
+                      {localSearchTerm ? (
                         <div className="text-muted-foreground">
-                          No users found matching "{searchTerm}"
+                          No users found matching "{localSearchTerm}"
                         </div>
                       ) : (
                         <div className="text-muted-foreground">

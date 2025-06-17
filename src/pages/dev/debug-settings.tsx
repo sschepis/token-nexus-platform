@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Bug, Save, Wrench, Code, FileWarning, Layers, ToggleLeft, Clock, Clipboard, Server, Database, NetworkIcon, Eye } from "lucide-react";
+import { Bug, Save, Wrench, Code, FileWarning, Layers, ToggleLeft, Clock, Clipboard, Server, Database, NetworkIcon, Eye, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -9,9 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
+import { usePermission } from "@/hooks/usePermission";
+import { usePageController } from "@/hooks/usePageController";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { DevToolsWrapper } from "@/components/dev/DevToolsWrapper";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 interface DebugSetting {
   id: string;
   name: string;
@@ -24,8 +27,26 @@ interface DebugSetting {
 }
 
 const DebugSettingsPage: React.FC = () => {
+  const { toast } = useToast();
+  const { hasPermission } = usePermission();
   const [activeTab, setActiveTab] = useState<string>("general");
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Permission checks
+  const canRead = hasPermission('dev:read');
+  const canWrite = hasPermission('dev:write');
+  const canExecute = hasPermission('dev:execute');
+
+  // Initialize page controller
+  const pageController = usePageController({
+    pageId: 'debug-settings',
+    pageName: 'Debug Settings',
+    description: 'Configure debugging tools and features for your application',
+    category: 'development',
+    permissions: ['dev:read', 'dev:write', 'dev:execute'],
+    tags: ['debug', 'settings', 'development', 'configuration']
+  });
 
   const [settings, setSettings] = useState<DebugSetting[]>([
     {
@@ -164,18 +185,40 @@ const DebugSettingsPage: React.FC = () => {
   ]);
 
   const updateSetting = (id: string, value: boolean | string | number) => {
-    setSettings(prev => 
-      prev.map(setting => 
+    if (!canWrite) {
+      toast({
+        title: "Permission denied",
+        description: "You don't have permission to modify debug settings",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSettings(prev =>
+      prev.map(setting =>
         setting.id === id ? { ...setting, value } : setting
       )
     );
   };
 
   const handleSaveSettings = () => {
+    if (!canWrite) {
+      toast({
+        title: "Permission denied",
+        description: "You don't have permission to save debug settings",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
+    setError(null);
     
     setTimeout(() => {
-      toast.success("Debug settings saved successfully");
+      toast({
+        title: "Settings saved",
+        description: "Debug settings saved successfully",
+      });
       setIsLoading(false);
       
       // Only log in development environment
@@ -189,15 +232,27 @@ const DebugSettingsPage: React.FC = () => {
   };
 
   const handleResetSettings = () => {
+    if (!canWrite) {
+      toast({
+        title: "Permission denied",
+        description: "You don't have permission to reset debug settings",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (typeof window !== 'undefined' && window.confirm("Are you sure you want to reset all debug settings to defaults?")) {
-      setSettings(prev => 
+      setSettings(prev =>
         prev.map(setting => {
           const defaultValue = getDefaultValueForSetting(setting.key);
           return { ...setting, value: defaultValue };
         })
       );
       
-      toast.info("Debug settings reset to defaults");
+      toast({
+        title: "Settings reset",
+        description: "Debug settings reset to defaults",
+      });
     }
   };
 
@@ -238,6 +293,27 @@ const DebugSettingsPage: React.FC = () => {
     activeTab === "all" || setting.category === activeTab
   );
 
+  // Show permission error if user can't read dev tools
+  if (!canRead) {
+    return (
+      <DevToolsWrapper
+        toolName="Debug Settings"
+        description="Configure debugging tools and features for your application"
+      >
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold">Configuration</h1>
+        </div>
+        
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            You don't have permission to access development tools. Please contact your administrator.
+          </AlertDescription>
+        </Alert>
+      </DevToolsWrapper>
+    );
+  }
+
   return (
     <DevToolsWrapper
       toolName="Debug Settings"
@@ -246,10 +322,10 @@ const DebugSettingsPage: React.FC = () => {
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Configuration</h1>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleResetSettings}>
+          <Button variant="outline" onClick={handleResetSettings} disabled={!canWrite}>
             Reset to Defaults
           </Button>
-          <Button onClick={handleSaveSettings} disabled={isLoading}>
+          <Button onClick={handleSaveSettings} disabled={isLoading || !canWrite}>
             {isLoading ? (
               <>
                 <Clock className="mr-2 h-4 w-4 animate-spin" />
@@ -264,6 +340,13 @@ const DebugSettingsPage: React.FC = () => {
           </Button>
         </div>
       </div>
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
       <Card>
         <CardHeader>
@@ -324,6 +407,7 @@ const DebugSettingsPage: React.FC = () => {
                               id={setting.id}
                               checked={setting.value as boolean}
                               onCheckedChange={(checked) => updateSetting(setting.id, checked)}
+                              disabled={!canWrite}
                             />
                           )}
                           
@@ -333,6 +417,7 @@ const DebugSettingsPage: React.FC = () => {
                               value={setting.value as string}
                               onChange={(e) => updateSetting(setting.id, e.target.value)}
                               className="max-w-xs"
+                              disabled={!canWrite}
                             />
                           )}
                           
@@ -343,6 +428,7 @@ const DebugSettingsPage: React.FC = () => {
                               value={setting.value as number}
                               onChange={(e) => updateSetting(setting.id, Number(e.target.value))}
                               className="w-24"
+                              disabled={!canWrite}
                             />
                           )}
                           
@@ -350,6 +436,7 @@ const DebugSettingsPage: React.FC = () => {
                             <Select
                               value={setting.value as string}
                               onValueChange={(value) => updateSetting(setting.id, value)}
+                              disabled={!canWrite}
                             >
                               <SelectTrigger id={setting.id} className="w-36"> {/* Added id */}
                                 <SelectValue placeholder="Select" />
@@ -381,6 +468,15 @@ const DebugSettingsPage: React.FC = () => {
             These settings are for development purposes only
           </div>
           <Button variant="outline" size="sm" onClick={() => {
+            if (!canRead) {
+              toast({
+                title: "Permission denied",
+                description: "You don't have permission to copy debug settings",
+                variant: "destructive",
+              });
+              return;
+            }
+
             if (typeof navigator !== 'undefined' && navigator.clipboard) { // Check for navigator
               navigator.clipboard.writeText(JSON.stringify(
                 settings.reduce((acc, setting) => {
@@ -390,11 +486,18 @@ const DebugSettingsPage: React.FC = () => {
                 null,
                 2
               ));
-              toast.success("Debug settings copied to clipboard");
+              toast({
+                title: "Settings copied",
+                description: "Debug settings copied to clipboard",
+              });
             } else {
-              toast.error("Clipboard API not available.");
+              toast({
+                title: "Clipboard unavailable",
+                description: "Clipboard API not available.",
+                variant: "destructive",
+              });
             }
-          }}>
+          }} disabled={!canRead}>
             <Clipboard className="h-4 w-4 mr-2" />
             Copy as JSON
           </Button>

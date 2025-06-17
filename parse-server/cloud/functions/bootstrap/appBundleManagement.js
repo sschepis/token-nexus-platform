@@ -1,16 +1,15 @@
-module.exports = Parse => {
-  // Helper function to check if a user has a specific role
-  async function checkUserRole(user, roleName) {
-    if (!user) return false;
-    const roleQuery = new Parse.Query(Parse.Role);
-    roleQuery.equalTo('name', roleName);
-    roleQuery.equalTo('users', user);
-    const role = await roleQuery.first({ useMasterKey: true });
-    return !!role;
-  }
+// Helper function to check if a user has a specific role
+async function checkUserRole(user, roleName) {
+  if (!user) return false;
+  const roleQuery = new Parse.Query(Parse.Role);
+  roleQuery.equalTo('name', roleName);
+  roleQuery.equalTo('users', user);
+  const role = await roleQuery.first({ useMasterKey: true });
+  return !!role;
+}
 
-  // Create or update app bundle
-  Parse.Cloud.define('createOrUpdateAppBundle', async (request) => {
+// Create or update app bundle
+Parse.Cloud.define('createOrUpdateAppBundle', async (request) => {
     const { user } = request;
     const { 
       appId, 
@@ -648,13 +647,128 @@ module.exports = Parse => {
     }
   });
 
-  // Helper function to check if a user has a specific role
-  async function checkUserRole(user, roleName) {
-    if (!user) return false;
-    const roleQuery = new Parse.Query(Parse.Role);
-    roleQuery.equalTo('name', roleName);
-    roleQuery.equalTo('users', user);
-    const role = await roleQuery.first({ useMasterKey: true });
-    return !!role;
-  }
-};
+  // List apps for admin (system admin only)
+  Parse.Cloud.define('listAppsForAdmin', async (request) => {
+    const { user } = request;
+    const {
+      page = 1,
+      limit = 20,
+      status = null,
+      category = null,
+      search = null,
+      sortBy = 'updatedAt',
+      sortOrder = 'desc'
+    } = request.params;
+
+    if (!user || !user.get('isSystemAdmin')) {
+      throw new Error('Only system administrators can list apps for admin');
+    }
+
+    try {
+      // Query AppDefinitions (published apps) for admin view
+      const AppDefinition = Parse.Object.extend('AppDefinition');
+      const query = new Parse.Query(AppDefinition);
+      
+      // Apply filters
+      if (status) {
+        if (status === 'active') {
+          query.equalTo('isActive', true);
+        } else if (status === 'inactive') {
+          query.equalTo('isActive', false);
+        }
+      }
+      
+      if (category) {
+        query.equalTo('category', category);
+      }
+      
+      if (search) {
+        const searchQuery1 = new Parse.Query(AppDefinition);
+        searchQuery1.contains('name', search);
+        const searchQuery2 = new Parse.Query(AppDefinition);
+        searchQuery2.contains('description', search);
+        query = Parse.Query.or(searchQuery1, searchQuery2);
+      }
+      
+      // Apply sorting
+      if (sortOrder === 'desc') {
+        query.descending(sortBy);
+      } else {
+        query.ascending(sortBy);
+      }
+      
+      // Apply pagination
+      query.limit(limit);
+      query.skip((page - 1) * limit);
+      
+      // Include related objects
+      query.include(['appBundle']);
+      
+      const [apps, total] = await Promise.all([
+        query.find({ useMasterKey: true }),
+        new Parse.Query(AppDefinition).count({ useMasterKey: true })
+      ]);
+      
+      // Map results to frontend format
+      const appData = await Promise.all(apps.map(async (app) => {
+        const bundle = app.get('appBundle');
+        let developerInfo = null;
+        
+        // Get developer info
+        if (bundle && bundle.get('developer')) {
+          try {
+            const developerUser = await new Parse.Query(Parse.User)
+              .get(bundle.get('developer'), { useMasterKey: true });
+            developerInfo = {
+              id: developerUser.id,
+              name: `${developerUser.get('firstName') || ''} ${developerUser.get('lastName') || ''}`.trim(),
+              email: developerUser.get('email')
+            };
+          } catch (e) {
+            console.warn('Could not fetch developer info for app:', app.id, e.message);
+            developerInfo = { name: 'Unknown', email: 'unknown' };
+          }
+        }
+        
+        return {
+          id: app.id,
+          name: app.get('name'),
+          description: app.get('description'),
+          category: app.get('category'),
+          version: app.get('version'),
+          bundleUrl: app.get('bundleUrl'),
+          permissions: app.get('permissions'),
+          configuration: app.get('configuration'),
+          screenshots: app.get('screenshots'),
+          icon: app.get('icon'),
+          developer: developerInfo,
+          supportEmail: app.get('supportEmail'),
+          website: app.get('website'),
+          documentation: app.get('documentation'),
+          isActive: app.get('isActive'),
+          publishedAt: app.get('publishedAt'),
+          createdAt: app.get('createdAt'),
+          updatedAt: app.get('updatedAt'),
+          bundleId: bundle ? bundle.id : null,
+          bundleStatus: bundle ? bundle.get('status') : null
+        };
+      }));
+      
+      return {
+        success: true,
+        apps: appData,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+        hasMore: page * limit < total
+      };
+      
+    } catch (error) {
+      console.error('List apps for admin error:', error);
+      throw error;
+    }
+  });
+
+// Helper function to check if a user has a specific role (duplicate removed)
+// This function is already defined at the top of the file

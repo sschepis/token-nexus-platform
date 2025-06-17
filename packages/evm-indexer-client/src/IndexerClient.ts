@@ -16,7 +16,7 @@ interface ClientDomainConfig {
   // Potentially other fields like authorizedIndexers, maxIndexersN if client needs them
 }
 
-interface EVMEventPayload {
+export interface EVMEventPayload {
   blockNumber: number;
   blockTimestamp: number;
   transactionHash: string;

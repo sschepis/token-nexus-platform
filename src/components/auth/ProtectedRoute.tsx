@@ -73,7 +73,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
       router.push(from);
       return;
     }
-  }, [isAuthenticated, isLoading, initialStateChecked, platformState, requireAuth, redirectTo, router]);
+  }, [isAuthenticated, isLoading, initialStateChecked, platformState, requireAuth, redirectTo]);
 
   // Show loading while checking authentication and platform state
   if (isLoading || !initialStateChecked) {

@@ -28,16 +28,28 @@ async function getUserOrganization(user) {
   // Fallback to currentOrganization pointer - from auth.js pattern
   const currentOrg = user.get('currentOrganization');
   if (currentOrg) {
-    // Handle both pointer objects and already fetched objects
-    if (typeof currentOrg === 'object' && currentOrg.id) {
+    // Handle Parse Pointer objects
+    if (currentOrg.className === 'Organization' && currentOrg.id) {
+      try {
+        const query = new Parse.Query('Organization');
+        const org = await query.get(currentOrg.id, { useMasterKey: true });
+        return org;
+      } catch (error) {
+        console.warn(`Organization pointer ${currentOrg.id} not found, trying fallback`);
+      }
+    }
+    // Handle already fetched Parse Objects
+    else if (typeof currentOrg === 'object' && currentOrg.id && currentOrg.get) {
       return currentOrg;
-    } else if (typeof currentOrg === 'string') {
+    }
+    // Handle string IDs (malformed data)
+    else if (typeof currentOrg === 'string') {
       try {
         const query = new Parse.Query('Organization');
         const org = await query.get(currentOrg, { useMasterKey: true });
         return org;
       } catch (error) {
-        console.warn(`Organization pointer ${currentOrg} not found, trying final fallback`);
+        console.warn(`Organization string ${currentOrg} not found, trying final fallback`);
       }
     }
   }
@@ -49,7 +61,7 @@ async function getUserOrganization(user) {
   
   if (!org) {
     throw new Parse.Error(
-      Parse.Error.OBJECT_NOT_FOUND, 
+      Parse.Error.OBJECT_NOT_FOUND,
       'User not associated with any organization. Please contact your administrator.'
     );
   }

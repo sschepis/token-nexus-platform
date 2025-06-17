@@ -1,185 +1,281 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import Parse from 'parse';
-import { apiService, mockResponse } from './base'; // Import apiService and mockResponse
+import { callCloudFunction, callCloudFunctionForArray } from '../../utils/apiUtils';
 
 /**
- * @file API Keys API services.
- * Handles operations related to API keys via Parse Cloud Functions.
+ * Refactored API Keys API using the new utility functions
+ * This eliminates all the repetitive error handling and Parse.Cloud.run patterns
  */
+
+export interface CreateApiKeyParams {
+  name: string;
+  permissions: string[];
+  expiresAt?: string;
+}
+
+export interface UpdateApiKeyParams {
+  name?: string;
+  permissions?: string[];
+  expiresAt?: string;
+  isActive?: boolean;
+}
+
+export interface ApiKeyFilters {
+  limit?: number;
+  skip?: number;
+}
+
 export const apiKeysApi = {
   /**
-   * Creates a new API key.
-   * @param {object} params - Parameters for the new API key.
-   * @param {string} params.name - The name of the API key.
-   * @param {string[]} params.permissions - An array of permissions granted to this API key.
-   * @param {string} [params.expiresAt] - An optional ISO date string when the API key expires.
-   * @returns {Promise<{ data: { apiKey: any } }>} A promise that resolves with an object containing the newly created API key.
-   * @throws {Error} Throws an error if API key creation fails.
+   * Creates a new API key
    */
-  createApiKey: async (params: {
-    name: string;
-    permissions: string[];
-    expiresAt?: string;
-  }): Promise<{ data: { apiKey: any } }> => {
-    try {
-      const result = await Parse.Cloud.run('createApiKey', params);
-      
-      return {
-        data: {
-          apiKey: result.apiKey
-        }
-      };
-    } catch (error: any) {
-      console.debug('[API Keys API] Error calling createApiKey cloud function:', error);
-      throw new Error(error.message || 'Failed to create API Key');
-    }
+  async createApiKey(params: CreateApiKeyParams) {
+    return callCloudFunction('createApiKey', params as unknown as Record<string, unknown>, {
+      errorMessage: 'Failed to create API Key'
+    });
   },
 
   /**
-   * Fetches a list of API keys.
-   * @param {object} [params] - Optional parameters for filtering and pagination.
-   * @param {number} [params.limit] - Maximum number of API keys to return.
-   * @param {number} [params.skip] - Number of API keys to skip for pagination.
-   * @returns {Promise<{ data: { apiKeys: any[]; totalCount: number } }>} A promise that resolves with an object containing the list of API keys and total count.
-   * @throws {Error} Throws an error if fetching API keys fails.
+   * Fetches a list of API keys
    */
-  getApiKeys: async (params?: {
-    limit?: number;
-    skip?: number;
-  }): Promise<{ data: { apiKeys: any[]; totalCount: number } }> => {
-    try {
-      const result = await Parse.Cloud.run('getApiKeys', params || {});
-      
-      return {
-        data: {
-          apiKeys: result.apiKeys || [],
-          totalCount: result.totalCount || 0
-        }
-      };
-    } catch (error: any) {
-      console.debug('[API Keys API] Error calling getApiKeys cloud function:', error);
-      throw new Error(error.message || 'Failed to fetch API Keys');
-    }
+  async getApiKeys(params: ApiKeyFilters = {}) {
+    return callCloudFunction('getApiKeys', params as Record<string, unknown>, {
+      errorMessage: 'Failed to fetch API Keys'
+    });
   },
 
   /**
-   * Updates an existing API key.
-   * @param {string} apiKeyId - The ID of the API key to update.
-   * @param {object} params - Parameters to update for the API key.
-   * @param {string} [params.name] - New name for the API key.
-   * @param {string[]} [params.permissions] - New array of permissions.
-   * @param {string} [params.expiresAt] - New expiration date for the API key (ISO date string).
-   * @param {boolean} [params.isActive] - New active status for the API key.
-   * @returns {Promise<{ data: { apiKey: any } }>} A promise that resolves with an object containing the updated API key.
-   * @throws {Error} Throws an error if updating the API key fails.
+   * Updates an existing API key
    */
-  updateApiKey: async (apiKeyId: string, params: {
-    name?: string;
-    permissions?: string[];
-    expiresAt?: string;
-    isActive?: boolean;
-  }): Promise<{ data: { apiKey: any } }> => {
-    try {
-      const result = await Parse.Cloud.run('updateApiKey', { apiKeyId, ...params });
-      
-      return {
-        data: {
-          apiKey: result.apiKey
-        }
-      };
-    } catch (error: any) {
-      console.debug('[API Keys API] Error calling updateApiKey cloud function:', error);
-      throw new Error(error.message || 'Failed to update API Key');
-    }
+  async updateApiKey(apiKeyId: string, params: UpdateApiKeyParams) {
+    return callCloudFunction('updateApiKey', { apiKeyId, ...params }, {
+      errorMessage: 'Failed to update API Key'
+    });
   },
 
   /**
-   * Deletes an API key.
-   * @param {string} apiKeyId - The ID of the API key to delete.
-   * @returns {Promise<{ data: { success: boolean; message: string } }>} A promise that resolves with a success status.
-   * @throws {Error} Throws an error if deleting the API key fails.
+   * Deletes an API key
    */
-  deleteApiKey: async (apiKeyId: string): Promise<{ data: { success: boolean; message: string } }> => {
-    try {
-      const result = await Parse.Cloud.run('deleteApiKey', { apiKeyId });
-      
-      return {
-        data: {
-          success: result.success,
-          message: result.message
-        }
-      };
-    } catch (error: any) {
-      console.debug('[API Keys API] Error calling deleteApiKey cloud function:', error);
-      throw new Error(error.message || 'Failed to delete API Key');
-    }
+  async deleteApiKey(apiKeyId: string) {
+    return callCloudFunction('deleteApiKey', { apiKeyId }, {
+      errorMessage: 'Failed to delete API Key'
+    });
   },
 
   /**
-   * Retrieves usage data for API keys.
-   * @param {string} [apiKeyId] - Optional. The ID of a specific API key to get usage for. If not provided, overall usage is returned.
-   * @returns {Promise<{ data: { usage?: any; statistics?: any } }>} A promise that resolves with usage data and statistics.
-   * @throws {Error} Throws an error if fetching API key usage fails.
+   * Retrieves usage data for API keys
    */
-  getApiKeyUsage: async (apiKeyId?: string): Promise<{ data: { usage?: any; statistics?: any } }> => {
-    try {
-      // For a specific API key
-      if (apiKeyId) {
-        const result = await Parse.Cloud.run('getApiKeyUsage', { query: { apiKeyId } });
-        return { data: { usage: result.usage, statistics: result.statistics } };
-      }
-      // For overall API key usage (if API supports it)
-      const result = await Parse.Cloud.run('getApiKeyUsage');
-      return { data: { usage: result.usage || [], statistics: result.statistics || {} } };
-    } catch (error: any) {
-      console.debug('[API Keys API] Error calling getApiKeyUsage cloud function:', error);
-      throw new Error(error.message || 'Failed to fetch API Key Usage');
-    }
+  async getApiKeyUsage(apiKeyId?: string) {
+    const params = apiKeyId ? { query: { apiKeyId } } : {};
+    return callCloudFunction('getApiKeyUsage', params, {
+      errorMessage: 'Failed to fetch API Key Usage'
+    });
   },
+
+  /**
+   * Batch delete multiple API keys
+   */
+  async batchDeleteApiKeys(apiKeyIds: string[]) {
+    const operations = apiKeyIds.map(apiKeyId => 
+      () => this.deleteApiKey(apiKeyId)
+    );
+
+    const { batchApiCalls } = await import('../../utils/apiUtils');
+    return batchApiCalls(operations, {
+      continueOnError: true,
+      showErrorToast: false
+    });
+  },
+
+  /**
+   * Batch update multiple API keys
+   */
+  async batchUpdateApiKeys(updates: Array<{ apiKeyId: string; params: UpdateApiKeyParams }>) {
+    const operations = updates.map(({ apiKeyId, params }) => 
+      () => this.updateApiKey(apiKeyId, params)
+    );
+
+    const { batchApiCalls } = await import('../../utils/apiUtils');
+    return batchApiCalls(operations, {
+      continueOnError: true,
+      showErrorToast: false
+    });
+  },
+
+  /**
+   * Batch get usage for multiple API keys
+   */
+  async batchGetApiKeyUsage(apiKeyIds: string[]) {
+    const operations = apiKeyIds.map(apiKeyId => 
+      () => this.getApiKeyUsage(apiKeyId)
+    );
+
+    const { batchApiCalls } = await import('../../utils/apiUtils');
+    return batchApiCalls(operations, {
+      continueOnError: true,
+      showErrorToast: false
+    });
+  }
 };
 
-export const mockApiKeysApis = {
-  createApiKey: (params: any) => {
+// Mock implementations for development
+const mockApiKeysApis = {
+  createApiKey: (params: CreateApiKeyParams) => {
     const newKey = {
       id: `ak-${Math.floor(Math.random() * 1000)}`,
       key: `key-${Math.floor(Math.random() * 1000)}-${Date.now()}`,
       createdAt: new Date().toISOString(),
+      isActive: true,
       ...params,
     };
-    return mockResponse({ apiKey: newKey });
-  },
-
-  getApiKeys: () => {
-    return mockResponse({
-      apiKeys: [
-        {
-          id: 'ak-1',
-          name: 'Admin Key',
-          key: 'dummy-admin-key',
-          permissions: ['admin', 'token:read', 'token:write'],
-          isActive: true,
-          createdAt: new Date().toISOString(),
-        },
-      ],
-      totalCount: 1,
+    return Promise.resolve({
+      success: true,
+      data: { apiKey: newKey }
     });
   },
 
-  updateApiKey: (apiKeyId: string, params: any) => {
-    return mockResponse({ apiKey: { id: apiKeyId, ...params } });
+  getApiKeys: (params?: ApiKeyFilters) => {
+    return Promise.resolve({
+      success: true,
+      data: {
+        apiKeys: [
+          {
+            id: 'ak-1',
+            name: 'Admin Key',
+            key: 'dummy-admin-key-***',
+            permissions: ['admin', 'token:read', 'token:write'],
+            isActive: true,
+            createdAt: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+            lastUsed: new Date(Date.now() - 3600000).toISOString(),
+          },
+          {
+            id: 'ak-2',
+            name: 'Read Only Key',
+            key: 'dummy-readonly-key-***',
+            permissions: ['token:read', 'user:read'],
+            isActive: true,
+            createdAt: new Date(Date.now() - 86400000).toISOString(),
+            expiresAt: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
+            lastUsed: new Date(Date.now() - 7200000).toISOString(),
+          },
+          {
+            id: 'ak-3',
+            name: 'Expired Key',
+            key: 'dummy-expired-key-***',
+            permissions: ['token:read'],
+            isActive: false,
+            createdAt: new Date(Date.now() - 7 * 86400000).toISOString(),
+            expiresAt: new Date(Date.now() - 86400000).toISOString(),
+            lastUsed: new Date(Date.now() - 2 * 86400000).toISOString(),
+          },
+        ],
+        totalCount: 3,
+      }
+    });
+  },
+
+  updateApiKey: (apiKeyId: string, params: UpdateApiKeyParams) => {
+    return Promise.resolve({
+      success: true,
+      data: { apiKey: { id: apiKeyId, ...params, updatedAt: new Date().toISOString() } }
+    });
   },
 
   deleteApiKey: (apiKeyId: string) => {
-    return mockResponse({ success: true, message: `API Key ${apiKeyId} deleted successfully` });
+    return Promise.resolve({
+      success: true,
+      data: { success: true, message: `API Key ${apiKeyId} deleted successfully` }
+    });
   },
 
   getApiKeyUsage: (apiKeyId?: string) => {
     if (apiKeyId) {
-      return mockResponse({ usage: { calls: 100, errors: 5 }, statistics: { last24hrs: '...' } });
+      return Promise.resolve({
+        success: true,
+        data: { 
+          usage: { 
+            calls: 1250, 
+            errors: 15, 
+            successRate: 0.988,
+            lastCall: new Date(Date.now() - 3600000).toISOString()
+          }, 
+          statistics: { 
+            last24hrs: {
+              calls: 150,
+              errors: 2,
+              avgResponseTime: 245
+            },
+            last7days: {
+              calls: 1250,
+              errors: 15,
+              avgResponseTime: 230
+            }
+          } 
+        }
+      });
     }
-    return mockResponse({ usage: { totalCalls: 5000, totalErrors: 50 }, statistics: { last7days: '...' } });
+    return Promise.resolve({
+      success: true,
+      data: { 
+        usage: { 
+          totalCalls: 15000, 
+          totalErrors: 150,
+          totalKeys: 3,
+          activeKeys: 2
+        }, 
+        statistics: { 
+          last7days: {
+            totalCalls: 5000,
+            totalErrors: 50,
+            avgResponseTime: 235,
+            topKeys: [
+              { id: 'ak-1', calls: 3000 },
+              { id: 'ak-2', calls: 2000 }
+            ]
+          }
+        } 
+      }
+    });
   },
+
+  batchDeleteApiKeys: (apiKeyIds: string[]) => {
+    return Promise.resolve({
+      results: apiKeyIds.map(() => ({ success: true })),
+      successCount: apiKeyIds.length,
+      errorCount: 0
+    });
+  },
+
+  batchUpdateApiKeys: (updates: Array<{ apiKeyId: string; params: UpdateApiKeyParams }>) => {
+    return Promise.resolve({
+      results: updates.map(() => ({ success: true })),
+      successCount: updates.length,
+      errorCount: 0
+    });
+  },
+
+  batchGetApiKeyUsage: (apiKeyIds: string[]) => {
+    return Promise.resolve({
+      results: apiKeyIds.map(() => ({ success: true })),
+      successCount: apiKeyIds.length,
+      errorCount: 0
+    });
+  }
 };
 
-// Merge API Keys API into the global apiService
-Object.assign(apiService, process.env.NEXT_PUBLIC_USE_MOCK_API === 'true' ? mockApiKeysApis : apiKeysApi);
+// Export individual functions for backward compatibility
+export const {
+  createApiKey,
+  getApiKeys,
+  updateApiKey,
+  deleteApiKey,
+  getApiKeyUsage,
+  batchDeleteApiKeys,
+  batchUpdateApiKeys,
+  batchGetApiKeyUsage
+} = apiKeysApi;
+
+// Use mock or real API based on environment
+const finalApiKeysApi = process.env.NEXT_PUBLIC_USE_MOCK_API === 'true' ? mockApiKeysApis : apiKeysApi;
+
+// Default export
+export default finalApiKeysApi;

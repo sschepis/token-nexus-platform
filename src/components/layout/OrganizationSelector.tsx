@@ -50,7 +50,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ clas
     }
     */
     console.log('[DEBUG OrganizationSelector.tsx] useEffect - Data fetching temporarily disabled.');
-  }, [user, userOrgs.length, orgId, currentOrg, isLoading, dispatch]);
+  }, [user, userOrgs.length, orgId, currentOrg, isLoading]);
 
   const handleOrgChange = async (newOrgId: string) => {
     if (newOrgId !== currentOrg?.id) {
@@ -73,7 +73,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ clas
     }
   };
 
-  // Enhanced loading and error state handling
+  // Loading and error state handling
   
   // Show loading state when orgId exists but currentOrg is still loading
   if (orgId && !currentOrg && isLoading) {

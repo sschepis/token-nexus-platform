@@ -113,6 +113,21 @@ class Server {
     logger.startup('services', 'Initializing services');
     await ServiceManager.initialize(config);
     logger.startup('services', 'Services initialized');
+
+    // Check for automated install configuration
+    try {
+      logger.startup('auto-install', 'Checking for automated install configuration');
+      const autoInstallResult = await Parse.Cloud.run('checkAndRunAutomatedInstall', {}, { useMasterKey: true });
+      
+      if (autoInstallResult.success) {
+        logger.startup('auto-install', 'Automated install completed successfully');
+      } else {
+        logger.startup('auto-install', `Automated install skipped: ${autoInstallResult.message}`);
+      }
+    } catch (error) {
+      logger.error('Error during automated install check:', error);
+      // Don't fail server startup if automated install fails
+    }
   }
 
   runInitializationJob() {

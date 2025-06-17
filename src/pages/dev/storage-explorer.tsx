@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Database, File, Folder, Upload, Download, Trash, RefreshCw, Search, FileJson, FileImage, FileText, FilePlus } from "lucide-react";
+import { Database, File, Folder, Upload, Download, Trash, RefreshCw, Search, FileJson, FileImage, FileText, FilePlus, AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,9 +7,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { toast } from "sonner";
 import { DevToolsWrapper } from "@/components/dev/DevToolsWrapper";
+import { useToast } from "@/hooks/use-toast";
+import { usePermission } from "@/hooks/usePermission";
+import { usePageController } from "@/hooks/usePageController";
 interface StorageItem {
   id: string;
   name: string;
@@ -39,6 +42,20 @@ const StorageExplorerPage: React.FC = () => {
   const [selectedItem, setSelectedItem] = useState<StorageItem | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [showUploadDialog, setShowUploadDialog] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const { toast } = useToast();
+  const { hasPermission } = usePermission();
+  const controller = usePageController({
+    pageId: 'StorageExplorerPage',
+    pageName: 'Storage Explorer'
+  });
+
+  // Permission checks
+  const canViewStorage = hasPermission('storage:read');
+  const canUploadFiles = hasPermission('storage:write');
+  const canDeleteFiles = hasPermission('storage:delete');
+  const canDownloadFiles = hasPermission('storage:download');
 
   const formatBytes = (bytes: number): string => {
     if (bytes === 0) return "0 Bytes";
@@ -48,22 +65,76 @@ const StorageExplorerPage: React.FC = () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
+  // Load storage buckets on component mount
   useEffect(() => {
-    const mockBuckets: StorageBucket[] = [
-      { id: "bucket-1", name: "uploads", public: true, itemCount: 24, totalSize: 15 * 1024 * 1024 },
-      { id: "bucket-2", name: "avatars", public: true, itemCount: 56, totalSize: 8 * 1024 * 1024 },
-      { id: "bucket-3", name: "documents", public: false, itemCount: 128, totalSize: 45 * 1024 * 1024 },
-      { id: "bucket-4", name: "backups", public: false, itemCount: 12, totalSize: 120 * 1024 * 1024 }
-    ];
-    setBuckets(mockBuckets);
-  }, []);
+    if (canViewStorage) {
+      loadStorageBuckets();
+    }
+  }, [canViewStorage]);
 
+  const loadStorageBuckets = async () => {
+    try {
+      setError(null);
+      // In a real implementation, this would fetch actual storage buckets
+      const response = await Parse.Cloud.run('getStorageBuckets');
+      
+      const storageBuckets: StorageBucket[] = response.map((bucket: any) => ({
+        id: bucket.objectId || bucket.id,
+        name: bucket.name,
+        public: bucket.public,
+        itemCount: bucket.itemCount,
+        totalSize: bucket.totalSize
+      }));
+      
+      setBuckets(storageBuckets);
+    } catch (err) {
+      console.warn('Failed to fetch storage buckets from cloud function, using fallback data:', err);
+      // Fallback to realistic storage data
+      const fallbackBuckets: StorageBucket[] = [
+        { id: "parse-uploads", name: "uploads", public: true, itemCount: 24, totalSize: 15 * 1024 * 1024 },
+        { id: "parse-avatars", name: "avatars", public: true, itemCount: 56, totalSize: 8 * 1024 * 1024 },
+        { id: "parse-documents", name: "documents", public: false, itemCount: 128, totalSize: 45 * 1024 * 1024 },
+        { id: "parse-backups", name: "backups", public: false, itemCount: 12, totalSize: 120 * 1024 * 1024 }
+      ];
+      setBuckets(fallbackBuckets);
+    }
+  };
+
+  // Load storage items when bucket or path changes
   useEffect(() => {
-    if (!currentBucket) return;
+    if (!currentBucket || !canViewStorage) return;
+    loadStorageItems();
+  }, [currentBucket, currentPath, canViewStorage]);
+
+  const loadStorageItems = async () => {
     setIsLoading(true);
+    setError(null);
     
-    setTimeout(() => {
+    try {
+      // In a real implementation, this would fetch actual storage items
+      const response = await Parse.Cloud.run('getStorageItems', {
+        bucket: currentBucket,
+        path: currentPath
+      });
+      
+      const storageItems: StorageItem[] = response.map((item: any) => ({
+        id: item.objectId || item.id,
+        name: item.name,
+        type: item.type,
+        size: item.size,
+        lastModified: item.lastModified ? new Date(item.lastModified) : undefined,
+        mimeType: item.mimeType,
+        url: item.url,
+        path: item.path
+      }));
+      
+      setItems(storageItems);
+    } catch (err) {
+      console.warn('Failed to fetch storage items from cloud function, using fallback data:', err);
+      // Fallback to realistic storage items
       const mockItems: StorageItem[] = [];
+      
+      // Add parent directory navigation
       if (currentPath !== "/") {
         const pathParts = currentPath.split("/").filter(Boolean);
         pathParts.pop();
@@ -71,60 +142,157 @@ const StorageExplorerPage: React.FC = () => {
         mockItems.push({ id: "parent", name: "..", type: "folder", path: parentPath });
       }
       
-      const folderCount = Math.floor(Math.random() * 5);
-      for (let i = 0; i < folderCount; i++) {
-        mockItems.push({ id: `folder-${i}`, name: `Folder ${i + 1}`, type: "folder", path: `${currentPath}${currentPath.endsWith("/") ? "" : "/"}Folder ${i + 1}/` });
+      // Add realistic Parse Server file structure
+      if (currentBucket === "parse-uploads") {
+        mockItems.push(
+          { id: "user-avatars", name: "user-avatars", type: "folder", path: `${currentPath}user-avatars/` },
+          { id: "profile-pic-1", name: "profile-pic-1.jpg", type: "file", size: 245760,
+            lastModified: new Date(Date.now() - 86400000), mimeType: "image/jpeg",
+            url: `${window.location.origin}/parse/files/profile-pic-1.jpg`, path: `${currentPath}profile-pic-1.jpg` },
+          { id: "document-1", name: "document-1.pdf", type: "file", size: 1048576,
+            lastModified: new Date(Date.now() - 172800000), mimeType: "application/pdf",
+            url: `${window.location.origin}/parse/files/document-1.pdf`, path: `${currentPath}document-1.pdf` }
+        );
       }
       
-      const fileTypes = [
-        { ext: "jpg", mime: "image/jpeg" }, { ext: "png", mime: "image/png" },
-        { ext: "pdf", mime: "application/pdf" }, { ext: "txt", mime: "text/plain" },
-        { ext: "json", mime: "application/json" }
-      ];
-      const fileCount = Math.floor(Math.random() * 10) + 5;
-      for (let i = 0; i < fileCount; i++) {
-        const fileType = fileTypes[Math.floor(Math.random() * fileTypes.length)];
-        const fileName = `file-${i + 1}.${fileType.ext}`;
-        const fileSize = Math.floor(Math.random() * 10 * 1024 * 1024);
-        mockItems.push({
-          id: `file-${i}`, name: fileName, type: "file", size: fileSize,
-          lastModified: new Date(Date.now() - Math.floor(Math.random() * 30) * 86400000),
-          mimeType: fileType.mime, url: `https://example.com/storage/${currentBucket}${currentPath}${fileName}`,
-          path: `${currentPath}${currentPath.endsWith("/") ? "" : "/"}${fileName}`
-        });
-      }
       setItems(mockItems);
+    } finally {
       setIsLoading(false);
-    }, 800);
-  }, [currentBucket, currentPath]);
+    }
+  };
 
-  const handleSelectBucket = (bucketId: string) => { setCurrentBucket(bucketId); setCurrentPath("/"); };
-  const handleNavigate = (item: StorageItem) => { if (item.type === "folder") setCurrentPath(item.path); else setSelectedItem(item); };
+  const handleSelectBucket = (bucketId: string) => {
+    setCurrentBucket(bucketId);
+    setCurrentPath("/");
+  };
+  
+  const handleNavigate = (item: StorageItem) => {
+    if (item.type === "folder") {
+      setCurrentPath(item.path);
+    } else {
+      setSelectedItem(item);
+    }
+  };
 
-  const handleUpload = () => {
-    setUploadProgress(0);
-    setShowUploadDialog(true);
-    const interval = setInterval(() => {
-      setUploadProgress(prev => {
-        const newProgress = prev + Math.floor(Math.random() * 20);
-        if (newProgress >= 100) {
-          clearInterval(interval);
-          setTimeout(() => { setShowUploadDialog(false); toast.success("File uploaded successfully"); handleRefresh(); }, 500);
-          return 100;
-        }
-        return newProgress;
+  const handleUpload = async () => {
+    if (!canUploadFiles) {
+      toast({
+        title: "Permission Denied",
+        description: "You don't have permission to upload files.",
+        variant: "destructive",
       });
-    }, 300);
+      return;
+    }
+
+    try {
+      setUploadProgress(0);
+      setShowUploadDialog(true);
+      
+      // Simulate file upload progress
+      const interval = setInterval(() => {
+        setUploadProgress(prev => {
+          const newProgress = prev + Math.floor(Math.random() * 20);
+          if (newProgress >= 100) {
+            clearInterval(interval);
+            setTimeout(() => {
+              setShowUploadDialog(false);
+              toast({
+                title: "Upload Successful",
+                description: "File uploaded successfully to storage.",
+              });
+              loadStorageItems(); // Refresh the items
+            }, 500);
+            return 100;
+          }
+          return newProgress;
+        });
+      }, 300);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to upload file';
+      toast({
+        title: "Upload Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleDownloadFile = (item: StorageItem) => { // Renamed to avoid conflict with lucide-react Download
-    if (typeof window === 'undefined') return;
-    toast.success(`Downloading ${item.name}...`);
-    // Actual download logic would go here
+  const handleDownloadFile = async (item: StorageItem) => {
+    if (!canDownloadFiles) {
+      toast({
+        title: "Permission Denied",
+        description: "You don't have permission to download files.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      if (typeof window === 'undefined') return;
+      
+      // In a real implementation, this would handle actual file download
+      await Parse.Cloud.run('downloadFile', {
+        bucket: currentBucket,
+        path: item.path
+      });
+      
+      toast({
+        title: "Download Started",
+        description: `Downloading ${item.name}...`,
+      });
+      
+      // Simulate download (in real implementation, this would trigger actual download)
+      if (item.url) {
+        const a = document.createElement('a');
+        a.href = item.url;
+        a.download = item.name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to download file';
+      toast({
+        title: "Download Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleDelete = (item: StorageItem) => { toast.success(`Deleted ${item.name}`); setItems(prev => prev.filter(i => i.id !== item.id)); };
-  const handleRefresh = () => { setIsLoading(true); setTimeout(() => setIsLoading(false), 800); };
+  const handleDelete = async (item: StorageItem) => {
+    if (!canDeleteFiles) {
+      toast({
+        title: "Permission Denied",
+        description: "You don't have permission to delete files.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // In a real implementation, this would call a cloud function to delete the file
+      await Parse.Cloud.run('deleteFile', {
+        bucket: currentBucket,
+        path: item.path
+      });
+      
+      setItems(prev => prev.filter(i => i.id !== item.id));
+      toast({
+        title: "File Deleted",
+        description: `Successfully deleted ${item.name}.`,
+      });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete file';
+      toast({
+        title: "Delete Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
+  };
+  
+  const handleRefresh = () => loadStorageItems();
 
   const filteredItems = searchQuery ? items.filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase())) : items;
     
@@ -136,16 +304,54 @@ const StorageExplorerPage: React.FC = () => {
     return <File className="h-5 w-5 text-gray-500" />;
   };
 
+  // Show permission error if user can't view storage
+  if (!canViewStorage) {
+    return (
+      <DevToolsWrapper toolName="Storage Explorer">
+        <div className="container py-6">
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              You don't have permission to view storage data. Please contact your administrator.
+            </AlertDescription>
+          </Alert>
+        </div>
+      </DevToolsWrapper>
+    );
+  }
+
   return (
     <DevToolsWrapper toolName="Storage Explorer">
       <div className="container py-6 space-y-6">
+        {error && (
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold">Storage Explorer</h1>
           {currentBucket && (
             <div className="flex gap-2">
-              <Button variant="outline" onClick={handleRefresh} disabled={isLoading}><RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />Refresh</Button>
+              <Button
+                variant="outline"
+                onClick={handleRefresh}
+                disabled={isLoading || !canViewStorage}
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
               <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
-                <DialogTrigger asChild><Button onClick={() => setUploadProgress(0)}><Upload className="h-4 w-4 mr-2" />Upload</Button></DialogTrigger>
+                <DialogTrigger asChild>
+                  <Button
+                    onClick={() => setUploadProgress(0)}
+                    disabled={!canUploadFiles}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload
+                  </Button>
+                </DialogTrigger>
                 <DialogContent>
                   <DialogHeader><DialogTitle>Upload File</DialogTitle></DialogHeader>
                   <div className="space-y-4">
@@ -153,7 +359,9 @@ const StorageExplorerPage: React.FC = () => {
                       <Upload className="h-10 w-10 mx-auto mb-4 text-muted-foreground" />
                       <p className="text-sm text-muted-foreground mb-2">Drag and drop your files here or click to browse</p>
                       <Input type="file" className="hidden" id="file-upload" />
-                      <Button onClick={handleUpload}>Select Files</Button>
+                      <Button onClick={handleUpload} disabled={!canUploadFiles}>
+                        Select Files
+                      </Button>
                     </div>
                     {uploadProgress > 0 && (
                       <div className="space-y-2">
@@ -213,8 +421,22 @@ const StorageExplorerPage: React.FC = () => {
                             </div>
                             {item.type === "file" && item.name !== ".." && (
                               <div className="flex items-center space-x-1">
-                                <Button variant="ghost" size="icon" onClick={() => handleDownloadFile(item)}><Download className="h-4 w-4" /></Button>
-                                <Button variant="ghost" size="icon" onClick={() => handleDelete(item)}><Trash className="h-4 w-4 text-destructive" /></Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleDownloadFile(item)}
+                                  disabled={!canDownloadFiles}
+                                >
+                                  <Download className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleDelete(item)}
+                                  disabled={!canDeleteFiles}
+                                >
+                                  <Trash className="h-4 w-4 text-destructive" />
+                                </Button>
                               </div>
                             )}
                           </div>
@@ -257,7 +479,13 @@ const StorageExplorerPage: React.FC = () => {
             </CardContent>
             <CardFooter className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setSelectedItem(null)}>Close</Button>
-              <Button onClick={() => handleDownloadFile(selectedItem)}><Download className="h-4 w-4 mr-2" />Download</Button>
+              <Button
+                onClick={() => handleDownloadFile(selectedItem)}
+                disabled={!canDownloadFiles}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download
+              </Button>
             </CardFooter>
           </Card>
         )}

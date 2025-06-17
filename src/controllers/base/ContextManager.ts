@@ -152,17 +152,24 @@ export class ContextManager {
     organizationId?: string
   ): Promise<ActionContext | null> {
     try {
-      // Fetch user data
-      const userQuery = new Parse.Query('_User');
-      const user = await userQuery.get(userId);
+      // Fetch user data using cloud function
+      const result = await Parse.Cloud.run('getUserDetails', {
+        userId: userId,
+        organizationId: organizationId
+      });
       
+      if (!result.success) {
+        throw new Error('Failed to fetch user details');
+      }
+      
+      const user = result.user;
       const userContext: UserContext = {
         userId: user.id,
-        username: user.get('username'),
-        email: user.get('email'),
-        roles: user.get('roles') || [],
-        permissions: user.get('permissions') || [],
-        organizationId: organizationId || user.get('organizationId'),
+        username: user.username,
+        email: user.email,
+        roles: user.roles || [],
+        permissions: user.permissions || [],
+        organizationId: organizationId || user.organizationId,
         organizationRoles: user.get('organizationRoles') || []
       };
 

@@ -481,6 +481,47 @@ Parse.Cloud.define('getUserDetails', async (request) => {
       };
     });
 
+    // Get current organization if set
+    let currentOrganization = null;
+    
+    // First try currentOrganizationId (preferred)
+    const currentOrgId = targetUser.get('currentOrganizationId');
+    if (currentOrgId) {
+      // Find the organization in the user's organizations
+      const matchingOrg = organizations.find(org => org.id === currentOrgId);
+      if (matchingOrg) {
+        currentOrganization = matchingOrg;
+      }
+    }
+    
+    // Fallback to currentOrganization pointer for backward compatibility
+    if (!currentOrganization) {
+      const currentOrgPointer = targetUser.get('currentOrganization');
+      if (currentOrgPointer) {
+        try {
+          const currentOrg = await currentOrgPointer.fetch({ useMasterKey: true });
+          currentOrganization = {
+            id: currentOrg.id,
+            name: currentOrg.get('name'),
+            status: currentOrg.get('status'),
+            planType: currentOrg.get('planType')
+          };
+        } catch (error) {
+          console.warn('Failed to fetch current organization:', error);
+        }
+      }
+    }
+
+    // If no current organization is set but user has organizations, set the first one as current
+    if (!currentOrganization && organizations.length > 0) {
+      currentOrganization = {
+        id: organizations[0].id,
+        name: organizations[0].name,
+        status: organizations[0].status,
+        planType: organizations[0].planType
+      };
+    }
+
     return {
       success: true,
       user: {
@@ -491,9 +532,11 @@ Parse.Cloud.define('getUserDetails', async (request) => {
         isActive: targetUser.get('isActive'),
         isSystemAdmin: targetUser.get('isSystemAdmin'),
         createdAt: targetUser.get('createdAt'),
-        lastLogin: targetUser.get('lastLogin')
+        lastLogin: targetUser.get('lastLogin'),
+        currentOrganizationId: currentOrganization?.id || null
       },
-      organizations: organizations
+      organizations: organizations,
+      currentOrganization: currentOrganization
     };
 
   } catch (error) {

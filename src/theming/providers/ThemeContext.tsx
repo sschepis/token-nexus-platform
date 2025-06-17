@@ -206,7 +206,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
     };
 
     loadPersistedTheme();
-  }, [currentTheme, themeEngine, setTheme]);
+  }, [currentTheme, themeEngine]);
 
   // Handle system theme changes
   useEffect(() => {

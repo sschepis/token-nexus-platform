@@ -286,9 +286,10 @@ export class DashboardPageController implements PageController {
   // Helper methods for data retrieval
   private async getUserCount(orgId: string): Promise<number> {
     try {
-      const query = new Parse.Query('_User');
-      query.equalTo('organizationId', orgId);
-      return await query.count();
+      const result = await Parse.Cloud.run('getUserCount', {
+        organizationId: orgId
+      });
+      return result.success ? result.count : 0;
     } catch (error) {
       console.warn('[DEBUG DashboardPageController] Failed to get user count:', error);
       return 0;

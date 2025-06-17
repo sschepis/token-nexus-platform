@@ -8,85 +8,41 @@ import { appRegistry } from './appRegistry'; // Import appRegistry
 import { initializeControllers } from '../controllers/registerControllers';
 
 // Helper function to ensure Parse Installation is properly set up
+// This function orchestrates the creation or retrieval and update of the Parse Installation object.
 async function ensureParseInstallation(): Promise<void> {
   try {
-    // First, check if we already have a valid installation ID
-    const existingInstallationId = localStorage.getItem('parse/gemcms_dev/installationId');
-    
-    if (existingInstallationId) {
-      // If we have an existing installation ID, try to update it with required properties
-      console.log('[DEBUG] Using existing installation ID:', existingInstallationId);
-      
-      try {
-        // Try to fetch and update the existing installation
-        const installation = new Parse.Installation();
-        installation.id = existingInstallationId;
-        
-        // Set required properties that cloud functions expect
-        installation.set("deviceType", "web");
-        installation.set("updatedAt", new Date());
-        
-        await installation.save();
-        console.log('[DEBUG] Updated existing installation with required properties');
-      } catch (updateError) {
-        console.warn('[DEBUG] Could not update existing installation, creating new one:', updateError);
-        // Fall through to create a new installation
-      }
-      
+    // Skip installation setup during development to avoid errors
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[DEBUG] Skipping Parse Installation setup in development mode');
       return;
     }
 
-    // Create a new Installation object
-    const installation = new Parse.Installation();
-    // Set required deviceType field for web applications
-    installation.set("deviceType", "web");
-    // Add a timestamp to help with debugging
-    installation.set("createdAt", new Date());
+    let installation = await Parse.Installation.currentInstallation();
 
-    await installation.save();
-    
-    // Set the installation ID properties that cloud functions expect
-    const installationId = installation.id;
-    installation.set("installationId", installationId);
-    
-    // Save again with the installation ID properties
-    await installation.save();
-    
-    console.log('[DEBUG] Parse Installation saved successfully with ID:', installationId);
-    
+    // If currentInstallation() returned null or undefined, create a new one.
+    if (!installation) {
+      console.warn('[DEBUG] Parse.Installation.currentInstallation() returned null/undefined. Creating a new Parse.Installation object.');
+      installation = new Parse.Installation();
+    }
+
+    // Now, proceed with setting properties if it's a new or uninitialized installation
+    if (!installation.id || !installation.get("deviceType")) {
+      installation.set("deviceType", "web");
+      await installation.save();
+      console.log('[DEBUG] New Parse Installation created and saved successfully with ID:', installation.id);
+    } else {
+      // For existing installations, ensure necessary properties are implicitly consistent.
+      // A simple save will update its `updatedAt` field, ensuring it's recent.
+      // This is generally good practice to keep the installation object fresh.
+      await installation.save();
+      console.log('[DEBUG] Existing Parse Installation ensured/updated with ID:', installation.id);
+    }
+
   } catch (installationError) {
-    console.error('[DEBUG] Error ensuring Parse Installation is saved:', installationError);
-    
-    // Try to set a fallback installation ID to prevent cloud function errors
-    try {
-      // Generate a temporary installation ID if saving fails
-      const tempInstallationId = 'web_' + Math.random().toString(36).substr(2, 9);
-      
-      // Store it in localStorage to mimic Parse SDK behavior
-      localStorage.setItem('parse/gemcms_dev/installationId', tempInstallationId);
-      
-      // Also try to set it on the Parse object directly
-      if ((Parse as any)._getInstallationId) {
-        (Parse as any)._getInstallationId = () => tempInstallationId;
-      }
-      
-      // Try to create a minimal installation object with fallback ID
-      try {
-        const fallbackInstallation = new Parse.Installation();
-        fallbackInstallation.set("deviceType", "web");
-        fallbackInstallation.set("installationId", tempInstallationId);
-        fallbackInstallation.set("createdAt", new Date());
-        
-        await fallbackInstallation.save();
-        console.log('[DEBUG] Created fallback installation with ID:', tempInstallationId);
-      } catch (fallbackSaveError) {
-        console.warn('[DEBUG] Could not save fallback installation:', fallbackSaveError);
-      }
-      
-      console.log('[DEBUG] Set fallback installation ID:', tempInstallationId);
-    } catch (fallbackError) {
-      console.error('[DEBUG] Failed to set fallback installation ID:', fallbackError);
-      throw new Error('Unable to set up Parse Installation - cloud functions will not work');
+    console.warn('[DEBUG] Error ensuring Parse Installation is saved:', installationError);
+    // Don't throw in development - just log the warning and continue
+    if (process.env.NODE_ENV !== 'development') {
+      throw new Error('Critical: Unable to set up Parse Installation. Cloud functions or certain features may not work.');
     }
   }
 }

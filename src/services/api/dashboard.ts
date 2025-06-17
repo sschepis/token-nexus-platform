@@ -1,59 +1,213 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import Parse from 'parse';
-import { apiService, mockResponse } from './base'; // Import apiService and mockResponse
+import { callCloudFunction } from '@/utils/apiUtils';
 
 /**
- * @file Dashboard API services.
- * Handles operations related to user dashboard layouts and widgets via Parse Cloud Functions.
+ * Refactored Dashboard API using the new utility functions
+ * This eliminates all the repetitive error handling and Parse.Cloud.run patterns
  */
-const dashboardApi = {
+
+export interface DashboardLayout {
+  userId: string;
+  orgId: string;
+  layouts: any[];
+  widgets: any[];
+}
+
+export interface SaveDashboardParams {
+  userId: string;
+  orgId: string;
+  layouts: any[];
+  widgets: any[];
+}
+
+export interface DashboardLayoutData {
+  layouts: any[];
+  widgets: any[];
+}
+
+export interface SaveDashboardResponse {
+  success: boolean;
+  message: string;
+}
+
+export const dashboardApi = {
   /**
    * Saves a user's dashboard layout and widget configuration.
-   * @param {object} params - Parameters for saving the dashboard layout.
-   * @param {string} params.userId - The ID of the user whose dashboard is being saved.
-   * @param {string} params.orgId - The ID of the organization the dashboard belongs to.
-   * @param {any[]} params.layouts - An array representing the layout structure of the dashboard.
-   * @param {any[]} params.widgets - An array representing the configuration of widgets on the dashboard.
-   * @returns {Promise<{ data: { success: boolean; message: string } }>} A promise that resolves with a success status and message.
-   * @throws {Error} Throws an error if saving the dashboard layout fails.
    */
-  saveDashboardLayout: async (params: { userId: string; orgId: string; layouts: any[]; widgets: any[]; }): Promise<{ data: { success: boolean; message: string } }> => {
-    try {
-      const result = await Parse.Cloud.run('saveDashboardLayout', params);
-      return { data: result };
-    } catch (error: any) {
-      console.debug('[Dashboard API] Error calling saveDashboardLayout cloud function:', error);
-      throw new Error(error.message || 'Failed to save dashboard layout');
-    }
+  async saveDashboardLayout(params: SaveDashboardParams) {
+    const response = await callCloudFunction<SaveDashboardResponse>(
+      'saveDashboardLayout',
+      params as unknown as Record<string, unknown>,
+      {
+        errorMessage: 'Failed to save dashboard layout'
+      }
+    );
+    
+    // Transform the response to match the expected format
+    return {
+      success: response.success,
+      data: response.data || { success: false, message: 'Unknown error' },
+      error: response.error
+    };
   },
 
   /**
    * Retrieves a user's dashboard layout and widget configuration.
-   * @param {string} userId - The ID of the user whose dashboard layout is to be retrieved.
-   * @param {string} orgId - The ID of the organization the dashboard belongs to.
-   * @returns {Promise<{ data: { layouts: any[]; widgets: any[] } }>} A promise that resolves with an object containing the dashboard layouts and widgets.
-   * @throws {Error} Throws an error if retrieving the dashboard layout fails.
    */
-  getDashboardLayout: async (userId: string, orgId: string): Promise<{ data: { layouts: any[]; widgets: any[] } }> => {
-    try {
-      const result = await Parse.Cloud.run('getDashboardLayout', { userId, orgId });
-      return { data: result };
-    } catch (error: any) {
-      console.debug('[Dashboard API] Error calling getDashboardLayout cloud function:', error);
-      throw new Error(error.message || 'Failed to get dashboard layout');
+  async getDashboardLayout(userId: string, orgId: string) {
+    const response = await callCloudFunction<DashboardLayoutData>(
+      'getDashboardLayout',
+      { userId, orgId },
+      {
+        errorMessage: 'Failed to get dashboard layout'
+      }
+    );
+    
+    // Transform the response to match the expected format
+    return {
+      success: response.success,
+      data: response.data || { layouts: [], widgets: [] },
+      error: response.error
+    };
+  },
+};
+
+// Mock implementation for development
+if (process.env.NODE_ENV === 'development') {
+  const mockLayouts = [
+    {
+      i: 'widget-1',
+      x: 0,
+      y: 0,
+      w: 6,
+      h: 4,
+      minW: 3,
+      minH: 2
+    },
+    {
+      i: 'widget-2',
+      x: 6,
+      y: 0,
+      w: 6,
+      h: 4,
+      minW: 3,
+      minH: 2
+    },
+    {
+      i: 'widget-3',
+      x: 0,
+      y: 4,
+      w: 12,
+      h: 6,
+      minW: 6,
+      minH: 4
     }
-  },
-};
+  ];
 
-const mockDashboardApis = {
-  saveDashboardLayout: (params: any) => {
-    return mockResponse({ success: true, message: 'Dashboard layout saved successfully (mock)' });
-  },
+  const mockWidgets = [
+    {
+      id: 'widget-1',
+      type: 'metric',
+      title: 'Total Users',
+      config: {
+        metric: 'users.total',
+        format: 'number',
+        color: '#3b82f6'
+      },
+      data: {
+        value: 1247,
+        change: '+12%',
+        trend: 'up'
+      }
+    },
+    {
+      id: 'widget-2',
+      type: 'metric',
+      title: 'Active Sessions',
+      config: {
+        metric: 'sessions.active',
+        format: 'number',
+        color: '#10b981'
+      },
+      data: {
+        value: 89,
+        change: '+5%',
+        trend: 'up'
+      }
+    },
+    {
+      id: 'widget-3',
+      type: 'chart',
+      title: 'User Activity Over Time',
+      config: {
+        chartType: 'line',
+        dataSource: 'analytics.user_activity',
+        timeRange: '7d'
+      },
+      data: {
+        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+        datasets: [
+          {
+            label: 'Active Users',
+            data: [120, 135, 142, 158, 167, 145, 132],
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)'
+          }
+        ]
+      }
+    }
+  ];
 
-  getDashboardLayout: (userId: string, orgId: string) => {
-    return mockResponse({ layouts: [], widgets: [] }); // Return empty for mock
-  },
-};
+  // Override with mock implementations
+  Object.assign(dashboardApi, {
+    async saveDashboardLayout(params: SaveDashboardParams) {
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // Simulate validation
+      if (!params.userId || !params.orgId) {
+        return {
+          success: false,
+          data: { success: false, message: 'Missing required parameters' },
+          error: 'Validation failed'
+        };
+      }
+      
+      return {
+        success: true,
+        data: { 
+          success: true, 
+          message: 'Dashboard layout saved successfully',
+          layoutId: `layout-${Date.now()}`,
+          timestamp: new Date().toISOString()
+        },
+        error: null
+      };
+    },
 
-// Merge Dashboard APIs into the global apiService
-Object.assign(apiService, process.env.NEXT_PUBLIC_USE_MOCK_API === 'true' ? mockDashboardApis : dashboardApi);
+    async getDashboardLayout(userId: string, orgId: string) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Simulate user-specific customizations
+      const userLayouts = mockLayouts.map(layout => ({
+        ...layout,
+        // Add some variation based on userId
+        x: layout.x + (userId.length % 2),
+        y: layout.y + (orgId.length % 2)
+      }));
+      
+      return {
+        success: true,
+        data: {
+          layouts: userLayouts,
+          widgets: mockWidgets,
+          metadata: {
+            userId,
+            orgId,
+            lastModified: new Date().toISOString(),
+            version: '1.0.0'
+          }
+        },
+        error: null
+      };
+    }
+  });
+}

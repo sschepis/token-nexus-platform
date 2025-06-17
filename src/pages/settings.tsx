@@ -1,8 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
+import { usePageController } from "@/hooks/usePageController";
+import { usePermission } from "@/hooks/usePermission";
+import { useToast } from "@/hooks/use-toast";
 import { fetchCurrentOrgDetails } from "@/store/slices/orgSlice";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { RefreshCw } from "lucide-react";
 import ProfileSettings from "@/components/settings/ProfileSettings";
 import OrganizationSettings from "@/components/settings/OrganizationSettings";
 import SecuritySettings from "@/components/settings/SecuritySettings";
@@ -15,11 +20,49 @@ const SettingsPage = () => {
   const { currentOrg, isLoading: isOrgLoading, error: orgError } = useAppSelector((state) => state.org);
   const { user } = useAppSelector((state) => state.auth);
 
+  // Use modern page controller integration
+  const pageController = usePageController('settings');
+  const canManageSettings = usePermission('settings:manage');
+  const { toast } = useToast();
+  
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [controllerError, setControllerError] = useState<string | null>(null);
+
   useEffect(() => {
-    if (currentOrg?.id && !currentOrg.settings) { 
+    if (currentOrg?.id && !currentOrg.settings) {
       dispatch(fetchCurrentOrgDetails(currentOrg.id));
     }
   }, [dispatch, currentOrg?.id, currentOrg?.settings]);
+
+  const handleRefresh = async () => {
+    if (!pageController.isRegistered) return;
+    
+    setIsRefreshing(true);
+    setControllerError(null);
+    
+    try {
+      const result = await pageController.executeAction('refreshSettings', {
+        orgId: currentOrg?.id,
+        activeTab
+      });
+      if (result.success) {
+        if (currentOrg?.id) {
+          dispatch(fetchCurrentOrgDetails(currentOrg.id));
+        }
+        toast({
+          title: "Success",
+          description: "Settings refreshed successfully",
+        });
+      } else {
+        setControllerError(result.error || 'Failed to refresh settings');
+      }
+    } catch (error) {
+      console.error('Failed to refresh settings:', error);
+      setControllerError(`Failed to refresh settings: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
   
   if (isOrgLoading && activeTab === 'organization') {
     return (
@@ -45,11 +88,31 @@ const SettingsPage = () => {
 
   return (
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-          <p className="text-muted-foreground">
-            Manage your account settings and preferences.
-          </p>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+            <p className="text-muted-foreground">
+              Manage your account settings and preferences.
+            </p>
+          </div>
+
+          {controllerError && (
+            <div className="bg-destructive/15 text-destructive px-4 py-2 rounded-md">
+              {controllerError}
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
         </div>
 
         <Tabs defaultValue="profile" value={activeTab} onValueChange={setActiveTab} className="space-y-4">

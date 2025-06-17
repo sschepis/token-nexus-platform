@@ -7,9 +7,12 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { FileJson } from "lucide-react";
-import { toast } from "sonner";
+import { FileJson, AlertCircle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { usePermission } from "@/hooks/usePermission";
+import { usePageController } from "@/hooks/usePageController";
 import { DevToolsWrapper } from "@/components/dev/DevToolsWrapper";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
 
@@ -29,10 +32,28 @@ interface ApiFormData {
 }
 
 const ApiTestingPage = () => {
+  const { toast } = useToast();
+  const { hasPermission } = usePermission();
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("request");
   const [response, setResponse] = useState<ApiResponse | null>(null);
   const [responseTab, setResponseTab] = useState("body");
+  const [error, setError] = useState<string | null>(null);
+
+  // Permission checks
+  const canRead = hasPermission('dev:read');
+  const canWrite = hasPermission('dev:write');
+  const canExecute = hasPermission('dev:execute');
+
+  // Initialize page controller
+  const pageController = usePageController({
+    pageId: 'api-testing',
+    pageName: 'API Testing',
+    description: 'Test API endpoints and view responses',
+    category: 'development',
+    permissions: ['dev:read', 'dev:write', 'dev:execute'],
+    tags: ['api', 'testing', 'development', 'debugging']
+  });
   
   const { register, handleSubmit, watch, setValue } = useForm<ApiFormData>({ // Added ApiFormData type
     defaultValues: {
@@ -47,7 +68,17 @@ const ApiTestingPage = () => {
   const showBody = method !== "GET" && method !== "DELETE";
 
   const onSubmit = async (data: ApiFormData) => { // Changed type to ApiFormData
+    if (!canExecute) {
+      toast({
+        title: "Permission denied",
+        description: "You don't have permission to execute API tests",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
+    setError(null);
     const startTime = performance.now();
     
     try {
@@ -57,7 +88,11 @@ const ApiTestingPage = () => {
           parsedHeaders = JSON.parse(data.headers);
         }
       } catch (e) {
-        toast.error("Invalid JSON in headers");
+        toast({
+          title: "Invalid JSON in headers",
+          description: "Please check your headers format",
+          variant: "destructive",
+        });
         setIsLoading(false);
         return;
       }
@@ -103,10 +138,18 @@ const ApiTestingPage = () => {
       
       setActiveTab("response");
       
-      toast.success(`Request completed with status ${res.status}`);
+      toast({
+        title: "Request completed",
+        description: `Request completed with status ${res.status}`,
+      });
     } catch (error: unknown) { // Changed type to unknown
       const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-      toast.error(`Request failed: ${errorMessage}`);
+      setError(errorMessage);
+      toast({
+        title: "Request failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
       
       let errorStatus = 500;
       let errorStatusText = "Client Error";
@@ -151,6 +194,31 @@ const ApiTestingPage = () => {
     }
   };
 
+  // Show permission error if user can't read dev tools
+  if (!canRead) {
+    return (
+      <DevToolsWrapper toolName="API Testing">
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">API Testing</h1>
+              <p className="text-muted-foreground">
+                Test API endpoints and view responses.
+              </p>
+            </div>
+          </div>
+          
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              You don't have permission to access development tools. Please contact your administrator.
+            </AlertDescription>
+          </Alert>
+        </div>
+      </DevToolsWrapper>
+    );
+  }
+
   return (
     <DevToolsWrapper toolName="API Testing">
       <div className="space-y-6">
@@ -162,6 +230,13 @@ const ApiTestingPage = () => {
             </p>
           </div>
         </div>
+
+        {error && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <TabsList>
@@ -238,9 +313,14 @@ const ApiTestingPage = () => {
                     </div>
                   )}
                   
-                  <Button type="submit" disabled={isLoading}>
+                  <Button type="submit" disabled={isLoading || !canExecute}>
                     {isLoading ? "Sending..." : "Send Request"}
                   </Button>
+                  {!canExecute && (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      You need execute permissions to send API requests
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             </form>

@@ -67,7 +67,7 @@ export const PageControllerProvider: React.FC<PageControllerProviderProps> = ({
   const [currentPageController, setCurrentPageController] = useState<PageController | null>(null);
   
   // Get user context from Redux store
-  const { user, orgId } = useAppSelector((state) => state.auth);
+  const { user, orgId, permissions } = useAppSelector((state) => state.auth);
   const { currentOrg } = useAppSelector((state) => state.org);
 
   /**
@@ -164,8 +164,8 @@ export const PageControllerProvider: React.FC<PageControllerProviderProps> = ({
       userId: user?.id || 'anonymous',
       username: user?.email,
       email: user?.email,
-      roles: [], // Will be populated from auth state permissions
-      permissions: [], // Will be populated from auth state permissions
+      roles: [], // Roles will be derived from permissions
+      permissions: permissions || ['dashboard:read', 'dashboard:write'], // Use permissions from auth state
       organizationId: orgId,
       organizationRoles: []
     };
@@ -206,7 +206,7 @@ export const PageControllerProvider: React.FC<PageControllerProviderProps> = ({
     };
 
     return registry.executeAction(actionId, params, context);
-  }, [registry, user, orgId, currentOrg, router, currentPageController]);
+  }, [registry, user, orgId, permissions, currentOrg, router, currentPageController]);
 
   /**
    * Get available actions for a page or all pages
@@ -220,8 +220,8 @@ export const PageControllerProvider: React.FC<PageControllerProviderProps> = ({
       userId: user.id,
       username: user.email, // Use email as username fallback
       email: user.email,
-      roles: [], // Will be populated from auth state permissions
-      permissions: [], // Will be populated from auth state permissions
+      roles: [], // Roles will be derived from permissions
+      permissions: permissions || [], // Use permissions from auth state
       organizationId: orgId || user?.organizationId,
       organizationRoles: []
     };
@@ -244,7 +244,7 @@ export const PageControllerProvider: React.FC<PageControllerProviderProps> = ({
     }
 
     return registry.getAvailableActions(userContext);
-  }, [registry, user, orgId]);
+  }, [registry, user, orgId, permissions]);
 
   /**
    * Update page context
@@ -272,8 +272,8 @@ export const PageControllerProvider: React.FC<PageControllerProviderProps> = ({
       userId: user?.id || 'anonymous',
       username: user?.email,
       email: user?.email,
-      roles: [], // Will be populated from auth state permissions
-      permissions: [], // Will be populated from auth state permissions
+      roles: [], // Roles will be derived from permissions
+      permissions: permissions || [], // Use permissions from auth state
       organizationId: orgId || user?.organizationId,
       organizationRoles: []
     };
@@ -315,7 +315,7 @@ export const PageControllerProvider: React.FC<PageControllerProviderProps> = ({
       navigation: navigationContext,
       timestamp: new Date()
     };
-  }, [user, orgId, currentOrg, router, currentPageController]);
+  }, [user, orgId, permissions, currentOrg, router, currentPageController]);
 
   /**
    * Handle route changes to update current page controller
@@ -343,7 +343,7 @@ export const PageControllerProvider: React.FC<PageControllerProviderProps> = ({
     return () => {
       router.events.off('routeChangeComplete', handleRouteChange);
     };
-  }, [registry, router]);
+  }, [registry]);
 
   /**
    * Set up event listeners for registry events
@@ -385,7 +385,7 @@ export const PageControllerProvider: React.FC<PageControllerProviderProps> = ({
  * Determine if a page controller should be set as current based on the route
  */
 function shouldSetAsCurrent(controller: PageController, currentPath: string): boolean {
-  // Simple matching logic - can be enhanced
+  // Simple matching logic
   const pageId = controller.pageId;
   
   // Direct match

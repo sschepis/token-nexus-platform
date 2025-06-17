@@ -1,8 +1,12 @@
 /* global Parse */
 
 const { capabilities, getUserTierAndOrganization, getCapabilitiesForTier } = require('./shared');
-const AIService = require('../../services/aiService');
-const configService = require('../../services/configService');
+const AIServiceFactory = require('../../services/aiService');
+const configServiceFactory = require('../../services/configService');
+
+// Initialize services with Parse instance
+const AIService = AIServiceFactory(Parse);
+const configService = configServiceFactory(Parse);
 
 /**
  * Execute assistant action

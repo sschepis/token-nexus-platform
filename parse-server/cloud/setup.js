@@ -214,6 +214,29 @@ const requiredSchemas = [
         addField: { 'role:SystemAdmin': true },
         protectedFields: { '*': [] }
     }
+  },
+  // OrgRole schema to link users to organizations with roles
+  {
+    className: 'OrgRole',
+    fields: {
+      user: { type: 'Pointer', targetClass: '_User', required: true },
+      organization: { type: 'Pointer', targetClass: 'Organization', required: true },
+      role: { type: 'String', required: true }, // 'admin', 'member', etc.
+      isActive: { type: 'Boolean', required: true, defaultValue: true },
+      createdBy: { type: 'Pointer', targetClass: '_User', required: true },
+      updatedBy: { type: 'Pointer', targetClass: '_User', required: true },
+      assignedBy: { type: 'Pointer', targetClass: '_User' },
+      assignedAt: { type: 'Date' }
+    },
+    classLevelPermissions: {
+      find: { 'requiresAuthentication': true },
+      get: { 'requiresAuthentication': true },
+      create: { 'requiresAuthentication': true },
+      update: { 'requiresAuthentication': true },
+      delete: { 'requiresAuthentication': true },
+      addField: { 'role:SystemAdmin': true },
+      protectedFields: { '*': [] }
+    }
   }
 ];
 
@@ -509,27 +532,63 @@ Parse.Cloud.define('completeInitialPlatformSetup', async (request) => {
   }
 
 
-  // 1. Create the System Admin User
-  const adminUser = new Parse.User();
-  adminUser.set('username', adminUserEmail); // Typically username is email for Parse
-  adminUser.set('email', adminUserEmail);
-  adminUser.set('password', adminUserPassword);
-  if (adminUserFirstName) adminUser.set('firstName', adminUserFirstName);
-  if (adminUserLastName) adminUser.set('lastName', adminUserLastName);
-  // Set as system administrator
-  adminUser.set('isAdmin', true);
-  // Add any other default fields for a new user
-
-  try {
-    await adminUser.signUp(null, { useMasterKey: true }); // Sign up with master key to bypass normal signup flow/ACLs
-    console.log(`Created System Admin user: ${adminUserEmail}`);
-  } catch (error) {
-    console.error(`Error creating System Admin user ${adminUserEmail}:`, error);
-    // Check if user already exists (error.code === Parse.Error.USERNAME_TAKEN or EMAIL_TAKEN)
-    if (error.code === Parse.Error.USERNAME_TAKEN || error.code === Parse.Error.EMAIL_TAKEN) {
-        throw new Parse.Error(error.code, `Admin user with email ${adminUserEmail} already exists.`);
+  // 1. Check if System Admin User already exists, if not create it
+  let adminUser;
+  
+  // First, check if user already exists
+  const userQuery = new Parse.Query(Parse.User);
+  userQuery.equalTo('email', adminUserEmail);
+  const existingUser = await userQuery.first({ useMasterKey: true });
+  
+  if (existingUser) {
+    console.log(`System Admin user ${adminUserEmail} already exists, using existing user`);
+    adminUser = existingUser;
+    
+    // Update existing user to ensure they have admin privileges
+    adminUser.set('isAdmin', true);
+    if (adminUserFirstName) adminUser.set('firstName', adminUserFirstName);
+    if (adminUserLastName) adminUser.set('lastName', adminUserLastName);
+    
+    try {
+      await adminUser.save(null, { useMasterKey: true });
+      console.log(`Updated existing System Admin user: ${adminUserEmail}`);
+    } catch (error) {
+      console.error(`Error updating existing System Admin user ${adminUserEmail}:`, error);
+      throw new Parse.Error(Parse.Error.INTERNAL_SERVER_ERROR, `Failed to update existing System Admin user: ${error.message}`);
     }
-    throw new Parse.Error(Parse.Error.INTERNAL_SERVER_ERROR, `Failed to create System Admin user: ${error.message}`);
+  } else {
+    // Create new admin user
+    adminUser = new Parse.User();
+    adminUser.set('username', adminUserEmail); // Typically username is email for Parse
+    adminUser.set('email', adminUserEmail);
+    adminUser.set('password', adminUserPassword);
+    if (adminUserFirstName) adminUser.set('firstName', adminUserFirstName);
+    if (adminUserLastName) adminUser.set('lastName', adminUserLastName);
+    // Set as system administrator
+    adminUser.set('isAdmin', true);
+    // Add any other default fields for a new user
+
+    try {
+      await adminUser.signUp(null, { useMasterKey: true }); // Sign up with master key to bypass normal signup flow/ACLs
+      console.log(`Created System Admin user: ${adminUserEmail}`);
+    } catch (error) {
+      console.error(`Error creating System Admin user ${adminUserEmail}:`, error);
+      // Check if user already exists (error.code === Parse.Error.USERNAME_TAKEN or EMAIL_TAKEN)
+      if (error.code === Parse.Error.USERNAME_TAKEN || error.code === Parse.Error.EMAIL_TAKEN) {
+          // If user was created between our check and now, try to fetch them again
+          const newUserQuery = new Parse.Query(Parse.User);
+          newUserQuery.equalTo('email', adminUserEmail);
+          const newExistingUser = await newUserQuery.first({ useMasterKey: true });
+          if (newExistingUser) {
+            console.log(`System Admin user ${adminUserEmail} was created concurrently, using existing user`);
+            adminUser = newExistingUser;
+          } else {
+            throw new Parse.Error(error.code, `Admin user with email ${adminUserEmail} already exists but could not be retrieved.`);
+          }
+      } else {
+        throw new Parse.Error(Parse.Error.INTERNAL_SERVER_ERROR, `Failed to create System Admin user: ${error.message}`);
+      }
+    }
   }
 
   // 2. Add User to "SystemAdmin" Role
@@ -552,6 +611,8 @@ Parse.Cloud.define('completeInitialPlatformSetup', async (request) => {
   const parentOrg = new Organization();
   parentOrg.set('name', parentOrgName);
   parentOrg.set('planType', defaultPlanType);
+  parentOrg.set('createdBy', adminUser);
+  parentOrg.set('updatedBy', adminUser);
   // Set ACL for the organization: admin user has R/W, SystemAdmin role has R/W
   const orgACL = new Parse.ACL();
   orgACL.setReadAccess(adminUser, true);
@@ -574,13 +635,27 @@ Parse.Cloud.define('completeInitialPlatformSetup', async (request) => {
     throw new Parse.Error(Parse.Error.INTERNAL_SERVER_ERROR, `Failed to create Parent Organization: ${error.message}`);
   }
 
-  // CRITICAL: Add the organization to the user's organizations relation
-  // This is what getUserOrganizations looks for to determine user's org memberships
+  // CRITICAL: Create OrgRole entry to link user to organization
+  // This is what getUserDetails looks for to determine user's org memberships
   try {
+    const OrgRole = Parse.Object.extend('OrgRole');
+    const orgRole = new OrgRole();
+    orgRole.set('user', adminUser);
+    orgRole.set('organization', parentOrg);
+    orgRole.set('role', 'admin');
+    orgRole.set('isActive', true);
+    orgRole.set('createdBy', adminUser);
+    orgRole.set('updatedBy', adminUser);
+    
+    await orgRole.save(null, { useMasterKey: true });
+    console.log(`Created OrgRole linking user ${adminUser.id} to organization ${parentOrg.id} as admin`);
+    
+    // Also add the organization to the user's organizations relation for backward compatibility
     const userOrgRelation = adminUser.relation('organizations');
     userOrgRelation.add(parentOrg);
     
     // Set this organization as the user's current organization
+    adminUser.set('currentOrganizationId', parentOrg.id);
     adminUser.set('currentOrganization', parentOrg);
     
     await adminUser.save(null, { useMasterKey: true });
@@ -622,4 +697,97 @@ Parse.Cloud.define('completeInitialPlatformSetup', async (request) => {
     parentOrgId: parentOrg.id,
     adminUserId: adminUser.id,
   };
+});
+
+/**
+ * Automated Install Mode
+ * Checks for AUTO_INSTALL_CONFIG environment variable and performs automated setup
+ */
+Parse.Cloud.define('checkAndRunAutomatedInstall', async (request) => {
+  console.log('Checking for automated install configuration...');
+  
+  // Check if AUTO_INSTALL_CONFIG environment variable exists
+  const autoInstallConfig = process.env.AUTO_INSTALL_CONFIG;
+  
+  if (!autoInstallConfig) {
+    console.log('No AUTO_INSTALL_CONFIG found, skipping automated install');
+    return { success: false, message: 'No automated install configuration found' };
+  }
+  
+  try {
+    // Parse the JSON configuration
+    const config = JSON.parse(autoInstallConfig);
+    console.log('Found automated install configuration, validating...');
+    
+    // Validate required fields
+    const requiredFields = ['parentOrgName', 'adminUserEmail', 'adminUserPassword', 'adminUserFirstName', 'adminUserLastName'];
+    const missingFields = requiredFields.filter(field => !config[field]);
+    
+    if (missingFields.length > 0) {
+      throw new Error(`Missing required fields in AUTO_INSTALL_CONFIG: ${missingFields.join(', ')}`);
+    }
+    
+    // Check if platform is already set up
+    const PlatformConfig = Parse.Object.extend('PlatformConfig');
+    const configQuery = new Parse.Query(PlatformConfig);
+    const existingConfig = await configQuery.first({ useMasterKey: true });
+    
+    if (existingConfig && existingConfig.get('currentState') === 'OPERATIONAL') {
+      console.log('Platform already set up, skipping automated install');
+      return { success: false, message: 'Platform already configured' };
+    }
+    
+    console.log('Running automated platform setup...');
+    
+    // First, ensure core infrastructure is set up (roles, schemas, etc.)
+    console.log('Ensuring core infrastructure is set up...');
+    await Parse.Cloud.run('ensureCoreInfrastructure', {}, { useMasterKey: true });
+    console.log('Core infrastructure setup completed');
+    
+    // Set default values for optional fields
+    const setupConfig = {
+      parentOrgName: config.parentOrgName,
+      adminUserEmail: config.adminUserEmail,
+      adminUserPassword: config.adminUserPassword,
+      adminUserFirstName: config.adminUserFirstName,
+      adminUserLastName: config.adminUserLastName,
+      defaultPlanType: config.defaultPlanType || 'enterprise'
+    };
+    
+    // Run the complete initial platform setup
+    const setupResult = await Parse.Cloud.run('completeInitialPlatformSetup', setupConfig, { useMasterKey: true });
+    
+    console.log('Automated platform setup completed successfully');
+    return {
+      success: true,
+      message: 'Automated platform setup completed successfully',
+      result: setupResult
+    };
+    
+  } catch (error) {
+    console.error('Error during automated install:', error);
+    
+    // Update platform state to indicate setup error
+    try {
+      const PlatformConfig = Parse.Object.extend('PlatformConfig');
+      const configQuery = new Parse.Query(PlatformConfig);
+      let config = await configQuery.first({ useMasterKey: true });
+      
+      if (!config) {
+        config = new PlatformConfig();
+      }
+      
+      config.set('currentState', 'SETUP_ERROR');
+      config.set('lastSetupError', error.message);
+      await config.save(null, { useMasterKey: true });
+    } catch (stateError) {
+      console.error('Error updating platform state after automated install failure:', stateError);
+    }
+    
+    return {
+      success: false,
+      message: `Automated install failed: ${error.message}`,
+      error: error.message
+    };
+  }
 });

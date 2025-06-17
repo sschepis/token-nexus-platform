@@ -41,7 +41,7 @@ const Objects: React.FC = () => {
   const { data: fallbackObjects = [], isLoading: isFallbackLoading } = useQuery({
     queryKey: ["objects", currentOrg?.id],
     queryFn: async () => {
-      // Enhanced mock data with more realistic objects
+      // Mock data with more realistic objects
       return [
         {
           id: "Customer__c",

@@ -1,7 +1,9 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/router";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { controllerRegistry } from "@/controllers/ControllerRegistry";
+import { usePageController } from "@/hooks/usePageController";
+import { usePermission } from "@/hooks/usePermission";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -33,6 +35,7 @@ import {
   Eye,
   Settings,
   BarChart3,
+  Loader2,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -47,7 +50,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { toast as sonnerToast } from "sonner";
 import {
   fetchWorkflows,
   createWorkflow,
@@ -57,11 +59,11 @@ import {
   deleteWorkflow,
   cloneWorkflow,
 } from "@/store/slices/workflowSlice";
-import { 
-  Workflow as WorkflowType, 
-  CreateWorkflowRequest, 
+import {
+  Workflow as WorkflowType,
+  CreateWorkflowRequest,
   WorkflowStatus,
-  CloneWorkflowRequest 
+  CloneWorkflowRequest
 } from "@/types/workflows";
 import { CreateWorkflowDialog } from "@/components/workflow/CreateWorkflowDialog";
 
@@ -71,7 +73,7 @@ import { CreateWorkflowDialog } from "@/components/workflow/CreateWorkflowDialog
  * This page manages visual workflows for automation and orchestration.
  * Workflows can integrate with Parse triggers, cloud functions, notifications,
  * AI assistant, and external services.
- * 
+ *
  * Features:
  * - Create workflows from templates or scratch
  * - Visual workflow editor with drag-and-drop nodes
@@ -82,21 +84,48 @@ import { CreateWorkflowDialog } from "@/components/workflow/CreateWorkflowDialog
 const WorkflowsPage = () => {
   const router = useRouter();
   const dispatch = useAppDispatch();
+  const { toast } = useToast();
+  const { hasPermission } = usePermission();
   const { workflows, selectedWorkflowId, isLoading, error, templates, nodeTypes } = useAppSelector((state) => state.workflow);
-  const { currentOrg } = useAppSelector((state) => state.org);
-  const { user: currentUser } = useAppSelector((state) => state.auth);
 
-  // Get the page controller for AI assistant integration
-  const workflowPageController = controllerRegistry.getPageController('workflows');
-  const isRegistered = !!workflowPageController;
+  // Initialize page controller
+  const pageController = usePageController({
+    pageId: 'workflows',
+    pageName: 'Workflows',
+    description: 'Manage visual workflows for automation and orchestration',
+    category: 'automation',
+    permissions: ['workflows:read', 'workflows:write', 'workflows:execute', 'workflows:manage'],
+    tags: ['workflows', 'automation', 'orchestration', 'visual', 'integration']
+  });
 
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<WorkflowStatus | "all">("all");
+  const [isLoadingWorkflows, setIsLoadingWorkflows] = useState(false);
+  const [controllerError, setControllerError] = useState<string | null>(null);
 
   // Load workflows on component mount
+  useEffect(() => {
+    if (pageController.isRegistered) {
+      handleRefresh();
+    }
+  }, [pageController.isRegistered]);
+
+  // Handle errors
+  useEffect(() => {
+    if (controllerError) {
+      toast({
+        title: "Error",
+        description: controllerError,
+        variant: "destructive",
+      });
+      setControllerError(null);
+    }
+  }, [controllerError, toast]);
+
+  // Load workflows on component mount (fallback)
   useEffect(() => {
     dispatch(fetchWorkflows({}));
   }, [dispatch]);
@@ -125,12 +154,29 @@ const WorkflowsPage = () => {
 
   const handleCreateWorkflow = async (workflowData: CreateWorkflowRequest) => {
     try {
-      await dispatch(createWorkflow(workflowData)).unwrap();
-      sonnerToast.success('Workflow created successfully');
-      setCreateDialogOpen(false);
+      if (pageController.isRegistered) {
+        const result = await pageController.executeAction('createWorkflow', workflowData as unknown as Record<string, unknown>);
+        if (result.success) {
+          await dispatch(createWorkflow(workflowData)).unwrap();
+          toast({
+            title: "Success",
+            description: "Workflow created successfully",
+          });
+          setCreateDialogOpen(false);
+        } else {
+          throw new Error(result.error || 'Failed to create workflow');
+        }
+      } else {
+        await dispatch(createWorkflow(workflowData)).unwrap();
+        toast({
+          title: "Success",
+          description: "Workflow created successfully",
+        });
+        setCreateDialogOpen(false);
+      }
     } catch (error) {
       console.error('Failed to create workflow:', error);
-      sonnerToast.error(`Failed to create workflow: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setControllerError(`Failed to create workflow: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
     }
   };
@@ -139,21 +185,59 @@ const WorkflowsPage = () => {
     const newStatus: WorkflowStatus = currentStatus === "active" ? "paused" : "active";
     
     try {
-      dispatch(setWorkflowStatus({ id: workflowId, status: newStatus }));
-      sonnerToast.success(`Workflow ${newStatus === 'active' ? 'activated' : 'paused'}`);
+      if (pageController.isRegistered) {
+        const result = await pageController.executeAction('updateWorkflowStatus', {
+          workflowId,
+          status: newStatus
+        });
+        if (result.success) {
+          dispatch(setWorkflowStatus({ id: workflowId, status: newStatus }));
+          toast({
+            title: "Success",
+            description: `Workflow ${newStatus === 'active' ? 'activated' : 'paused'}`,
+          });
+        } else {
+          throw new Error(result.error || 'Failed to update workflow');
+        }
+      } else {
+        dispatch(setWorkflowStatus({ id: workflowId, status: newStatus }));
+        toast({
+          title: "Success",
+          description: `Workflow ${newStatus === 'active' ? 'activated' : 'paused'}`,
+        });
+      }
     } catch (error) {
       console.error('Failed to toggle workflow status:', error);
-      sonnerToast.error(`Failed to update workflow: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setControllerError(`Failed to update workflow: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
   const handleExecuteWorkflow = async (workflowId: string, workflowName: string) => {
     try {
-      await dispatch(executeWorkflow({ workflowId })).unwrap();
-      sonnerToast.success(`Workflow "${workflowName}" execution started`);
+      if (pageController.isRegistered) {
+        const result = await pageController.executeAction('executeWorkflow', {
+          workflowId,
+          workflowName
+        });
+        if (result.success) {
+          dispatch(executeWorkflow({ id: workflowId }));
+          toast({
+            title: "Success",
+            description: `Workflow "${workflowName}" execution started`,
+          });
+        } else {
+          throw new Error(result.error || 'Failed to execute workflow');
+        }
+      } else {
+        dispatch(executeWorkflow({ id: workflowId }));
+        toast({
+          title: "Success",
+          description: `Workflow "${workflowName}" execution started`,
+        });
+      }
     } catch (error) {
       console.error('Failed to execute workflow:', error);
-      sonnerToast.error(`Failed to execute workflow: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setControllerError(`Failed to execute workflow: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -169,11 +253,30 @@ const WorkflowsPage = () => {
 
   const handleDeleteWorkflow = async (workflowId: string, workflowName: string) => {
     try {
-      await dispatch(deleteWorkflow(workflowId)).unwrap();
-      sonnerToast.success('Workflow deleted successfully');
+      if (pageController.isRegistered) {
+        const result = await pageController.executeAction('deleteWorkflow', {
+          workflowId,
+          workflowName
+        });
+        if (result.success) {
+          await dispatch(deleteWorkflow(workflowId)).unwrap();
+          toast({
+            title: "Success",
+            description: "Workflow deleted successfully",
+          });
+        } else {
+          throw new Error(result.error || 'Failed to delete workflow');
+        }
+      } else {
+        await dispatch(deleteWorkflow(workflowId)).unwrap();
+        toast({
+          title: "Success",
+          description: "Workflow deleted successfully",
+        });
+      }
     } catch (error) {
       console.error('Failed to delete workflow:', error);
-      sonnerToast.error(`Failed to delete workflow: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setControllerError(`Failed to delete workflow: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -182,7 +285,7 @@ const WorkflowsPage = () => {
     if (!newName) return;
 
     if (workflows.some(w => w.name === newName)) {
-      sonnerToast.error('A workflow with that name already exists');
+      setControllerError('A workflow with that name already exists');
       return;
     }
 
@@ -193,22 +296,52 @@ const WorkflowsPage = () => {
         description: `Clone of ${sourceWorkflow.description || sourceWorkflow.name}`
       };
       
-      await dispatch(cloneWorkflow(cloneRequest)).unwrap();
-      sonnerToast.success(`Workflow cloned successfully as "${newName}"`);
+      if (pageController.isRegistered) {
+        const result = await pageController.executeAction('cloneWorkflow', cloneRequest as unknown as Record<string, unknown>);
+        if (result.success) {
+          await dispatch(cloneWorkflow(cloneRequest)).unwrap();
+          toast({
+            title: "Success",
+            description: `Workflow cloned successfully as "${newName}"`,
+          });
+        } else {
+          throw new Error(result.error || 'Failed to clone workflow');
+        }
+      } else {
+        await dispatch(cloneWorkflow(cloneRequest)).unwrap();
+        toast({
+          title: "Success",
+          description: `Workflow cloned successfully as "${newName}"`,
+        });
+      }
     } catch (error) {
       console.error('Failed to clone workflow:', error);
-      sonnerToast.error(`Failed to clone workflow: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setControllerError(`Failed to clone workflow: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
-  const handleRefreshWorkflows = async () => {
+  const handleRefresh = async () => {
+    if (!pageController.isRegistered) return;
+    
+    setIsLoadingWorkflows(true);
+    setControllerError(null);
+    
     try {
-      sonnerToast.info("Refreshing workflows...");
-      await dispatch(fetchWorkflows({})).unwrap();
-      sonnerToast.success("Workflows refreshed successfully");
+      const result = await pageController.executeAction('fetchWorkflows', { includeStats: true });
+      if (result.success) {
+        await dispatch(fetchWorkflows({})).unwrap();
+        toast({
+          title: "Success",
+          description: "Workflows refreshed successfully",
+        });
+      } else {
+        setControllerError(result.error || 'Failed to refresh workflows');
+      }
     } catch (error) {
       console.error('Failed to refresh workflows:', error);
-      sonnerToast.error(`Failed to refresh workflows: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setControllerError(`Failed to refresh workflows: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsLoadingWorkflows(false);
     }
   };
 
@@ -275,8 +408,8 @@ const WorkflowsPage = () => {
             <Button
               size="sm"
               variant="outline"
-              onClick={handleRefreshWorkflows}
-              disabled={isLoading}
+              onClick={handleRefresh}
+              disabled={isLoadingWorkflows}
             >
               <RefreshCw className="h-4 w-4 mr-2" />
               Refresh

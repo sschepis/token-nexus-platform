@@ -1,4 +1,4 @@
-import Parse from 'parse';
+import { callCloudFunction, callCloudFunctionForArray } from '@/utils/apiUtils';
 import {
   AppDefinitionForMarketplace,
   AppVersionForMarketplace,
@@ -9,182 +9,230 @@ import {
 } from "@/types/app-marketplace";
 
 /**
- * @typedef {object} AppMarketplaceApi
- * @property {function(object): Promise<AppDefinitionForMarketplace[]>} fetchAppDefinitions - Fetches all app definitions from the marketplace.
- * @property {function(string): Promise<AppVersionForMarketplace[]>} fetchAppVersionsForDefinition - Fetches all versions for a given app definition.
- * @property {function(object): Promise<OrgAppInstallation[]>} fetchOrgAppInstallations - Fetches all installed apps for the current organization.
- * @property {function(InstallAppParams): Promise<OrgAppInstallation>} installApp - Installs an app for the current organization.
- * @property {function(UninstallAppParams): Promise<void>} uninstallApp - Uninstalls an app from the current organization.
- * @property {function(UpdateAppSettingsParams): Promise<OrgAppInstallation>} updateAppSettings - Updates settings for an installed app.
- * @property {function(string): Promise<OrgAppInstallation>} getAppInstallationDetails - Fetches details for a specific app installation.
+ * Refactored App Marketplace API using the new utility functions
+ * This eliminates all the repetitive error handling and Parse.Cloud.run patterns
  */
 
-interface AppMarketplaceApi {
-  fetchAppDefinitions: (
-    params?: { category?: string; search?: string }
-  ) => Promise<AppDefinitionForMarketplace[]>;
-  fetchAppVersionsForDefinition: (
-    appDefinitionId: string
-  ) => Promise<AppVersionForMarketplace[]>;
-  fetchOrgAppInstallations: (params?: {
-    organizationId?: string;
-  }) => Promise<OrgAppInstallation[]>;
-  installApp: (params: InstallAppParams) => Promise<OrgAppInstallation>;
-  uninstallApp: (params: UninstallAppParams) => Promise<void>;
-  updateAppSettings: (
-    params: UpdateAppSettingsParams
-  ) => Promise<OrgAppInstallation>;
-  getAppInstallationDetails: (
-    appInstallationId: string
-  ) => Promise<OrgAppInstallation>;
+export interface AppMarketplaceFilters {
+  category?: string;
+  search?: string;
 }
 
-const appMarketplaceApi: AppMarketplaceApi = {
+export interface OrgAppInstallationFilters {
+  organizationId?: string;
+}
+
+export const appMarketplaceApi = {
   /**
    * Fetches all app definitions from the marketplace.
-   * @param {object} [params] - Optional parameters for filtering.
-   * @param {string} [params.category] - Filter by app category.
-   * @param {string} [params.search] - Search terms.
-   * @returns {Promise<AppDefinitionForMarketplace[]>} A promise that resolves to an array of app definitions.
-   * @tsdoc
    */
-  fetchAppDefinitions: async (params) => {
-    console.debug("[appMarketplaceApi] Fetching app definitions with params:", params);
-    try {
-      const response = await Parse.Cloud.run(
-        "fetchAppDefinitions",
-        params || {}
-      );
-      return response as AppDefinitionForMarketplace[];
-    } catch (error) {
-      console.error("[appMarketplaceApi] Error fetching app definitions:", error);
-      throw error;
-    }
+  async fetchAppDefinitions(params: AppMarketplaceFilters = {}) {
+    return callCloudFunctionForArray<AppDefinitionForMarketplace>(
+      "fetchAppDefinitions",
+      params as Record<string, unknown>,
+      {
+        errorMessage: "Failed to fetch app definitions"
+      }
+    );
   },
 
   /**
    * Fetches all versions for a given app definition.
-   * @param {string} appDefinitionId - The ID of the app definition.
-   * @returns {Promise<AppVersionForMarketplace[]>} A promise that resolves to an array of app versions.
-   * @tsdoc
    */
-  fetchAppVersionsForDefinition: async (appDefinitionId) => {
-    console.debug("[appMarketplaceApi] Fetching app versions for definition:", appDefinitionId);
-    try {
-      const response = await Parse.Cloud.run(
-        "fetchAppVersionsForDefinition",
-        { appDefinitionId }
-      );
-      return response as AppVersionForMarketplace[];
-    } catch (error) {
-      console.error("[appMarketplaceApi] Error fetching app versions for definition:", error);
-      throw error;
-    }
+  async fetchAppVersionsForDefinition(appDefinitionId: string) {
+    return callCloudFunctionForArray<AppVersionForMarketplace>(
+      "fetchAppVersionsForDefinition",
+      { appDefinitionId },
+      {
+        errorMessage: "Failed to fetch app versions for definition"
+      }
+    );
   },
 
   /**
    * Fetches all installed apps for the current organization.
-   * @param {object} [params] - Optional parameters.
-   * @param {string} [params.organizationId] - Filter by organization ID.
-   * @returns {Promise<OrgAppInstallation[]>} A promise that resolves to an array of installed app entries.
-   * @tsdoc
    */
-  fetchOrgAppInstallations: async (params) => {
-    console.debug("[appMarketplaceApi] Fetching organization app installations with params:", params);
-    try {
-      const response = await Parse.Cloud.run(
-        "fetchOrgAppInstallations",
-        params || {}
-      );
-      return response as OrgAppInstallation[];
-    } catch (error) {
-      console.error("[appMarketplaceApi] Error fetching organization app installations:", error);
-      throw error;
-    }
+  async fetchOrgAppInstallations(params: OrgAppInstallationFilters = {}) {
+    return callCloudFunctionForArray<OrgAppInstallation>(
+      "fetchOrgAppInstallations",
+      params as Record<string, unknown>,
+      {
+        errorMessage: "Failed to fetch organization app installations"
+      }
+    );
   },
 
   /**
    * Installs an app for the current organization.
-   * @param {InstallAppParams} params - Parameters for app installation.
-   * @returns {Promise<OrgAppInstallation>} A promise that resolves to the newly created app installation record.
-   * @tsdoc
    */
-  installApp: async (params) => {
-    console.debug("[appMarketplaceApi] Installing app with params:", params);
-    try {
-      const response = await Parse.Cloud.run("installApp", {
+  async installApp(params: InstallAppParams) {
+    return callCloudFunction<OrgAppInstallation>(
+      "installApp",
+      {
         appDefinitionId: params.appDefinitionId,
         versionId: params.versionId,
         appSpecificConfig: params.appSpecificConfig
-      });
-      return response as OrgAppInstallation;
-    } catch (error) {
-      console.error("[appMarketplaceApi] Error installing app:", error);
-      throw error;
-    }
+      } as Record<string, unknown>,
+      {
+        errorMessage: "Failed to install app"
+      }
+    );
   },
 
   /**
    * Uninstalls an app from the current organization.
-   * @param {UninstallAppParams} params - Parameters for app uninstallation.
-   * @returns {Promise<void>} A promise that resolves when the app is uninstalled.
-   * @tsdoc
    */
-  uninstallApp: async (params) => {
-    console.debug("[appMarketplaceApi] Uninstalling app with params:", params);
-    try {
-      const response = await Parse.Cloud.run("uninstallApp", {
+  async uninstallApp(params: UninstallAppParams) {
+    return callCloudFunction<void>(
+      "uninstallApp",
+      {
         appDefinitionId: params.appDefinitionId,
         orgAppInstallationId: params.orgAppInstallationId
-      });
-      return response;
-    } catch (error) {
-      console.error("[appMarketplaceApi] Error uninstalling app:", error);
-      throw error;
-    }
+      } as Record<string, unknown>,
+      {
+        errorMessage: "Failed to uninstall app"
+      }
+    );
   },
 
   /**
    * Updates settings for an installed app.
-   * @param {UpdateAppSettingsParams} params - Parameters for updating app settings.
-   * @returns {Promise<OrgAppInstallation>} A promise that resolves to the updated app installation record.
-   * @tsdoc
    */
-  updateAppSettings: async (params) => {
-    console.debug("[appMarketplaceApi] Updating app settings with params:", params);
-    try {
-      const response = await Parse.Cloud.run("updateAppSettings", {
+  async updateAppSettings(params: UpdateAppSettingsParams) {
+    return callCloudFunction<OrgAppInstallation>(
+      "updateAppSettings",
+      {
         appDefinitionId: params.appDefinitionId,
         orgAppInstallationId: params.orgAppInstallationId,
         settings: params.settings
-      });
-      return response as OrgAppInstallation;
-    } catch (error) {
-      console.error("[appMarketplaceApi] Error updating app settings:", error);
-      throw error;
-    }
+      } as Record<string, unknown>,
+      {
+        errorMessage: "Failed to update app settings"
+      }
+    );
   },
 
   /**
    * Fetches details for a specific app installation.
-   * @param {string} appInstallationId - The ID of the app installation record.
-   * @returns {Promise<OrgAppInstallation>} A promise that resolves to the app installation record.
-   * @tsdoc
    */
-  getAppInstallationDetails: async (appInstallationId) => {
-    console.debug("[appMarketplaceApi] Fetching app installation details for ID:", appInstallationId);
-    try {
-      const response = await Parse.Cloud.run(
-        "getAppInstallationDetails",
-        { appInstallationId }
-      );
-      return response as OrgAppInstallation;
-    } catch (error) {
-      console.error("[appMarketplaceApi] Error fetching app installation details:", error);
-      throw error;
-    }
+  async getAppInstallationDetails(appInstallationId: string) {
+    return callCloudFunction<OrgAppInstallation>(
+      "getAppInstallationDetails",
+      { appInstallationId },
+      {
+        errorMessage: "Failed to fetch app installation details"
+      }
+    );
   },
 };
 
-export { appMarketplaceApi };
-export type { AppMarketplaceApi };
+// Mock implementation for development
+if (process.env.NODE_ENV === 'development') {
+  const mockAppDefinitions: AppDefinitionForMarketplace[] = [
+    {
+      id: 'app1',
+      objectId: 'app1',
+      name: 'Analytics Dashboard',
+      description: 'Advanced analytics and reporting dashboard',
+      category: 'analytics',
+      publisherName: 'DataCorp',
+      iconUrl: '/icons/analytics.png',
+      overallRating: 4.5,
+      reviewCount: 120,
+      isFeatured: true,
+      status: 'published'
+    },
+    {
+      id: 'app2',
+      objectId: 'app2',
+      name: 'CRM Integration',
+      description: 'Seamless CRM integration for customer management',
+      category: 'productivity',
+      publisherName: 'SalesTech',
+      iconUrl: '/icons/crm.png',
+      overallRating: 4.2,
+      reviewCount: 85,
+      isFeatured: false,
+      status: 'published'
+    }
+  ];
+
+  const mockAppVersions: AppVersionForMarketplace[] = [
+    {
+      id: 'version1',
+      objectId: 'version1',
+      versionString: '1.2.0',
+      status: 'published',
+      releaseNotes: 'Bug fixes and performance improvements',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      appDefinition: { objectId: 'app1', __type: 'Pointer', className: 'AppDefinition' }
+    }
+  ];
+
+  const mockOrgAppInstallations: OrgAppInstallation[] = [
+    {
+      objectId: 'install1',
+      organization: { objectId: 'org1', __type: 'Pointer', className: 'Organization' },
+      appDefinition: mockAppDefinitions[0],
+      installedVersion: mockAppVersions[0],
+      installationDate: new Date().toISOString(),
+      status: 'active',
+      appSpecificConfig: {},
+      installedBy: { objectId: 'user1', __type: 'Pointer', className: '_User' }
+    }
+  ];
+
+  // Override with mock implementations
+  Object.assign(appMarketplaceApi, {
+    async fetchAppDefinitions() {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      return { success: true, data: mockAppDefinitions, error: null };
+    },
+
+    async fetchAppVersionsForDefinition() {
+      await new Promise(resolve => setTimeout(resolve, 300));
+      return { success: true, data: mockAppVersions, error: null };
+    },
+
+    async fetchOrgAppInstallations() {
+      await new Promise(resolve => setTimeout(resolve, 400));
+      return { success: true, data: mockOrgAppInstallations, error: null };
+    },
+
+    async installApp() {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return {
+        success: true,
+        data: {
+          ...mockOrgAppInstallations[0],
+          objectId: 'new_install_' + Date.now(),
+          installationDate: new Date().toISOString()
+        },
+        error: null
+      };
+    },
+
+    async uninstallApp() {
+      await new Promise(resolve => setTimeout(resolve, 800));
+      return { success: true, data: undefined, error: null };
+    },
+
+    async updateAppSettings() {
+      await new Promise(resolve => setTimeout(resolve, 600));
+      return {
+        success: true,
+        data: {
+          ...mockOrgAppInstallations[0],
+          installationDate: new Date().toISOString()
+        },
+        error: null
+      };
+    },
+
+    async getAppInstallationDetails() {
+      await new Promise(resolve => setTimeout(resolve, 300));
+      return { success: true, data: mockOrgAppInstallations[0], error: null };
+    }
+  });
+}

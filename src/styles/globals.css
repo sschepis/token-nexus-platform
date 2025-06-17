@@ -420,6 +420,86 @@
   }
 }
 
+/* Dashboard Grid Layout Styles */
+.dashboard-grid {
+  @apply w-full;
+}
+
+.dashboard-grid .react-grid-layout {
+  position: relative;
+}
+
+.dashboard-grid .react-grid-item {
+  transition: all 200ms ease;
+  transition-property: left, top;
+  border: 1px solid transparent;
+}
+
+.dashboard-grid .react-grid-item.cssTransforms {
+  transition-property: transform;
+}
+
+.dashboard-grid .react-grid-item > .react-resizable-handle {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  bottom: 0;
+  right: 0;
+  background: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNiIgaGVpZ2h0PSI2IiB2aWV3Qm94PSIwIDAgNiA2IiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8ZG90cyBmaWxsPSIjODg4IiBkPSJtMTUgMTJMMTkgMTZIMTVWMTJaIi8+Cjwvc3ZnPgo=');
+  background-position: bottom right;
+  padding: 0 3px 3px 0;
+  background-repeat: no-repeat;
+  background-origin: content-box;
+  box-sizing: border-box;
+  cursor: se-resize;
+}
+
+.dashboard-grid .react-grid-item.react-grid-placeholder {
+  background: hsl(var(--primary) / 0.2);
+  opacity: 0.2;
+  transition-duration: 100ms;
+  z-index: 2;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  -o-user-select: none;
+  user-select: none;
+  border: 1px dashed hsl(var(--primary));
+  border-radius: var(--radius);
+}
+
+.dashboard-grid .react-grid-item.react-dragging {
+  transition: none;
+  z-index: 3;
+  opacity: 0.8;
+}
+
+.dashboard-grid .react-grid-item.react-resizing {
+  z-index: 3;
+  opacity: 0.8;
+}
+
+.widget-container {
+  @apply w-full h-full;
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.widget-container .card {
+  @apply h-full border-0 shadow-sm;
+  border-radius: var(--radius);
+}
+
+/* Dark mode adjustments for grid */
+.dark .dashboard-grid .react-grid-item > .react-resizable-handle {
+  background: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNiIgaGVpZ2h0PSI2IiB2aWV3Qm94PSIwIDAgNiA2IiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8ZG90cyBmaWxsPSIjY2NjIiBkPSJtMTUgMTJMMTkgMTZIMTVWMTJaIi8+Cjwvc3ZnPgo=');
+}
+
+.dark .dashboard-grid .react-grid-item.react-grid-placeholder {
+  background: hsl(var(--primary) / 0.3);
+  border-color: hsl(var(--primary));
+}
+
 /* Print styles */
 @media print {
   .no-print {

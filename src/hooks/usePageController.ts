@@ -130,8 +130,8 @@ export const usePageController = (options: UsePageControllerOptions): UsePageCon
     pageName,
     description,
     category,
-    permissions,
-    tags
+    JSON.stringify(permissions),
+    JSON.stringify(tags)
   ]);
 
   /**

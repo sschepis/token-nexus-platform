@@ -2,6 +2,77 @@
 import Parse from 'parse';
 import { apiService, mockResponse } from './base'; // Import apiService and mockResponse
 
+// Helper function to ensure Parse SDK is initialized
+async function ensureParseInitialized(): Promise<void> {
+  // Check if Parse is already initialized
+  if (Parse.applicationId) {
+    return;
+  }
+
+  // Initialize Parse SDK
+  const appId = process.env.NEXT_PUBLIC_PARSE_APP_ID;
+  const jsKey = process.env.NEXT_PUBLIC_PARSE_JAVASCRIPT_KEY;
+  const serverURL = process.env.NEXT_PUBLIC_PARSE_SERVER_URL;
+
+  if (!appId || !jsKey || !serverURL) {
+    throw new Error('Parse environment variables not set');
+  }
+
+  Parse.initialize(appId, jsKey);
+  Parse.serverURL = serverURL;
+  
+  console.log('[DEBUG] Parse SDK initialized for auth service');
+}
+
+// Helper function to ensure Parse Installation is properly set up
+async function ensureParseInstallation(): Promise<void> {
+  try {
+    // First ensure Parse is initialized
+    await ensureParseInitialized();
+
+    let installation;
+    
+    try {
+      installation = await Parse.Installation.currentInstallation();
+    } catch (error) {
+      console.warn('[DEBUG] Error getting current installation, creating new one:', error);
+      installation = null;
+    }
+
+    // If currentInstallation() returned null or undefined, create a new one.
+    if (!installation) {
+      console.warn('[DEBUG] Parse.Installation.currentInstallation() returned null/undefined. Creating a new Parse.Installation object.');
+      installation = new Parse.Installation();
+    }
+
+    // Now, proceed with setting properties if it's a new or uninitialized installation
+    if (!installation.id || !installation.get("deviceType")) {
+      installation.set("deviceType", "web");
+      try {
+        await installation.save();
+        console.log('[DEBUG] New Parse Installation created and saved successfully with ID:', installation.id);
+      } catch (saveError) {
+        console.warn('[DEBUG] Could not save Parse Installation, continuing without it:', saveError);
+        // Don't throw here - allow the app to continue without Installation
+      }
+    } else {
+      // For existing installations, ensure necessary properties are implicitly consistent.
+      try {
+        await installation.save();
+        console.log('[DEBUG] Existing Parse Installation ensured/updated with ID:', installation.id);
+      } catch (saveError) {
+        console.warn('[DEBUG] Could not update Parse Installation, continuing without it:', saveError);
+        // Don't throw here - allow the app to continue without Installation
+      }
+    }
+
+  } catch (installationError) {
+    console.warn('[DEBUG] Error ensuring Parse Installation, continuing without it:', installationError);
+    // Don't throw here - allow the app to continue without Installation
+    // Cloud functions should still work even without a proper Installation in most cases
+  }
+}
+
 /**
  * @file Authentication API services.
  * Handles user login and fetching organization data via Parse Cloud Functions.
@@ -17,6 +88,20 @@ const authApi = {
    */
   login: async (credentials: { email: string; password: string }): Promise<{ user: any; token: string; orgId: string; permissions: string[]; isAdmin?: boolean }> => {
     try {
+      // First ensure Parse is initialized
+      await ensureParseInitialized();
+      
+      // Clear any existing Parse session to avoid "Invalid session token" errors
+      try {
+        await Parse.User.logOut();
+      } catch (logoutError) {
+        // Ignore logout errors - there might not be a session to clear
+        console.debug('[Auth API] No existing session to clear:', logoutError);
+      }
+      
+      // Ensure Parse Installation is properly set up before making cloud function calls
+      await ensureParseInstallation();
+      
       // Call the custom Parse Cloud function
       const result = await Parse.Cloud.run('customUserLogin', {
         username: credentials.email, // Parse uses 'username' for email by default
@@ -40,6 +125,12 @@ const authApi = {
    */
   getUserOrgs: async (): Promise<{ data: { orgs: any[] } }> => {
     try {
+      // First ensure Parse is initialized
+      await ensureParseInitialized();
+      
+      // Ensure Parse Installation is properly set up before making cloud function calls
+      await ensureParseInstallation();
+      
       // Call the existing Parse Cloud function
       const organizations = await Parse.Cloud.run('getUserOrganizations');
       

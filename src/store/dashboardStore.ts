@@ -74,6 +74,9 @@ const getInitialLayout = (id: string, type: WidgetType): Layout => {
   }
 };
 
+// Module-level variable to prevent multiple simultaneous calls
+let isLoadingDashboard = false;
+
 export const useDashboardStore = create<DashboardState>()(
   persist(
     (set) => ({
@@ -131,7 +134,7 @@ export const useDashboardStore = create<DashboardState>()(
     
       saveDashboardLayout: async () => {
         const state = useDashboardStore.getState(); // Get current state
-        const rootState = (window as any).__REDUX_STORE__.getState() as RootState; // Access Redux store
+        const rootState = store.getState() as RootState; // Access Redux store directly
         const { user, orgId } = rootState.auth; // Corrected to use orgId from auth slice
 
         if (!user || !orgId) {
@@ -162,18 +165,30 @@ export const useDashboardStore = create<DashboardState>()(
           set({ layouts: [], widgets: [] }); // Set to empty if cannot load
           return;
         }
+
+        // Prevent multiple simultaneous calls
+        if (isLoadingDashboard) {
+          console.log("Dashboard layout loading already in progress, skipping...");
+          return;
+        }
+
         try {
+          isLoadingDashboard = true;
+          console.log("Loading dashboard layout for user:", user.id, "org:", orgId);
           const response = await apiService.getDashboardLayout(user.id, orgId);
           if (response.data.layouts && response.data.widgets) {
               set({ layouts: response.data.layouts, widgets: response.data.widgets });
               console.log("Dashboard layout loaded successfully.");
           } else {
               set({ layouts: [], widgets: [] }); // Initialize to empty if no data returned
+              console.log("No dashboard layout found, initialized with empty state.");
           }
         } catch (error) {
             console.error("Failed to load dashboard layout:", error);
             // If no layout exists, maybe initialize with default or empty
             set({ layouts: [], widgets: [] });
+        } finally {
+          isLoadingDashboard = false;
         }
       },
     }),

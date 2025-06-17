@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Key, Lock, Shield, User, UserCheck, UserX, RefreshCw, Check, X } from "lucide-react";
+import { Key, Lock, Shield, User, UserCheck, UserX, RefreshCw, Check, X, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,9 +8,12 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
+import { usePermission } from "@/hooks/usePermission";
+import { usePageController } from "@/hooks/usePageController";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { DevToolsWrapper } from "@/components/dev/DevToolsWrapper";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 interface TokenData {
   id: string;
   type: "basic" | "bearer" | "jwt" | "oauth2";
@@ -32,8 +35,27 @@ interface AuthResult {
 }
 
 const AuthTesterPage: React.FC = () => {
+  const { toast } = useToast();
+  const { hasPermission } = usePermission();
   const [selectedTab, setSelectedTab] = useState<string>("token-tester");
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Permission checks
+  const canRead = hasPermission('dev:read');
+  const canWrite = hasPermission('dev:write');
+  const canExecute = hasPermission('dev:execute');
+
+  // Initialize page controller
+  const pageController = usePageController({
+    pageId: 'auth-tester',
+    pageName: 'Authentication Tester',
+    description: 'Test authentication tokens and API endpoints',
+    category: 'development',
+    permissions: ['dev:read', 'dev:write', 'dev:execute'],
+    tags: ['auth', 'testing', 'development', 'security']
+  });
+
   const [tokens, setTokens] = useState<TokenData[]>([
     {
       id: "token-1",
@@ -71,7 +93,17 @@ const AuthTesterPage: React.FC = () => {
   const [password, setPassword] = useState<string>("");
 
   const handleTestToken = () => {
+    if (!canExecute) {
+      toast({
+        title: "Permission denied",
+        description: "You don't have permission to execute authentication tests",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
+    setError(null);
     
     setTimeout(() => {
       const success = Math.random() > 0.3;
@@ -83,7 +115,7 @@ const AuthTesterPage: React.FC = () => {
         endpoint,
         method,
         status: success ? "success" : "error",
-        message: success 
+        message: success
           ? "Authentication successful. Server returned 200 OK."
           : "Authentication failed. Server returned 401 Unauthorized.",
         headers: {
@@ -94,12 +126,25 @@ const AuthTesterPage: React.FC = () => {
       };
       
       setResults(prev => [newResult, ...prev]);
-      toast[success ? "success" : "error"](newResult.message);
+      toast({
+        title: success ? "Authentication successful" : "Authentication failed",
+        description: newResult.message,
+        variant: success ? "default" : "destructive",
+      });
       setIsLoading(false);
     }, 1000);
   };
 
   const handleGenerateToken = () => {
+    if (!canWrite) {
+      toast({
+        title: "Permission denied",
+        description: "You don't have permission to generate tokens",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
     
     setTimeout(() => {
@@ -109,7 +154,7 @@ const AuthTesterPage: React.FC = () => {
       const newToken: TokenData = {
         id: `token-${tokens.length + 1}`,
         type: tokenType as "basic" | "bearer" | "jwt" | "oauth2",
-        value: tokenType === "basic" 
+        value: tokenType === "basic"
           ? `Basic ${typeof window !== 'undefined' ? btoa(`${username}:${password}`) : ''}` // Check for window
           : mockToken,
         expired: false,
@@ -119,24 +164,62 @@ const AuthTesterPage: React.FC = () => {
       
       setTokens(prev => [newToken, ...prev]);
       setTokenValue(newToken.value);
-      toast.success("Token generated successfully");
+      toast({
+        title: "Token generated",
+        description: "Token generated successfully",
+      });
       setIsLoading(false);
     }, 1000);
   };
   
   const handleRevokeToken = (tokenId: string) => {
-    setTokens(prev => 
-      prev.map(token => 
+    if (!canWrite) {
+      toast({
+        title: "Permission denied",
+        description: "You don't have permission to revoke tokens",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setTokens(prev =>
+      prev.map(token =>
         token.id === tokenId ? { ...token, expired: true } : token
       )
     );
-    toast.success("Token revoked successfully");
+    toast({
+      title: "Token revoked",
+      description: "Token revoked successfully",
+    });
   };
 
   const handleClearResults = () => {
     setResults([]);
-    toast.info("Test results cleared");
+    toast({
+      title: "Results cleared",
+      description: "Test results cleared",
+    });
   };
+
+  // Show permission error if user can't read dev tools
+  if (!canRead) {
+    return (
+      <DevToolsWrapper toolName="Authentication Tester">
+        <div className="container py-6 space-y-6">
+          <div className="flex justify-between items-center">
+            <h1 className="text-3xl font-bold">Authentication Tester</h1>
+          </div>
+          
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              You don't have permission to access development tools. Please contact your administrator.
+            </AlertDescription>
+          </Alert>
+        </div>
+      </DevToolsWrapper>
+    );
+  }
 
   return (
     <DevToolsWrapper toolName="Authentication Tester">
@@ -147,6 +230,13 @@ const AuthTesterPage: React.FC = () => {
             Clear Test Results
           </Button>
         </div>
+
+        {error && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
         <Tabs value={selectedTab} onValueChange={setSelectedTab}>
           <TabsList className="grid grid-cols-2">
@@ -247,7 +337,7 @@ const AuthTesterPage: React.FC = () => {
                     <Button
                       className="flex-1"
                       onClick={handleTestToken}
-                      disabled={isLoading || (!tokenValue && tokenType !== 'basic') || (tokenType === 'basic' && (!username || !password))}
+                      disabled={isLoading || !canExecute || (!tokenValue && tokenType !== 'basic') || (tokenType === 'basic' && (!username || !password))}
                     >
                       {isLoading && <RefreshCw className="h-4 w-4 mr-2 animate-spin" />}
                       Test Authentication
@@ -255,7 +345,7 @@ const AuthTesterPage: React.FC = () => {
                     <Button
                       variant="outline"
                       onClick={handleGenerateToken}
-                      disabled={isLoading || (tokenType === 'basic' && (!username || !password))}
+                      disabled={isLoading || !canWrite || (tokenType === 'basic' && (!username || !password))}
                     >
                       Generate Token
                     </Button>
@@ -374,15 +464,17 @@ const AuthTesterPage: React.FC = () => {
                               >
                                 Use
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="text-destructive hover:text-destructive"
-                                onClick={() => handleRevokeToken(token.id)}
-                                disabled={token.expired}
-                              >
-                                Revoke
-                              </Button>
+                              {canWrite && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-destructive hover:text-destructive"
+                                  onClick={() => handleRevokeToken(token.id)}
+                                  disabled={token.expired}
+                                >
+                                  Revoke
+                                </Button>
+                              )}
                             </div>
                           </div>
                           <div className="font-mono text-xs bg-muted p-2 rounded truncate">
