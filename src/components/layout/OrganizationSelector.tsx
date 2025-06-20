@@ -34,8 +34,6 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ clas
 
   // Fetch user organizations on mount if not already loaded
   useEffect(() => {
-    // Temporarily commented out to reduce console noise and isolate SDK init issues
-    /*
     if (user && userOrgs.length === 0 && !isLoading) {
       // Fetch user organizations with error handling
       dispatch(fetchUserOrganizations()).unwrap().catch((error) => {
@@ -48,9 +46,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ clas
       // Fetch current organization details
       dispatch(fetchCurrentOrgDetails(orgId));
     }
-    */
-    console.log('[DEBUG OrganizationSelector.tsx] useEffect - Data fetching temporarily disabled.');
-  }, [user, userOrgs.length, orgId, currentOrg, isLoading]);
+  }, [user, userOrgs.length, orgId, currentOrg, isLoading, dispatch]);
 
   const handleOrgChange = async (newOrgId: string) => {
     if (newOrgId !== currentOrg?.id) {

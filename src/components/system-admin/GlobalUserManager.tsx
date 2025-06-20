@@ -9,6 +9,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
 import Parse from 'parse';
+import { callCloudFunction } from '@/utils/apiUtils';
+import { useAppSelector } from '@/store/hooks';
+import { useOrganizationContext } from '@/hooks/useOrganizationContext';
+import { isParseReady } from '@/utils/parseUtils';
 import { 
   User, 
   Plus, 
@@ -89,6 +93,10 @@ interface UserStats {
 }
 
 export function GlobalUserManager() {
+  // Use existing infrastructure for authentication and Parse readiness
+  const { isAuthenticated, user } = useAppSelector((state) => state.auth);
+  const { hasOrganizationContext } = useOrganizationContext();
+  
   const [users, setUsers] = useState<GlobalUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -125,6 +133,21 @@ export function GlobalUserManager() {
 
 
   const fetchUsers = useCallback(async () => {
+    // Check if we have proper authentication and Parse is ready
+    if (!isAuthenticated || !isParseReady()) {
+      console.warn('[GlobalUserManager] Cannot fetch users: not authenticated or Parse not ready');
+      setLoading(false);
+      return;
+    }
+
+    // Check if user is system admin
+    if (!user?.isAdmin) {
+      console.warn('[GlobalUserManager] Cannot fetch users: user is not a system admin');
+      setLoading(false);
+      toast.error('Access denied: System administrator privileges required');
+      return;
+    }
+
     setLoading(true);
     try {
       const params: {
@@ -151,11 +174,14 @@ export function GlobalUserManager() {
         params.searchQuery = searchQuery;
       }
 
-      const result = await Parse.Cloud.run('getAllUsers', params);
+      const result = await callCloudFunction('getAllUsers', params, {
+        showErrorToast: false,
+        errorMessage: 'Failed to fetch users'
+      });
 
-      if (result.success) {
-        setUsers(result.users);
-        setTotalPages(result.totalPages);
+      if (result.success && result.data) {
+        setUsers(result.data.users || []);
+        setTotalPages(result.data.totalPages || 1);
       }
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -163,23 +189,35 @@ export function GlobalUserManager() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, statusFilter, searchQuery]);
+  }, [currentPage, statusFilter, searchQuery, isAuthenticated, user?.isAdmin]);
 
   const fetchStats = useCallback(async () => {
+    // Check if we have proper authentication and Parse is ready
+    if (!isAuthenticated || !isParseReady()) {
+      console.warn('[GlobalUserManager] Cannot fetch stats: not authenticated or Parse not ready');
+      return;
+    }
+
     try {
-      const result = await Parse.Cloud.run('getUserStats');
-      if (result.success) {
-        setUserStats(result.stats);
+      const result = await callCloudFunction('getUserStats', {}, {
+        showErrorToast: false,
+        errorMessage: 'Failed to fetch user statistics'
+      });
+      if (result.success && result.data) {
+        setUserStats(result.data.stats || result.data);
       }
     } catch (error) {
       console.error('Error fetching stats:', error);
     }
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
-    fetchUsers();
-    fetchStats();
-  }, [fetchUsers, fetchStats]);
+    // Only fetch data if authenticated and Parse is ready
+    if (isAuthenticated && isParseReady()) {
+      fetchUsers();
+      fetchStats();
+    }
+  }, [fetchUsers, fetchStats, isAuthenticated]);
 
   const handleSearch = () => {
     setCurrentPage(1);
@@ -344,6 +382,32 @@ export function GlobalUserManager() {
       </Badge>
     );
   };
+
+  // Show access denied message if user is not a system admin
+  if (isAuthenticated && !user?.isAdmin) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+            <CardTitle className="text-destructive">Access Denied</CardTitle>
+            <CardDescription>
+              System administrator privileges are required to access user management.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show loading state if not authenticated or Parse not ready
+  if (!isAuthenticated || !isParseReady()) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

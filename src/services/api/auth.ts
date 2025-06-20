@@ -32,52 +32,13 @@ async function ensureParseInitialized(): Promise<void> {
 }
 
 // Helper function to ensure Parse Installation is properly set up
+// Note: Parse Installation is not required for web clients, this is a no-op
 async function ensureParseInstallation(): Promise<void> {
-  try {
-    // First ensure Parse is initialized
-    await ensureParseInitialized();
-
-    let installation;
-    
-    try {
-      installation = await Parse.Installation.currentInstallation();
-    } catch (error) {
-      console.warn('[DEBUG] Error getting current installation, creating new one:', error);
-      installation = null;
-    }
-
-    // If currentInstallation() returned null or undefined, create a new one.
-    if (!installation) {
-      console.warn('[DEBUG] Parse.Installation.currentInstallation() returned null/undefined. Creating a new Parse.Installation object.');
-      installation = new Parse.Installation();
-    }
-
-    // Now, proceed with setting properties if it's a new or uninitialized installation
-    if (!installation.id || !installation.get("deviceType")) {
-      installation.set("deviceType", "web");
-      try {
-        await installation.save();
-        console.log('[DEBUG] New Parse Installation created and saved successfully with ID:', installation.id);
-      } catch (saveError) {
-        console.warn('[DEBUG] Could not save Parse Installation, continuing without it:', saveError);
-        // Don't throw here - allow the app to continue without Installation
-      }
-    } else {
-      // For existing installations, ensure necessary properties are implicitly consistent.
-      try {
-        await installation.save();
-        console.log('[DEBUG] Existing Parse Installation ensured/updated with ID:', installation.id);
-      } catch (saveError) {
-        console.warn('[DEBUG] Could not update Parse Installation, continuing without it:', saveError);
-        // Don't throw here - allow the app to continue without Installation
-      }
-    }
-
-  } catch (installationError) {
-    console.warn('[DEBUG] Error ensuring Parse Installation, continuing without it:', installationError);
-    // Don't throw here - allow the app to continue without Installation
-    // Cloud functions should still work even without a proper Installation in most cases
-  }
+  // First ensure Parse is initialized
+  await ensureParseInitialized();
+  
+  console.log('[DEBUG] Parse Installation setup skipped for web client');
+  // Parse Installation is not required for web clients to make cloud function calls
 }
 
 /**

@@ -8,7 +8,7 @@ const SystemAdminIndexPage = () => {
 
   useEffect(() => {
     if (permissions.includes("system:admin")) {
-      router.replace('/system-admin/deploy');
+      router.replace('/system-admin/dashboard');
     } else if (permissions.length > 0) { // Only redirect if permissions have been loaded
       router.replace("/dashboard");
     }

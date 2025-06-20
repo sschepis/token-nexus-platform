@@ -1,5 +1,3 @@
-const Parse = require('parse/node');
-
 /**
  * Get audit logs with filtering and pagination
  * @param {Object} request - Parse Cloud Function request

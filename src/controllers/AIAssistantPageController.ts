@@ -6,7 +6,7 @@ import {
   PageContext
 } from './types/ActionTypes';
 import Parse from 'parse';
-import { ParseQueryBuilder } from '../utils/parseUtils';
+import { ParseQueryBuilder, safeParseCloudRun } from '../utils/parseUtils';
 
 export class AIAssistantPageController implements PageController {
   pageId = 'ai-assistant';
@@ -54,23 +54,9 @@ export class AIAssistantPageController implements PageController {
       execute: async (params: Record<string, unknown>, context: ActionContext): Promise<ActionResult> => {
         try {
           const { limit = 50, skip = 0, includeArchived = false, searchTerm } = params;
-          const orgId = context.user.organizationId || context.organization?.id;
 
-          if (!orgId) {
-            return {
-              success: false,
-              error: 'Organization ID is required to fetch conversations',
-              metadata: {
-                executionTime: 0,
-                timestamp: new Date(),
-                actionId: 'fetchConversations',
-                userId: context.user.userId
-              }
-            };
-          }
-
+          // Organization context is handled server-side by Parse cloud functions
           const query = new Parse.Query('AIConversation');
-          query.equalTo('organizationId', orgId);
           query.equalTo('userId', context.user.userId);
 
           if (!includeArchived) {
@@ -214,85 +200,17 @@ export class AIAssistantPageController implements PageController {
       execute: async (params: Record<string, unknown>, context: ActionContext): Promise<ActionResult> => {
         try {
           const { conversationId, message, attachments = [] } = params;
-          const orgId = context.user.organizationId || context.organization?.id;
 
-          if (!orgId) {
-            return {
-              success: false,
-              error: 'Organization ID is required to send message',
-              metadata: {
-                executionTime: 0,
-                timestamp: new Date(),
-                actionId: 'sendMessage',
-                userId: context.user.userId
-              }
-            };
-          }
-
-          // Verify conversation exists and user has access
-          const conversation = await new ParseQueryBuilder('AIConversation')
-            .equalTo('objectId', conversationId)
-            .equalTo('organizationId', orgId)
-            .equalTo('userId', context.user.userId)
-            .first();
-          if (!conversation) {
-            return {
-              success: false,
-              error: 'Conversation not found or access denied',
-              metadata: {
-                executionTime: 0,
-                timestamp: new Date(),
-                actionId: 'sendMessage',
-                userId: context.user.userId
-              }
-            };
-          }
-
-          // Get current message count
-          const messageCount = conversation.get('messageCount') || 0;
-
-          // Create user message
-          const AIMessage = Parse.Object.extend('AIMessage');
-          const userMessage = new AIMessage();
-
-          userMessage.set('conversationId', conversationId);
-          userMessage.set('content', message);
-          userMessage.set('role', 'user');
-          userMessage.set('userId', context.user.userId);
-          userMessage.set('organizationId', orgId);
-          userMessage.set('messageIndex', messageCount);
-          userMessage.set('attachments', attachments);
-
-          const savedUserMessage = await userMessage.save();
-
-          // Here you would typically call the AI service to get a response
-          // For now, we'll create a placeholder AI response
-          const aiResponse = await this.generateAIResponse(message as string, conversation);
-
-          // Create AI response message
-          const aiMessage = new AIMessage();
-          aiMessage.set('conversationId', conversationId);
-          aiMessage.set('content', aiResponse);
-          aiMessage.set('role', 'assistant');
-          aiMessage.set('userId', context.user.userId);
-          aiMessage.set('organizationId', orgId);
-          aiMessage.set('messageIndex', messageCount + 1);
-
-          const savedAIMessage = await aiMessage.save();
-
-          // Update conversation
-          conversation.set('messageCount', messageCount + 2);
-          conversation.set('lastMessage', aiResponse);
-          conversation.set('updatedAt', new Date());
-          await conversation.save();
+          // Call the AI Assistant cloud function which handles organization context server-side
+          const aiResponse = await safeParseCloudRun('aiAssistantQuery', {
+            query: message,
+            conversationId: conversationId,
+            attachments: attachments
+          });
 
           return {
             success: true,
-            data: { 
-              userMessage: savedUserMessage.toJSON(),
-              aiMessage: savedAIMessage.toJSON(),
-              conversation: conversation.toJSON()
-            },
+            data: aiResponse,
             message: 'Message sent successfully',
             metadata: {
               executionTime: 0,
@@ -417,24 +335,10 @@ export class AIAssistantPageController implements PageController {
       execute: async (params: Record<string, unknown>, context: ActionContext): Promise<ActionResult> => {
         try {
           const { conversationId } = params;
-          const orgId = context.user.organizationId || context.organization?.id;
 
-          if (!orgId) {
-            return {
-              success: false,
-              error: 'Organization ID is required to archive conversation',
-              metadata: {
-                executionTime: 0,
-                timestamp: new Date(),
-                actionId: 'archiveConversation',
-                userId: context.user.userId
-              }
-            };
-          }
-
+          // Organization context is handled server-side by Parse cloud functions
           const conversation = await new ParseQueryBuilder('AIConversation')
             .equalTo('objectId', conversationId)
-            .equalTo('organizationId', orgId)
             .equalTo('userId', context.user.userId)
             .first();
           if (!conversation) {
@@ -490,21 +394,6 @@ export class AIAssistantPageController implements PageController {
       parameters: [],
       execute: async (params: Record<string, unknown>, context: ActionContext): Promise<ActionResult> => {
         try {
-          const orgId = context.user.organizationId || context.organization?.id;
-
-          if (!orgId) {
-            return {
-              success: false,
-              error: 'Organization ID is required to get AI configuration',
-              metadata: {
-                executionTime: 0,
-                timestamp: new Date(),
-                actionId: 'getAIConfiguration',
-                userId: context.user.userId
-              }
-            };
-          }
-
           // Default AI configuration
           const defaultConfig = {
             model: 'gpt-4',
@@ -524,9 +413,10 @@ export class AIAssistantPageController implements PageController {
             }
           };
 
+          // Organization context is handled server-side by Parse cloud functions
           // Try to get organization-specific configuration
           const config = await new ParseQueryBuilder('AIConfiguration')
-            .equalTo('organizationId', orgId)
+            .equalTo('userId', context.user.userId)
             .first();
 
           const finalConfig = config ? { ...defaultConfig, ...config.toJSON() } : defaultConfig;

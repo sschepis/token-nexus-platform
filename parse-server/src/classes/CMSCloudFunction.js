@@ -3,76 +3,84 @@
  * Manages cloud functions that can be stored in the database and loaded dynamically
  */
 
-const { Schema } = require('../schema');
+const Parse = require('parse/node');
 
-class CMSCloudFunction extends Schema {
-  static className = 'CMSCloudFunction';
+class CMSCloudFunction extends Parse.Object {
+  constructor() {
+    super('CMSCloudFunction');
+  }
 
-  static schema = {
-    // Basic Info
-    name: { type: 'String', required: true },
-    description: { type: 'String' },
-    status: {
-      type: 'String',
-      enum: ['active', 'inactive', 'error'],
-      default: 'active',
-    },
+  static get className() {
+    return 'CMSCloudFunction';
+  }
 
-    // Function Code
-    code: {
-      type: 'String',
-      required: true,
-    },
+  static get schema() {
+    return {
+      // Basic Info
+      name: { type: 'String', required: true },
+      description: { type: 'String' },
+      status: {
+        type: 'String',
+        enum: ['active', 'inactive', 'error'],
+        default: 'active',
+      },
 
-    // Relationships
-    application: { type: 'Pointer', targetClass: 'CMSApplication', required: true },
-    createdBy: { type: 'Pointer', targetClass: '_User', required: true },
+      // Function Code
+      code: {
+        type: 'String',
+        required: true,
+      },
 
-    // Function Configuration
-    config: {
-      type: 'Object',
-      required: true,
-      default: {
-        timeout: 30, // seconds
-        memory: 128, // MB
-        async: true,
-        requireMaster: false,
-        requireUser: false,
-        requiredRoles: [], // Array of role names required to execute
-        rateLimit: {
-          requests: 1000,
-          period: 3600, // seconds
+      // Relationships
+      application: { type: 'Pointer', targetClass: 'CMSApplication', required: true },
+      createdBy: { type: 'Pointer', targetClass: '_User', required: true },
+
+      // Function Configuration
+      config: {
+        type: 'Object',
+        required: true,
+        default: {
+          timeout: 30, // seconds
+          memory: 128, // MB
+          async: true,
+          requireMaster: false,
+          requireUser: false,
+          requiredRoles: [], // Array of role names required to execute
+          rateLimit: {
+            requests: 1000,
+            period: 3600, // seconds
+          },
         },
       },
-    },
 
-    // Monitoring
-    monitoring: {
-      type: 'Object',
-      default: {
-        enabled: true,
-        metrics: ['executions', 'failures', 'latency'],
-        retention: 30, // days
+      // Monitoring
+      monitoring: {
+        type: 'Object',
+        default: {
+          enabled: true,
+          metrics: ['executions', 'failures', 'latency'],
+          retention: 30, // days
+        },
       },
-    },
 
-    // Statistics
-    stats: {
-      type: 'Object',
-      default: {
-        totalExecutions: 0,
-        successfulExecutions: 0,
-        failedExecutions: 0,
-        lastExecution: null,
-        averageLatency: 0,
+      // Statistics
+      stats: {
+        type: 'Object',
+        default: {
+          totalExecutions: 0,
+          successfulExecutions: 0,
+          failedExecutions: 0,
+          lastExecution: null,
+          averageLatency: 0,
+        },
       },
-    },
 
-    // Metadata
-    createdAt: { type: 'Date', required: true },
-    updatedAt: { type: 'Date', required: true },
-    lastExecuted: { type: 'Date' },
-  };
+      // Metadata
+      createdAt: { type: 'Date', required: true },
+      updatedAt: { type: 'Date', required: true },
+      lastExecuted: { type: 'Date' },
+    };
+  }
 
   /**
    * Initialize cloud function
@@ -253,4 +261,5 @@ class CMSCloudFunction extends Schema {
   }
 }
 
+Parse.Object.registerSubclass('CMSCloudFunction', CMSCloudFunction);
 module.exports = CMSCloudFunction;

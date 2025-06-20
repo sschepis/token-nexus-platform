@@ -7,46 +7,11 @@ import { initializeOrganizationContext } from '../utils/organizationUtils';
 import { appRegistry } from './appRegistry'; // Import appRegistry
 import { initializeControllers } from '../controllers/registerControllers';
 
-// Helper function to ensure Parse Installation is properly set up
-// This function orchestrates the creation or retrieval and update of the Parse Installation object.
-async function ensureParseInstallation(): Promise<void> {
-  try {
-    let installation = await Parse.Installation.currentInstallation();
-
-    // If currentInstallation() returned null or undefined, create a new one.
-    if (!installation) {
-      console.warn('[DEBUG] Parse.Installation.currentInstallation() returned null/undefined. Creating a new Parse.Installation object.');
-      installation = new Parse.Installation();
-    }
-
-    // Now, proceed with setting properties if it's a new or uninitialized installation
-    if (!installation.id || !installation.get("deviceType")) {
-      installation.set("deviceType", "web");
-      await installation.save();
-      console.log('[DEBUG] New Parse Installation created and saved successfully with ID:', installation.id);
-    } else {
-      // For existing installations, ensure necessary properties are implicitly consistent.
-      // A simple save will update its `updatedAt` field, ensuring it's recent.
-      // This is generally good practice to keep the installation object fresh.
-      await installation.save();
-      console.log('[DEBUG] Existing Parse Installation ensured/updated with ID:', installation.id);
-    }
-
-  } catch (installationError) {
-    console.warn('[DEBUG] Error ensuring Parse Installation is saved:', installationError);
-    // Don't throw in development - just log the warning and continue
-    if (process.env.NODE_ENV !== 'development') {
-      throw new Error('Critical: Unable to set up Parse Installation. Cloud functions or certain features may not work.');
-    }
-  }
-}
-
 // Private function to initialize Parse SDK
 async function initializeParse(): Promise<void> {
   const appId = process.env.NEXT_PUBLIC_PARSE_APP_ID as string | undefined;
   const jsKey = process.env.NEXT_PUBLIC_PARSE_JAVASCRIPT_KEY as string | undefined;
   const serverURL = process.env.NEXT_PUBLIC_PARSE_SERVER_URL as string | undefined;
-
 
   if (!appId || !jsKey || !serverURL) {
     const missingVars = [
@@ -61,22 +26,30 @@ async function initializeParse(): Promise<void> {
   }
 
   try {
-
-    try {
-      Parse.initialize(appId, jsKey);
-      Parse.serverURL = serverURL;
-      
-    } catch (error) {
-      console.error('[DEBUG appInitService] Parse.initialize FAILED:', error);
-      throw error;
-    }
-
-    // Always ensure installation is set up to prevent installation errors
-    // This is required for cloud function calls to work properly
-    await ensureParseInstallation();
-
+    // Initialize Parse SDK for web client
+    Parse.initialize(appId, jsKey);
+    Parse.serverURL = serverURL;
+    
+    // Set global Parse ready state
+    (window as any).parseReady = true;
+    
+    // Emit Parse ready event
+    window.dispatchEvent(new CustomEvent('parseReady'));
+    
+    console.log('[DEBUG] Parse SDK initialized successfully');
+    console.log('[DEBUG] Parse Server URL:', serverURL);
+    console.log('[DEBUG] Parse App ID:', appId);
+    
   } catch (error) {
     console.error('[DEBUG] Failed to initialize Parse SDK:', error);
+    
+    // Set error state and emit error event
+    (window as any).parseReady = false;
+    const errorMessage = error instanceof Error ? error.message : 'Parse initialization failed';
+    window.dispatchEvent(new CustomEvent('parseError', {
+      detail: { error: errorMessage }
+    }));
+    
     throw error; // Re-throw to be caught by initializeApp
   }
 }
@@ -153,20 +126,35 @@ async function restoreAuthSession(): Promise<void> {
               }
             }
             
+            // Session restoration completed successfully
+            console.log('[DEBUG] Session restored successfully');
+            (window as any).sessionReady = true;
+            window.dispatchEvent(new CustomEvent('sessionReady'));
+            
           } catch (error) {
             console.warn('Failed to fetch user organizations during init:', error);
             // Continue initialization even if organization fetching fails
+            // Still mark session as ready since Parse session is valid
+            (window as any).sessionReady = true;
+            window.dispatchEvent(new CustomEvent('sessionReady'));
           }
         } else {
           store.dispatch(logout());
+          (window as any).sessionReady = false;
         }
       } catch (sessionError) {
         console.error('Failed to restore Parse session:', sessionError);
         store.dispatch(logout());
+        (window as any).sessionReady = false;
       }
+    } else {
+      // No session to restore
+      console.log('[DEBUG] No session to restore');
+      (window as any).sessionReady = false;
     }
   } catch (error) {
     console.error('Error during session restoration:', error);
+    (window as any).sessionReady = false;
     // Don't throw here as this shouldn't prevent app initialization
   }
 }

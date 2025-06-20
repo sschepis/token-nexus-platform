@@ -1,5 +1,3 @@
-const Parse = require('parse/node');
-
 /**
  * Mark a specific notification as read
  * @param {Object} request - Parse Cloud Function request

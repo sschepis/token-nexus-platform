@@ -1,6 +1,13 @@
 const Anthropic = require('@anthropic-ai/sdk');
 
+// Singleton instance
+let aiServiceInstance = null;
+
 module.exports = Parse => {
+  // Return existing instance if already created
+  if (aiServiceInstance) {
+    return aiServiceInstance;
+  }
   class AIService {
     constructor() {
       // Get config from Parse app configuration
@@ -169,5 +176,7 @@ module.exports = Parse => {
     }
   }
 
-  return new AIService();
+  // Create and cache the singleton instance
+  aiServiceInstance = new AIService();
+  return aiServiceInstance;
 };

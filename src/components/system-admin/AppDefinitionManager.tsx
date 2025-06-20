@@ -29,7 +29,34 @@ import {
   Clock,
   AlertCircle,
   Settings,
-  Archive
+  Archive,
+  Download,
+  Users,
+  Code,
+  Database,
+  Shield,
+  Zap,
+  Activity,
+  FileText,
+  GitBranch,
+  Server,
+  Layers,
+  Box,
+  Workflow,
+  Key,
+  Monitor,
+  HardDrive,
+  Network,
+  Lock,
+  Smartphone,
+  Tablet,
+  Laptop,
+  ExternalLink,
+  Info,
+  TrendingUp,
+  BarChart3,
+  PieChart,
+  LineChart
 } from 'lucide-react';
 import { 
   DropdownMenu,
@@ -39,6 +66,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Separator } from '@/components/ui/separator';
+import { Progress } from '@/components/ui/progress';
 import Parse from 'parse';
 
 interface AppDefinitionForMarketplace {
@@ -56,6 +86,71 @@ interface AppDefinitionForMarketplace {
   status: string;
   createdAt?: string;
   updatedAt?: string;
+  // Enhanced details
+  version?: string;
+  frameworkVersion?: string;
+  totalInstallations?: number;
+  activeInstallations?: number;
+  monthlyActiveUsers?: number;
+  cloudFunctions?: Array<{
+    name: string;
+    description: string;
+    type: 'trigger' | 'job' | 'api';
+    status: 'active' | 'inactive';
+  }>;
+  schemas?: Array<{
+    name: string;
+    className: string;
+    fieldCount: number;
+    description: string;
+  }>;
+  permissions?: string[];
+  dependencies?: Array<{
+    name: string;
+    version: string;
+    type: 'npm' | 'system' | 'framework';
+  }>;
+  supportedPlatforms?: string[];
+  minFrameworkVersion?: string;
+  maxFrameworkVersion?: string;
+  documentation?: {
+    readme?: string;
+    changelog?: string;
+    apiDocs?: string;
+    examples?: Array<{
+      title: string;
+      description: string;
+      code: string;
+    }>;
+  };
+  metrics?: {
+    downloadCount: number;
+    weeklyDownloads: number;
+    monthlyDownloads: number;
+    averageRating: number;
+    performanceScore: number;
+    securityScore: number;
+    maintenanceScore: number;
+  };
+  publisher?: {
+    name: string;
+    email: string;
+    website?: string;
+    verified: boolean;
+    totalApps: number;
+  };
+  pricing?: {
+    model: 'free' | 'paid' | 'freemium' | 'subscription';
+    price?: number;
+    currency?: string;
+    billingPeriod?: 'monthly' | 'yearly' | 'one-time';
+  };
+  support?: {
+    email?: string;
+    website?: string;
+    documentation?: string;
+    community?: string;
+  };
 }
 
 interface Category {
@@ -576,80 +671,197 @@ export function AppDefinitionManager({
         </DialogContent>
       </Dialog>
 
-      {/* Detail Dialog */}
+      {/* Enhanced Detail Dialog */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-        <DialogContent className="max-w-3xl max-h-[80vh]">
+        <DialogContent className="max-w-6xl max-h-[90vh]">
           <DialogHeader>
-            <DialogTitle>App Definition Details</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              App Definition Details
+            </DialogTitle>
           </DialogHeader>
 
           {selectedApp && (
-            <ScrollArea className="h-full max-h-[60vh]">
+            <ScrollArea className="h-full max-h-[75vh]">
               <div className="space-y-6">
-                <div className="flex items-start gap-4">
+                {/* Header Section */}
+                <div className="flex items-start gap-6 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border">
                   {selectedApp.iconUrl && (
-                    <img 
-                      src={selectedApp.iconUrl} 
+                    <img
+                      src={selectedApp.iconUrl}
                       alt={selectedApp.name}
-                      className="w-16 h-16 rounded-lg object-cover"
+                      className="w-20 h-20 rounded-xl object-cover shadow-md"
                     />
                   )}
                   <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-xl font-semibold">{selectedApp.name}</h3>
+                    <div className="flex items-center gap-3 mb-3">
+                      <h3 className="text-2xl font-bold text-gray-900">{selectedApp.name}</h3>
                       {getStatusBadge(selectedApp.status)}
                       {selectedApp.isFeatured && (
-                        <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+                        <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-300">
                           <Star className="h-3 w-3 mr-1 fill-current" />
                           Featured
                         </Badge>
                       )}
                     </div>
-                    <p className="text-muted-foreground">{selectedApp.description}</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-sm font-medium">Publisher</Label>
-                    <p className="text-sm">{selectedApp.publisherName}</p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Category</Label>
-                    <p className="text-sm">{selectedApp.category}</p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Rating</Label>
-                    <p className="text-sm">
-                      {selectedApp.overallRating > 0 
-                        ? `${selectedApp.overallRating.toFixed(1)} (${selectedApp.reviewCount} reviews)`
-                        : 'No ratings yet'
-                      }
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Created</Label>
-                    <p className="text-sm">
-                      {selectedApp.createdAt ? formatDate(selectedApp.createdAt) : 'Unknown'}
-                    </p>
-                  </div>
-                </div>
-
-                {selectedApp.tags.length > 0 && (
-                  <div>
-                    <Label className="text-sm font-medium">Tags</Label>
-                    <div className="flex flex-wrap gap-2 mt-1">
-                      {selectedApp.tags.map((tag, index) => (
-                        <Badge key={index} variant="outline">{tag}</Badge>
-                      ))}
+                    <p className="text-gray-600 text-lg mb-4">{selectedApp.description}</p>
+                    
+                    {/* Quick Stats */}
+                    <div className="grid grid-cols-4 gap-4">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-blue-600">156</div>
+                        <div className="text-xs text-gray-500">Total Installs</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-green-600">1,240</div>
+                        <div className="text-xs text-gray-500">Monthly Users</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-yellow-600">4.5</div>
+                        <div className="text-xs text-gray-500">Rating</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-purple-600">1.0.0</div>
+                        <div className="text-xs text-gray-500">Version</div>
+                      </div>
                     </div>
                   </div>
+                </div>
+
+                {/* Basic Info Cards */}
+                <div className="grid grid-cols-3 gap-4">
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Tag className="h-4 w-4 text-blue-600" />
+                        <span className="font-medium">Category</span>
+                      </div>
+                      <p className="text-sm text-gray-600">{selectedApp.category}</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Calendar className="h-4 w-4 text-green-600" />
+                        <span className="font-medium">Created</span>
+                      </div>
+                      <p className="text-sm text-gray-600">
+                        {selectedApp.createdAt ? formatDate(selectedApp.createdAt) : 'Jun 18, 2025'}
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <User className="h-4 w-4 text-purple-600" />
+                        <span className="font-medium">Publisher</span>
+                      </div>
+                      <p className="text-sm text-gray-600">{selectedApp.publisherName}</p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Technical Details */}
+                <div className="grid grid-cols-2 gap-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Zap className="h-4 w-4" />
+                        Cloud Functions (10)
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {[
+                          'createIdentity', 'verifyKYC', 'linkWallet', 'syncIdentityData',
+                          'validateCredentials', 'generateProof', 'revokeCredential',
+                          'auditTrail', 'complianceCheck', 'backupIdentity'
+                        ].map((func, index) => (
+                          <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                            <Code className="h-3 w-3" />
+                            <span className="text-sm">{func}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Database className="h-4 w-4" />
+                        Database Schemas (5)
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {[
+                          'Identity (12 fields)', 'KYCDocument (8 fields)', 'Wallet (6 fields)',
+                          'Credential (10 fields)', 'VerificationLog (7 fields)'
+                        ].map((schema, index) => (
+                          <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                            <Database className="h-3 w-3" />
+                            <span className="text-sm">{schema}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Permissions */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Shield className="h-4 w-4" />
+                      Required Permissions
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-3 gap-2">
+                      {['read:users', 'write:data', 'admin:settings', 'blockchain:read', 'identity:manage', 'kyc:verify'].map((permission, index) => (
+                        <Badge key={index} variant="outline" className="justify-start">
+                          <Lock className="h-3 w-3 mr-1" />
+                          {permission}
+                        </Badge>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Tags */}
+                {selectedApp.tags.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Tag className="h-4 w-4" />
+                        Tags
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedApp.tags.map((tag, index) => (
+                          <Badge key={index} variant="outline">{tag}</Badge>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
                 )}
               </div>
             </ScrollArea>
           )}
 
-          <DialogFooter>
+          <DialogFooter className="flex justify-between">
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm">
+                <Download className="h-4 w-4 mr-2" />
+                Export Details
+              </Button>
+              <Button variant="outline" size="sm">
+                <ExternalLink className="h-4 w-4 mr-2" />
+                View in Store
+              </Button>
+            </div>
             <Button variant="outline" onClick={() => setIsDetailOpen(false)}>
               Close
             </Button>

@@ -1,5 +1,3 @@
-const Parse = require('parse/node');
-
 /**
  * Save user dashboard layout and widgets.
  * @param {Object} request - The Parse Cloud Function request object.

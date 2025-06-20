@@ -239,11 +239,61 @@ export class StandardAppRegistry {
   private async initializeIdentityManagement(): Promise<void> {
     // Initialize identity management schemas, cloud functions, etc.
     console.log('🆔 Initializing Identity Management app...');
+    
+    try {
+      // Initialize schemas if Parse is available
+      if (typeof Parse !== 'undefined') {
+        const { OnChainIdentitySchema, IdentitySchema, AuditLogSchema } = require('../schemas/standardAppSchemas');
+        
+        // Create schemas
+        const schemas = [OnChainIdentitySchema, IdentitySchema, AuditLogSchema];
+        for (const schema of schemas) {
+          try {
+            const parseSchema = new Parse.Schema(schema.className);
+            await parseSchema.save();
+            console.log(`✅ Schema initialized: ${schema.className}`);
+          } catch (error: any) {
+            if (error.code === 103) {
+              console.log(`⚠️  Schema already exists: ${schema.className}`);
+            } else {
+              console.error(`❌ Error initializing schema ${schema.className}:`, error);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error initializing Identity Management schemas:', error);
+    }
   }
 
   private async initializeDigitalAssets(): Promise<void> {
     // Initialize digital asset schemas, smart contracts, etc.
     console.log('💎 Initializing Digital Assets app...');
+    
+    try {
+      // Initialize schemas if Parse is available
+      if (typeof Parse !== 'undefined') {
+        const { DigitalAssetSchema, MarketplaceListingSchema, AuditLogSchema } = require('../schemas/standardAppSchemas');
+        
+        // Create schemas
+        const schemas = [DigitalAssetSchema, MarketplaceListingSchema, AuditLogSchema];
+        for (const schema of schemas) {
+          try {
+            const parseSchema = new Parse.Schema(schema.className);
+            await parseSchema.save();
+            console.log(`✅ Schema initialized: ${schema.className}`);
+          } catch (error: any) {
+            if (error.code === 103) {
+              console.log(`⚠️  Schema already exists: ${schema.className}`);
+            } else {
+              console.error(`❌ Error initializing schema ${schema.className}:`, error);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error initializing Digital Assets schemas:', error);
+    }
   }
 
   private async initializeTradeFinance(): Promise<void> {

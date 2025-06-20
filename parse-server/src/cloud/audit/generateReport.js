@@ -1,5 +1,3 @@
-const Parse = require('parse/node');
-
 /**
  * Generate various types of reports
  * @param {Object} request - Parse Cloud Function request

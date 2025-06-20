@@ -1,5 +1,6 @@
 import Parse from 'parse';
 import { toast } from 'sonner';
+import { safeParseCloudRun, requiresUserSession } from './parseUtils';
 
 /**
  * Generic API response wrapper for consistent error handling
@@ -25,7 +26,9 @@ export async function callCloudFunction<T = any>(
   const { showErrorToast = true, errorMessage } = options;
   
   try {
-    const result = await Parse.Cloud.run(functionName, params);
+    const result = await safeParseCloudRun(functionName, params, {
+      requiresSession: requiresUserSession(functionName)
+    });
     return {
       success: true,
       data: result,

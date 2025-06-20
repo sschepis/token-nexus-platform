@@ -1,5 +1,3 @@
-const Parse = require('parse/node');
-
 /**
  * Delete audit log entries (admin only, with strict controls)
  * @param {Object} request - Parse Cloud Function request

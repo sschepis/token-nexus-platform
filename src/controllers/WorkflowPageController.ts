@@ -2,6 +2,7 @@ import { BasePageController, ActionConfig } from './base/BasePageController';
 import { ActionContext, ActionResult } from './types/ActionTypes';
 import { createAction } from './base/ActionBuilder';
 import Parse from 'parse';
+import { safeParseCloudRun } from '../utils/parseUtils';
 
 export class WorkflowPageController extends BasePageController {
   constructor() {
@@ -174,7 +175,7 @@ export class WorkflowPageController extends BasePageController {
     }
 
     try {
-      const result = await Parse.Cloud.run('createWorkflow', {
+      const result = await safeParseCloudRun('createWorkflow', {
         name,
         description,
         templateId,
@@ -197,7 +198,7 @@ export class WorkflowPageController extends BasePageController {
     const orgId = this.getOrganizationId(context);
 
     try {
-      const result = await Parse.Cloud.run('updateWorkflow', {
+      const result = await safeParseCloudRun('updateWorkflow', {
         workflowId,
         updateData,
         updatedBy: context.user.userId
@@ -218,7 +219,7 @@ export class WorkflowPageController extends BasePageController {
     const orgId = this.getOrganizationId(context);
 
     try {
-      const result = await Parse.Cloud.run('executeWorkflow', {
+      const result = await safeParseCloudRun('executeWorkflow', {
         workflowId,
         triggerData,
         dryRun,
@@ -240,7 +241,7 @@ export class WorkflowPageController extends BasePageController {
     const orgId = this.getOrganizationId(context);
 
     try {
-      const result = await Parse.Cloud.run('getWorkflows', {
+      const result = await safeParseCloudRun('getWorkflows', {
         status,
         tags,
         limit: limit || 50,
@@ -264,7 +265,7 @@ export class WorkflowPageController extends BasePageController {
     const orgId = this.getOrganizationId(context);
 
     try {
-      const result = await Parse.Cloud.run('getWorkflowExecutions', {
+      const result = await safeParseCloudRun('getWorkflowExecutions', {
         workflowId,
         status,
         limit: limit || 100
@@ -284,7 +285,7 @@ export class WorkflowPageController extends BasePageController {
     const { category } = params;
 
     try {
-      const result = await Parse.Cloud.run('getNodeTypes', {
+      const result = await safeParseCloudRun('getNodeTypes', {
         category
       });
 
@@ -301,7 +302,7 @@ export class WorkflowPageController extends BasePageController {
     const orgId = this.getOrganizationId(context);
 
     try {
-      const result = await Parse.Cloud.run('cloneWorkflow', {
+      const result = await safeParseCloudRun('cloneWorkflow', {
         sourceWorkflowId,
         name,
         description,
@@ -323,7 +324,7 @@ export class WorkflowPageController extends BasePageController {
     const orgId = this.getOrganizationId(context);
 
     try {
-      const result = await Parse.Cloud.run('deleteWorkflow', {
+      const result = await safeParseCloudRun('deleteWorkflow', {
         workflowId,
         deletedBy: context.user.userId
         // organizationId removed - will be injected by server middleware
@@ -343,7 +344,7 @@ export class WorkflowPageController extends BasePageController {
     const orgId = this.getOrganizationId(context);
 
     try {
-      const result = await Parse.Cloud.run('validateWorkflow', {
+      const result = await safeParseCloudRun('validateWorkflow', {
         workflowId,
         nodes,
         edges
@@ -366,7 +367,7 @@ export class WorkflowPageController extends BasePageController {
     const orgId = this.getOrganizationId(context);
 
     try {
-      const result = await Parse.Cloud.run('getWorkflowStatistics', {
+      const result = await safeParseCloudRun('getWorkflowStatistics', {
         timeRange: timeRange || '30d',
         workflowId
         // organizationId removed - will be injected by server middleware

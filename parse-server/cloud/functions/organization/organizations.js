@@ -7,7 +7,7 @@ Parse.Cloud.define('createOrganization', async (request) => {
   const { user } = request;
   const { name, ownerEmail, planType = 'starter' } = request.params;
 
-  if (!user || !user.get('isSystemAdmin')) {
+  if (!user || !user.get('isAdmin')) {
     throw new Error('Only system administrators can create organizations');
   }
 
@@ -94,7 +94,7 @@ Parse.Cloud.define('suspendOrganization', withOrganizationContext(async (request
   const { user, organizationId, organization } = request;
   const { reason } = request.params; // orgId is now taken from middleware
 
-  if (!user || !user.get('isSystemAdmin')) {
+  if (!user || !user.get('isAdmin')) {
     throw new Error('Only system administrators can suspend organizations');
   }
 
@@ -149,7 +149,7 @@ Parse.Cloud.define('activateOrganization', withOrganizationContext(async (reques
   const { user, organizationId, organization } = request;
   // orgId is now taken from middleware
 
-  if (!user || !user.get('isSystemAdmin')) {
+  if (!user || !user.get('isAdmin')) {
     throw new Error('Only system administrators can activate organizations');
   }
 
@@ -208,7 +208,7 @@ Parse.Cloud.define('listOrganizationsForAdmin', async (request) => {
     sortOrder = 'desc'
   } = request.params;
 
-  if (!user || !user.get('isSystemAdmin')) {
+  if (!user || (!user.get('isAdmin') && !user.get('isSystemAdmin'))) {
     throw new Error('Only system administrators can list all organizations');
   }
 
@@ -269,23 +269,35 @@ Parse.Cloud.define('listOrganizationsForAdmin', async (request) => {
       return {
         id: org.id,
         name: org.get('name'),
+        contactEmail: org.get('contactEmail') || org.get('email') || '',
+        contactPhone: org.get('contactPhone') || org.get('phone'),
         status: org.get('status'),
         planType: org.get('planType'),
-        memberCount: memberCounts[org.id] || 0,
-        administrator: admin ? {
+        owner: admin ? {
           id: admin.id,
           email: admin.get('email'),
-          name: `${admin.get('firstName') || ''} ${admin.get('lastName') || ''}`.trim() || admin.get('email')
+          firstName: admin.get('firstName') || '',
+          lastName: admin.get('lastName') || ''
         } : null,
+        settings: org.get('settings') || {},
+        industry: org.get('industry'),
+        companySize: org.get('companySize'),
         createdAt: org.get('createdAt'),
-        suspendedAt: org.get('suspendedAt'),
-        metadata: org.get('metadata')
+        updatedAt: org.get('updatedAt'),
+        stats: {
+          userCount: memberCounts[org.id] || 0,
+          appCount: 0, // TODO: Implement app count query
+          contractCount: 0 // TODO: Implement contract count query
+        }
       };
     });
 
     return {
       success: true,
-      organizations: results,
+      data: {
+        organizations: results,
+        totalPages: Math.ceil(count / limit)
+      },
       total: count,
       page,
       totalPages: Math.ceil(count / limit)
@@ -302,7 +314,7 @@ Parse.Cloud.define('getOrganizationDetailsAdmin', withOrganizationContext(async 
   const { user, organizationId, organization } = request;
   // orgId handled by middleware
 
-  if (!user || !user.get('isSystemAdmin')) {
+  if (!user || (!user.get('isAdmin') && !user.get('isSystemAdmin'))) {
     throw new Error('Only system administrators can view organization details');
   }
 
@@ -386,7 +398,7 @@ Parse.Cloud.define('updateOrganizationPlan', withOrganizationContext(async (requ
   const { user, organizationId, organization } = request;
   const { planType } = request.params; // orgId is now handled by middleware
 
-  if (!user || !user.get('isSystemAdmin')) {
+  if (!user || !user.get('isAdmin')) {
     throw new Error('Only system administrators can update organization plans');
   }
 
@@ -450,7 +462,7 @@ Parse.Cloud.define('getUserDetails', async (request) => {
   const targetUserId = userId || user.id;
 
   // Check if user can access this info
-  if (targetUserId !== user.id && !user.get('isSystemAdmin')) {
+  if (targetUserId !== user.id && !user.get('isAdmin')) {
     throw new Error('Permission denied to access user details');
   }
 
@@ -530,7 +542,7 @@ Parse.Cloud.define('getUserDetails', async (request) => {
         firstName: targetUser.get('firstName'),
         lastName: targetUser.get('lastName'),
         isActive: targetUser.get('isActive'),
-        isSystemAdmin: targetUser.get('isSystemAdmin'),
+        isSystemAdmin: targetUser.get('isAdmin'),
         createdAt: targetUser.get('createdAt'),
         lastLogin: targetUser.get('lastLogin'),
         currentOrganizationId: currentOrganization?.id || null
@@ -541,6 +553,69 @@ Parse.Cloud.define('getUserDetails', async (request) => {
 
   } catch (error) {
     console.error('Get user details error:', error);
+    throw error;
+  }
+});
+
+// Get organization statistics for admin
+Parse.Cloud.define('getOrganizationStats', async (request) => {
+  const { user } = request;
+
+  if (!user || !user.get('isAdmin')) {
+    throw new Error('Only system administrators can view organization statistics');
+  }
+
+  try {
+    const Organization = Parse.Object.extend('Organization');
+    
+    // Get status counts
+    const statuses = ['active', 'suspended', 'inactive', 'deleted'];
+    const statusCounts = await Promise.all(statuses.map(async (status) => {
+      const query = new Parse.Query(Organization);
+      query.equalTo('status', status);
+      const count = await query.count({ useMasterKey: true });
+      return { status, count };
+    }));
+
+    // Get plan type counts
+    const planTypes = ['starter', 'professional', 'enterprise'];
+    const planCounts = await Promise.all(planTypes.map(async (planType) => {
+      const query = new Parse.Query(Organization);
+      query.equalTo('planType', planType);
+      query.equalTo('status', 'active');
+      const count = await query.count({ useMasterKey: true });
+      return { planType, count };
+    }));
+
+    // Get total users count
+    const OrgRole = Parse.Object.extend('OrgRole');
+    const roleQuery = new Parse.Query(OrgRole);
+    roleQuery.equalTo('isActive', true);
+    const totalUsers = await roleQuery.count({ useMasterKey: true });
+
+    // Get new organizations this month
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+    
+    const newOrgQuery = new Parse.Query(Organization);
+    newOrgQuery.greaterThanOrEqualTo('createdAt', startOfMonth);
+    const newOrgsThisMonth = await newOrgQuery.count({ useMasterKey: true });
+
+    return {
+      success: true,
+      stats: {
+        statusCounts: Object.fromEntries(statusCounts.map(s => [s.status, s.count])),
+        planCounts: Object.fromEntries(planCounts.map(p => [p.planType, p.count])),
+        totalOrganizations: statusCounts.reduce((sum, s) => sum + s.count, 0),
+        totalActiveOrganizations: statusCounts.find(s => s.status === 'active')?.count || 0,
+        totalUsers,
+        newOrgsThisMonth
+      }
+    };
+
+  } catch (error) {
+    console.error('Get organization stats error:', error);
     throw error;
   }
 });

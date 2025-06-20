@@ -5,7 +5,7 @@ import { ContractDeployWizard } from '@/components/system-admin/ContractDeployWi
 import { ContractImportManager } from '@/components/system-admin/ContractImportManager';
 import { ChainConfigurator } from '@/components/system-admin/ChainConfigurator';
 import AppBundleManager from '@/components/system-admin/AppBundleManager';
-import AppStoreManagement from '@/components/system-admin/AppStoreManagement';
+import UnifiedAppStore from '@/components/system-admin/UnifiedAppStore';
 import { DeploymentDashboard } from '@/components/system-admin/DeploymentDashboard';
 import { GlobalOrgManager } from '@/components/system-admin/GlobalOrgManager';
 import { GlobalUserManager } from '@/components/system-admin/GlobalUserManager';
@@ -41,10 +41,10 @@ const SystemAdminPage = () => {
         return <ContractImportManager />;
       case 'chains':
         return <ChainConfigurator />;
-      case 'store':
+      case 'bundles':
         return <AppBundleManager />;
       case 'app-store':
-        return <AppStoreManagement />;
+        return <UnifiedAppStore />;
       case 'status':
         return <DeploymentDashboard />;
       case 'orgs':
@@ -66,7 +66,7 @@ const SystemAdminPage = () => {
       default:
         // Optionally, redirect to a default tab or show a 404-like component
         if (typeof window !== 'undefined') { // Ensure router.replace is called client-side
-            router.replace('/system-admin/deploy');
+            router.replace('/system-admin/app-store');
         }
         return null;
     }

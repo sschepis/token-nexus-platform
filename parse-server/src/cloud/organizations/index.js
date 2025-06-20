@@ -4,6 +4,7 @@
 // When Parse Server initializes, it typically loads 'main.js'.
 // 'main.js' can then require this 'index.js' to load all organization-related functions.
 
+// Removed test functions that were causing module not found errors
 require('./listOrganizationsForAdmin');
 require('./getOrganizationDetailsAdmin');
 require('./createOrganization');

@@ -232,11 +232,6 @@ export function AppSidebar() {
       icon: <Clock className="h-5 w-5" />
     },
     {
-      name: "Settings",
-      path: "/settings",
-      icon: <SettingsIcon className="h-5 w-5" />
-    },
-    {
       name: "Theme",
       path: "/theme",
       icon: <Palette className="h-5 w-5" />
@@ -245,11 +240,6 @@ export function AppSidebar() {
 
   // Define System Admin navigation items
   const adminNavItems = [
-    {
-      name: 'System Admin',
-      path: '/system-admin',
-      icon: <Shield className="h-5 w-5" />,
-    },
     {
       name: 'Contract Deploy',
       path: '/system-admin/deploy',
@@ -267,18 +257,8 @@ export function AppSidebar() {
     },
     {
       name: 'App Store',
-      path: '/system-admin/store',
-      icon: <Store className="h-5 w-5" />,
-    },
-    {
-      name: 'App Store Management',
       path: '/system-admin/app-store',
-      icon: <ShoppingCart className="h-5 w-5" />,
-    },
-    {
-      name: 'App Bundles',
-      path: '/system-admin/bundles',
-      icon: <Package className="h-5 w-5" />,
+      icon: <Store className="h-5 w-5" />,
     },
     {
       name: 'Organizations',

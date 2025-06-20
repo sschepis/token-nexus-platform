@@ -101,7 +101,7 @@ class Server {
     Parse.serverURL = config.parseServer.serverURL;
 
     // Load cloud functions after Parse SDK initialization
-    require('../cloud/functions/auth/registration');
+    require('./cloud');
 
     // Give Parse Server a moment to fully start
     await new Promise(resolve => setTimeout(resolve, 1000));

@@ -12,7 +12,8 @@ const requireSystemAdmin = (user) => {
   // This is not ideal for performance in every function; a role-based check or session-propagated permission is better.
   // However, to align with the `isSystemAdmin` field directly for now:
   return new Parse.Query(Parse.User).get(user.id, { useMasterKey: true }).then(fullUser => {
-    if (!fullUser.get("isSystemAdmin")) {
+    const isSystemAdmin = fullUser.get("isAdmin") || fullUser.get("isSystemAdmin") || false;
+    if (!isSystemAdmin) {
       throw new Parse.Error(Parse.Error.OPERATION_FORBIDDEN, "System administrator permission required.");
     }
     return fullUser;
@@ -29,7 +30,8 @@ const requireOrgAdminOrSystemAdmin = async (user, orgId) => {
   }
 
   const fullUser = await new Parse.Query(Parse.User).get(user.id, { useMasterKey: true });
-  if (fullUser.get("isSystemAdmin")) {
+  const isSystemAdmin = fullUser.get("isAdmin") || fullUser.get("isSystemAdmin") || false;
+  if (isSystemAdmin) {
     return fullUser; // System admin has access
   }
 

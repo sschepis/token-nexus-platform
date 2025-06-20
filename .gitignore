@@ -51,3 +51,5 @@ __pycache__/
 
 # Platform state file
 .platform-state
+
+.deployment-import-status

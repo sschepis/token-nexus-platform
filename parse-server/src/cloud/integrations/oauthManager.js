@@ -1,4 +1,3 @@
-const Parse = require('parse/node');
 const crypto = require('crypto');
 
 /**

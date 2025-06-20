@@ -1,5 +1,3 @@
-const Parse = require('parse/node');
-
 /**
  * Export audit logs in various formats (CSV, JSON, PDF)
  * @param {Object} request - Parse Cloud Function request

@@ -6,7 +6,7 @@ import {
   PageContext
 } from './types/ActionTypes';
 import Parse from 'parse';
-import { ParseQueryBuilder } from '../utils/parseUtils';
+import { ParseQueryBuilder, safeParseCloudRun } from '../utils/parseUtils';
 
 export class CloudFunctionsPageController implements PageController {
   pageId = 'cloud-functions';
@@ -209,7 +209,7 @@ export class CloudFunctionsPageController implements PageController {
 
           // Execute the cloud function
           const startTime = Date.now();
-          const result = await Parse.Cloud.run(functionName as string, parameters as Record<string, unknown>);
+          const result = await safeParseCloudRun(functionName as string, parameters as Record<string, unknown>);
           const executionTime = Date.now() - startTime;
 
           // Log execution for monitoring

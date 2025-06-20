@@ -1,5 +1,3 @@
-const Parse = require('parse/node');
-
 /**
  * Create a new token for the current organization
  * @param {Object} request - Parse Cloud Function request

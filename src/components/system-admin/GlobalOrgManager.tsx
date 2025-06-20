@@ -8,28 +8,40 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
-import Parse from 'parse';
+import { useAppSelector, useAppDispatch } from '@/store/hooks';
+import { 
+  fetchAllOrganizationsAdmin,
+  createOrgByAdmin,
+  suspendOrgByAdmin,
+  activateOrgByAdmin,
+  Organization
+} from '@/store/slices/orgSlice';
 import { 
   Building2, 
   Plus, 
   Search, 
   Filter,
   MoreVertical,
-  User,
-  Users,
   Calendar,
   AlertCircle,
   Loader2,
   Ban,
   CheckCircle,
-  Package,
-  Edit,
-  Eye,
-  TrendingUp,
-  CreditCard,
+  Shield,
   Mail,
-  Phone,
-  Trash2
+  Eye,
+  UserX,
+  UserCheck,
+  Clock,
+  Activity,
+  TrendingUp,
+  Users,
+  ShieldCheck,
+  MailCheck,
+  Trash2,
+  Edit,
+  Globe,
+  Settings
 } from 'lucide-react';
 import { 
   DropdownMenu,
@@ -38,888 +50,515 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Textarea } from '@/components/ui/textarea';
 
-interface Organization {
-  id: string;
+interface CreateOrgFormData {
   name: string;
-  contactEmail: string;
-  contactPhone?: string;
-  status: 'active' | 'suspended' | 'inactive' | 'deleted';
+  ownerEmail: string;
   planType: string;
-  owner?: {
-    id: string;
-    email: string;
-    firstName: string;
-    lastName: string;
-  };
-  settings?: Record<string, unknown>;
-  industry?: string;
-  companySize?: string;
-  createdAt: string;
-  updatedAt: string;
-  stats: {
-    userCount: number;
-    appCount: number;
-    contractCount: number;
-  };
+  description: string;
+  subdomain: string;
+  industry: string;
 }
 
-interface OrgStats {
-  statusCounts: Record<string, number>;
-  planCounts: Record<string, number>;
-  totalOrganizations: number;
-  totalActiveOrganizations: number;
-  totalUsers: number;
-  newOrgsThisMonth: number;
-}
-
-export function GlobalOrgManager() {
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [loading, setLoading] = useState(true);
+export const GlobalOrgManager: React.FC = () => {
+  const dispatch = useAppDispatch();
+  const { allOrganizations, isAdminLoading, adminError } = useAppSelector((state) => state.org);
+  
+  const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [planFilter, setPlanFilter] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null);
-  const [isDetailOpen, setIsDetailOpen] = useState(false);
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [isEditOpen, setIsEditOpen] = useState(false);
-  const [isSuspendOpen, setIsSuspendOpen] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [orgStats, setOrgStats] = useState<OrgStats | null>(null);
-  const [suspensionReason, setSuspensionReason] = useState('');
+  const [showOrgDetails, setShowOrgDetails] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
   
-  const [createFormData, setCreateFormData] = useState({
+  const [createFormData, setCreateFormData] = useState<CreateOrgFormData>({
     name: '',
-    contactEmail: '',
-    contactPhone: '',
-    planType: 'starter',
     ownerEmail: '',
-    ownerFirstName: '',
-    ownerLastName: '',
-    industry: '',
-    companySize: ''
+    planType: 'free',
+    description: '',
+    subdomain: '',
+    industry: ''
   });
 
-  const [editFormData, setEditFormData] = useState({
-    name: '',
-    contactEmail: '',
-    contactPhone: '',
-    planType: '',
-    industry: '',
-    companySize: ''
-  });
-
-
-  const fetchOrganizations = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params: {
-        page: number;
-        limit: number;
-        sortBy: string;
-        sortOrder: string;
-        status?: string;
-        searchQuery?: string;
-      } = {
-        page: currentPage,
-        limit: 20,
-        sortBy: 'createdAt',
-        sortOrder: 'desc'
-      };
-
-      if (statusFilter !== 'all') params.status = statusFilter;
-      if (searchQuery) params.searchQuery = searchQuery;
-
-      const result = await Parse.Cloud.run('getAllOrganizations', params);
-
-      if (result.success) {
-        setOrganizations(result.organizations);
-        setTotalPages(result.totalPages);
-      }
-    } catch (error) {
-      console.error('Error fetching organizations:', error);
-      toast.error('Failed to fetch organizations');
-    } finally {
-      setLoading(false);
-    }
-  }, [statusFilter, currentPage, searchQuery]);
-  
+  // Load organizations on component mount
   useEffect(() => {
-    fetchOrganizations();
-    fetchStats();
-  }, [statusFilter, planFilter, currentPage, fetchOrganizations]);
+    dispatch(fetchAllOrganizationsAdmin());
+  }, [dispatch]);
 
-
-  const fetchStats = async () => {
-    try {
-      const result = await Parse.Cloud.run('getOrganizationStats');
-      if (result.success) {
-        setOrgStats(result.stats);
-      }
-    } catch (error) {
-      console.error('Error fetching stats:', error);
-    }
-  };
+  // Filter organizations based on search and filters
+  const filteredOrganizations = allOrganizations.filter(org => {
+    const matchesSearch = org.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         org.subdomain?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         org.industry?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesStatus = statusFilter === 'all' || org.status === statusFilter;
+    const matchesPlan = planFilter === 'all' || org.plan === planFilter || org.planType === planFilter;
+    
+    return matchesSearch && matchesStatus && matchesPlan;
+  });
 
   const handleCreateOrg = async () => {
-    setIsProcessing(true);
-    try {
-      const result = await Parse.Cloud.run('createOrganizationByAdmin', createFormData);
-      if (result.success) {
-        toast.success(result.message);
-        setIsCreateOpen(false);
-        setCreateFormData({
-          name: '',
-          contactEmail: '',
-          contactPhone: '',
-          planType: 'starter',
-          ownerEmail: '',
-          ownerFirstName: '',
-          ownerLastName: '',
-          industry: '',
-          companySize: ''
-        });
-        fetchOrganizations();
-        fetchStats();
-      }
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to create organization');
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleUpdateOrg = async () => {
-    if (!selectedOrg) return;
-    
-    setIsProcessing(true);
-    try {
-      const result = await Parse.Cloud.run('updateOrganization', {
-        organizationId: selectedOrg.id,
-        updates: editFormData
-      });
-      if (result.success) {
-        toast.success(result.message);
-        setIsEditOpen(false);
-        fetchOrganizations();
-      }
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to update organization');
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleToggleStatus = async (org: Organization, newStatus: string) => {
-    if (newStatus === 'suspended' && !suspensionReason) {
-      setSelectedOrg(org);
-      setIsSuspendOpen(true);
+    if (!createFormData.name || !createFormData.ownerEmail) {
+      toast.error('Name and owner email are required');
       return;
     }
 
-    setIsProcessing(true);
+    setIsCreating(true);
     try {
-      const result = await Parse.Cloud.run('toggleOrganizationStatus', {
-        organizationId: org.id,
-        status: newStatus,
-        reason: suspensionReason
+      await dispatch(createOrgByAdmin(createFormData)).unwrap();
+      setShowCreateDialog(false);
+      setCreateFormData({
+        name: '',
+        ownerEmail: '',
+        planType: 'free',
+        description: '',
+        subdomain: '',
+        industry: ''
       });
-      if (result.success) {
-        toast.success(result.message);
-        fetchOrganizations();
-        setIsSuspendOpen(false);
-        setSuspensionReason('');
-      }
+      // Refresh the organizations list
+      dispatch(fetchAllOrganizationsAdmin());
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to update organization status');
+      console.error('Failed to create organization:', error);
     } finally {
-      setIsProcessing(false);
+      setIsCreating(false);
     }
   };
 
-  const handleDeleteOrg = async (org: Organization, hardDelete = false) => {
-    const confirmMsg = hardDelete 
-      ? 'Are you sure you want to permanently delete this organization? This action cannot be undone.'
-      : 'Are you sure you want to delete this organization?';
-    
-    if (!confirm(confirmMsg)) return;
-
-    setIsProcessing(true);
+  const handleSuspendOrg = async (orgId: string) => {
     try {
-      const result = await Parse.Cloud.run('deleteOrganization', {
-        organizationId: org.id,
-        hardDelete
-      });
-      if (result.success) {
-        toast.success(result.message);
-        fetchOrganizations();
-        fetchStats();
-      }
+      await dispatch(suspendOrgByAdmin(orgId)).unwrap();
+      dispatch(fetchAllOrganizationsAdmin());
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to delete organization');
-    } finally {
-      setIsProcessing(false);
+      console.error('Failed to suspend organization:', error);
     }
   };
 
-  const handleSearch = () => {
-    setCurrentPage(1);
-    fetchOrganizations();
+  const handleActivateOrg = async (orgId: string) => {
+    try {
+      await dispatch(activateOrgByAdmin(orgId)).unwrap();
+      dispatch(fetchAllOrganizationsAdmin());
+    } catch (error) {
+      console.error('Failed to activate organization:', error);
+    }
   };
 
   const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      active: { variant: 'default' as const, icon: CheckCircle },
-      suspended: { variant: 'destructive' as const, icon: Ban },
-      inactive: { variant: 'secondary' as const, icon: AlertCircle },
-      deleted: { variant: 'outline' as const, icon: Trash2 }
-    };
-    
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.inactive;
-    const Icon = config.icon;
-    
-    return (
-      <Badge variant={config.variant} className="flex items-center gap-1">
-        <Icon className="h-3 w-3" />
-        {status.charAt(0).toUpperCase() + status.slice(1)}
-      </Badge>
-    );
+    switch (status?.toLowerCase()) {
+      case 'active':
+        return <Badge variant="default" className="bg-green-100 text-green-800"><CheckCircle className="w-3 h-3 mr-1" />Active</Badge>;
+      case 'suspended':
+        return <Badge variant="destructive"><Ban className="w-3 h-3 mr-1" />Suspended</Badge>;
+      case 'pending':
+        return <Badge variant="secondary"><Clock className="w-3 h-3 mr-1" />Pending</Badge>;
+      default:
+        return <Badge variant="outline"><AlertCircle className="w-3 h-3 mr-1" />Unknown</Badge>;
+    }
   };
 
-  const getPlanBadge = (planType: string) => {
-    const planConfig = {
-      starter: { variant: 'secondary' as const },
-      professional: { variant: 'default' as const },
-      enterprise: { variant: 'outline' as const }
-    };
-    
-    const config = planConfig[planType as keyof typeof planConfig] || planConfig.starter;
-    
-    return (
-      <Badge variant={config.variant}>
-        {planType.charAt(0).toUpperCase() + planType.slice(1)}
-      </Badge>
-    );
+  const getPlanBadge = (plan: string) => {
+    switch (plan?.toLowerCase()) {
+      case 'enterprise':
+        return <Badge variant="default" className="bg-purple-100 text-purple-800"><Shield className="w-3 h-3 mr-1" />Enterprise</Badge>;
+      case 'standard':
+        return <Badge variant="default" className="bg-blue-100 text-blue-800"><TrendingUp className="w-3 h-3 mr-1" />Standard</Badge>;
+      case 'free':
+        return <Badge variant="outline"><Users className="w-3 h-3 mr-1" />Free</Badge>;
+      default:
+        return <Badge variant="outline">{plan || 'Unknown'}</Badge>;
+    }
   };
 
-  const filteredOrganizations = organizations.filter(org => {
-    if (planFilter !== 'all' && org.planType !== planFilter) return false;
-    return true;
-  });
+  if (adminError) {
+    return (
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>
+          Failed to load organizations: {adminError}
+        </AlertDescription>
+      </Alert>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {/* Statistics Cards */}
-      {orgStats && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Organizations</CardTitle>
-              <Building2 className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{orgStats.totalOrganizations}</div>
-              <p className="text-xs text-muted-foreground">
-                {orgStats.totalActiveOrganizations} active
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{orgStats.totalUsers}</div>
-              <p className="text-xs text-muted-foreground">
-                Across all organizations
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">New This Month</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{orgStats.newOrgsThisMonth}</div>
-              <p className="text-xs text-muted-foreground">
-                Organizations created
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Plan Distribution</CardTitle>
-              <CreditCard className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-1">
-                {Object.entries(orgStats.planCounts).map(([plan, count]) => (
-                  <div key={plan} className="flex items-center justify-between text-xs">
-                    <span className="capitalize">{plan}</span>
-                    <span className="font-medium">{count}</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold">Organizations</h1>
+          <p className="text-muted-foreground">Manage all organizations in the system</p>
         </div>
-      )}
+        <Button onClick={() => setShowCreateDialog(true)}>
+          <Plus className="w-4 h-4 mr-2" />
+          Create Organization
+        </Button>
+      </div>
 
-      {/* Organizations Table */}
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <Building2 className="h-8 w-8 text-blue-600" />
+              <div className="ml-4">
+                <p className="text-sm font-medium text-muted-foreground">Total Organizations</p>
+                <p className="text-2xl font-bold">{allOrganizations.length}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <CheckCircle className="h-8 w-8 text-green-600" />
+              <div className="ml-4">
+                <p className="text-sm font-medium text-muted-foreground">Active</p>
+                <p className="text-2xl font-bold">
+                  {allOrganizations.filter(org => org.status === 'active').length}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <Ban className="h-8 w-8 text-red-600" />
+              <div className="ml-4">
+                <p className="text-sm font-medium text-muted-foreground">Suspended</p>
+                <p className="text-2xl font-bold">
+                  {allOrganizations.filter(org => org.status === 'suspended').length}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <Shield className="h-8 w-8 text-purple-600" />
+              <div className="ml-4">
+                <p className="text-sm font-medium text-muted-foreground">Enterprise</p>
+                <p className="text-2xl font-bold">
+                  {allOrganizations.filter(org => org.plan === 'enterprise' || org.planType === 'enterprise').length}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filters */}
       <Card>
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <CardTitle>Organizations</CardTitle>
-              <CardDescription>Manage all organizations on the platform</CardDescription>
+        <CardContent className="p-6">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search organizations..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
             </div>
-            <Button onClick={() => setIsCreateOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Create Organization
-            </Button>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-4 mt-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search organizations..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                className="pl-8"
-              />
-            </div>
+            
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[150px]">
-                <SelectValue placeholder="All Statuses" />
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="suspended">Suspended</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
               </SelectContent>
             </Select>
+            
             <Select value={planFilter} onValueChange={setPlanFilter}>
-              <SelectTrigger className="w-[150px]">
-                <SelectValue placeholder="All Plans" />
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filter by plan" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Plans</SelectItem>
-                <SelectItem value="starter">Starter</SelectItem>
-                <SelectItem value="professional">Professional</SelectItem>
+                <SelectItem value="free">Free</SelectItem>
+                <SelectItem value="standard">Standard</SelectItem>
                 <SelectItem value="enterprise">Enterprise</SelectItem>
               </SelectContent>
             </Select>
           </div>
-        </CardHeader>
+        </CardContent>
+      </Card>
 
+      {/* Organizations List */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Organizations ({filteredOrganizations.length})</CardTitle>
+          <CardDescription>
+            {isAdminLoading ? 'Loading organizations...' : `Showing ${filteredOrganizations.length} of ${allOrganizations.length} organizations`}
+          </CardDescription>
+        </CardHeader>
         <CardContent>
-          {loading ? (
+          {isAdminLoading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <Loader2 className="h-8 w-8 animate-spin" />
+              <span className="ml-2">Loading organizations...</span>
+            </div>
+          ) : filteredOrganizations.length === 0 ? (
+            <div className="text-center py-8">
+              <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No organizations found</h3>
+              <p className="text-muted-foreground mb-4">
+                {searchTerm || statusFilter !== 'all' || planFilter !== 'all' 
+                  ? 'Try adjusting your search or filters'
+                  : 'Get started by creating your first organization'
+                }
+              </p>
+              {!searchTerm && statusFilter === 'all' && planFilter === 'all' && (
+                <Button onClick={() => setShowCreateDialog(true)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Organization
+                </Button>
+              )}
             </div>
           ) : (
             <div className="space-y-4">
               {filteredOrganizations.map((org) => (
-                <div
-                  key={org.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors"
-                >
-                  <div className="flex-1 space-y-1">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-medium">{org.name}</h4>
-                      {getStatusBadge(org.status)}
-                      {getPlanBadge(org.planType)}
+                <div key={org.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                      <Building2 className="w-6 h-6 text-white" />
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Mail className="h-3 w-3" />
-                        {org.contactEmail}
-                      </span>
-                      {org.contactPhone && (
+                    
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-semibold">{org.name}</h3>
+                        {getStatusBadge(org.status || 'unknown')}
+                        {getPlanBadge(org.plan || org.planType || 'free')}
+                      </div>
+                      
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        {org.subdomain && (
+                          <span className="flex items-center gap-1">
+                            <Globe className="w-3 h-3" />
+                            {org.subdomain}
+                          </span>
+                        )}
+                        {org.industry && (
+                          <span className="flex items-center gap-1">
+                            <Building2 className="w-3 h-3" />
+                            {org.industry}
+                          </span>
+                        )}
                         <span className="flex items-center gap-1">
-                          <Phone className="h-3 w-3" />
-                          {org.contactPhone}
+                          <Calendar className="w-3 h-3" />
+                          Created {new Date(org.createdAt).toLocaleDateString()}
                         </span>
+                      </div>
+                      
+                      {org.description && (
+                        <p className="text-sm text-muted-foreground mt-1">{org.description}</p>
                       )}
-                      {org.owner && (
-                        <span className="flex items-center gap-1">
-                          <User className="h-3 w-3" />
-                          {org.owner.firstName} {org.owner.lastName}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      <span>{org.stats.userCount} users</span>
-                      <span>{org.stats.appCount} apps</span>
-                      <span>{org.stats.contractCount} contracts</span>
-                      <span>Created {new Date(org.createdAt).toLocaleDateString()}</span>
                     </div>
                   </div>
-
+                  
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="sm">
-                        <MoreVertical className="h-4 w-4" />
+                        <MoreVertical className="w-4 h-4" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => {
                         setSelectedOrg(org);
-                        setIsDetailOpen(true);
+                        setShowOrgDetails(true);
                       }}>
-                        <Eye className="mr-2 h-4 w-4" />
+                        <Eye className="w-4 h-4 mr-2" />
                         View Details
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => {
-                        setSelectedOrg(org);
-                        setEditFormData({
-                          name: org.name,
-                          contactEmail: org.contactEmail,
-                          contactPhone: org.contactPhone || '',
-                          planType: org.planType,
-                          industry: org.industry || '',
-                          companySize: org.companySize || ''
-                        });
-                        setIsEditOpen(true);
-                      }}>
-                        <Edit className="mr-2 h-4 w-4" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => {
-                        window.location.href = `/system-admin/organizations/${org.id}/integrations`;
-                      }}>
-                        <Package className="mr-2 h-4 w-4" />
-                        Manage Integrations
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       {org.status === 'active' ? (
-                        <DropdownMenuItem onClick={() => handleToggleStatus(org, 'suspended')}>
-                          <Ban className="mr-2 h-4 w-4" />
+                        <DropdownMenuItem 
+                          onClick={() => handleSuspendOrg(org.id)}
+                          className="text-red-600"
+                        >
+                          <Ban className="w-4 h-4 mr-2" />
                           Suspend
                         </DropdownMenuItem>
                       ) : (
-                        <DropdownMenuItem onClick={() => handleToggleStatus(org, 'active')}>
-                          <CheckCircle className="mr-2 h-4 w-4" />
+                        <DropdownMenuItem 
+                          onClick={() => handleActivateOrg(org.id)}
+                          className="text-green-600"
+                        >
+                          <CheckCircle className="w-4 h-4 mr-2" />
                           Activate
                         </DropdownMenuItem>
                       )}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem 
-                        onClick={() => handleDeleteOrg(org)}
-                        className="text-destructive"
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete
-                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
               ))}
-
-              {filteredOrganizations.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  No organizations found
-                </div>
-              )}
-
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-2 pt-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(currentPage - 1)}
-                    disabled={currentPage === 1}
-                  >
-                    Previous
-                  </Button>
-                  <span className="text-sm text-muted-foreground">
-                    Page {currentPage} of {totalPages}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                  >
-                    Next
-                  </Button>
-                </div>
-              )}
             </div>
           )}
         </CardContent>
       </Card>
 
       {/* Create Organization Dialog */}
-      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="max-w-2xl">
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Create New Organization</DialogTitle>
             <DialogDescription>
-              Create a new organization and owner account
+              Create a new organization and assign an owner.
             </DialogDescription>
           </DialogHeader>
+          
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="org-name">Organization Name</Label>
-                <Input
-                  id="org-name"
-                  value={createFormData.name}
-                  onChange={(e) => setCreateFormData({ ...createFormData, name: e.target.value })}
-                  placeholder="Acme Corporation"
-                />
-              </div>
-              <div>
-                <Label htmlFor="plan-type">Plan Type</Label>
-                <Select 
-                  value={createFormData.planType} 
-                  onValueChange={(value) => setCreateFormData({ ...createFormData, planType: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="starter">Starter</SelectItem>
-                    <SelectItem value="professional">Professional</SelectItem>
-                    <SelectItem value="enterprise">Enterprise</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="contact-email">Contact Email</Label>
-                <Input
-                  id="contact-email"
-                  type="email"
-                  value={createFormData.contactEmail}
-                  onChange={(e) => setCreateFormData({ ...createFormData, contactEmail: e.target.value })}
-                  placeholder="contact@acme.com"
-                />
-              </div>
-              <div>
-                <Label htmlFor="contact-phone">Contact Phone</Label>
-                <Input
-                  id="contact-phone"
-                  value={createFormData.contactPhone}
-                  onChange={(e) => setCreateFormData({ ...createFormData, contactPhone: e.target.value })}
-                  placeholder="+1 (555) 123-4567"
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <h4 className="font-medium">Owner Account</h4>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="owner-email">Owner Email</Label>
-                  <Input
-                    id="owner-email"
-                    type="email"
-                    value={createFormData.ownerEmail}
-                    onChange={(e) => setCreateFormData({ ...createFormData, ownerEmail: e.target.value })}
-                    placeholder="admin@acme.com"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="owner-first">First Name</Label>
-                  <Input
-                    id="owner-first"
-                    value={createFormData.ownerFirstName}
-                    onChange={(e) => setCreateFormData({ ...createFormData, ownerFirstName: e.target.value })}
-                    placeholder="John"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="owner-last">Last Name</Label>
-                  <Input
-                    id="owner-last"
-                    value={createFormData.ownerLastName}
-                    onChange={(e) => setCreateFormData({ ...createFormData, ownerLastName: e.target.value })}
-                    placeholder="Doe"
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="industry">Industry</Label>
-                <Input
-                  id="industry"
-                  value={createFormData.industry}
-                  onChange={(e) => setCreateFormData({ ...createFormData, industry: e.target.value })}
-                  placeholder="Technology"
-                />
-              </div>
-              <div>
-                <Label htmlFor="company-size">Company Size</Label>
-                <Select 
-                  value={createFormData.companySize} 
-                  onValueChange={(value) => setCreateFormData({ ...createFormData, companySize: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select size" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1-10">1-10 employees</SelectItem>
-                    <SelectItem value="11-50">11-50 employees</SelectItem>
-                    <SelectItem value="51-200">51-200 employees</SelectItem>
-                    <SelectItem value="201-500">201-500 employees</SelectItem>
-                    <SelectItem value="500+">500+ employees</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreateOrg} disabled={isProcessing}>
-              {isProcessing ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                'Create Organization'
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Organization Dialog */}
-      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Organization</DialogTitle>
-            <DialogDescription>
-              Update organization details
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div>
-              <Label htmlFor="edit-name">Organization Name</Label>
+            <div className="grid gap-2">
+              <Label htmlFor="name">Organization Name *</Label>
               <Input
-                id="edit-name"
-                value={editFormData.name}
-                onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                id="name"
+                value={createFormData.name}
+                onChange={(e) => setCreateFormData(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Enter organization name"
               />
             </div>
-            <div>
-              <Label htmlFor="edit-email">Contact Email</Label>
+            
+            <div className="grid gap-2">
+              <Label htmlFor="ownerEmail">Owner Email *</Label>
               <Input
-                id="edit-email"
+                id="ownerEmail"
                 type="email"
-                value={editFormData.contactEmail}
-                onChange={(e) => setEditFormData({ ...editFormData, contactEmail: e.target.value })}
+                value={createFormData.ownerEmail}
+                onChange={(e) => setCreateFormData(prev => ({ ...prev, ownerEmail: e.target.value }))}
+                placeholder="Enter owner email"
               />
             </div>
-            <div>
-              <Label htmlFor="edit-phone">Contact Phone</Label>
+            
+            <div className="grid gap-2">
+              <Label htmlFor="subdomain">Subdomain</Label>
               <Input
-                id="edit-phone"
-                value={editFormData.contactPhone}
-                onChange={(e) => setEditFormData({ ...editFormData, contactPhone: e.target.value })}
+                id="subdomain"
+                value={createFormData.subdomain}
+                onChange={(e) => setCreateFormData(prev => ({ ...prev, subdomain: e.target.value }))}
+                placeholder="Enter subdomain"
               />
             </div>
-            <div>
-              <Label htmlFor="edit-plan">Plan Type</Label>
-              <Select 
-                value={editFormData.planType} 
-                onValueChange={(value) => setEditFormData({ ...editFormData, planType: value })}
-              >
+            
+            <div className="grid gap-2">
+              <Label htmlFor="industry">Industry</Label>
+              <Input
+                id="industry"
+                value={createFormData.industry}
+                onChange={(e) => setCreateFormData(prev => ({ ...prev, industry: e.target.value }))}
+                placeholder="Enter industry"
+              />
+            </div>
+            
+            <div className="grid gap-2">
+              <Label htmlFor="planType">Plan Type</Label>
+              <Select value={createFormData.planType} onValueChange={(value) => setCreateFormData(prev => ({ ...prev, planType: value }))}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="starter">Starter</SelectItem>
-                  <SelectItem value="professional">Professional</SelectItem>
+                  <SelectItem value="free">Free</SelectItem>
+                  <SelectItem value="standard">Standard</SelectItem>
                   <SelectItem value="enterprise">Enterprise</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+            
+            <div className="grid gap-2">
+              <Label htmlFor="description">Description</Label>
+              <Input
+                id="description"
+                value={createFormData.description}
+                onChange={(e) => setCreateFormData(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Enter description"
+              />
+            </div>
           </div>
+          
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditOpen(false)}>
+            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={handleUpdateOrg} disabled={isProcessing}>
-              {isProcessing ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Updating...
-                </>
-              ) : (
-                'Update Organization'
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Suspend Organization Dialog */}
-      <Dialog open={isSuspendOpen} onOpenChange={setIsSuspendOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Suspend Organization</DialogTitle>
-            <DialogDescription>
-              Provide a reason for suspending {selectedOrg?.name}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <Label htmlFor="suspension-reason">Suspension Reason</Label>
-            <Textarea
-              id="suspension-reason"
-              value={suspensionReason}
-              onChange={(e) => setSuspensionReason(e.target.value)}
-              placeholder="Enter the reason for suspension..."
-              rows={4}
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => {
-              setIsSuspendOpen(false);
-              setSuspensionReason('');
-            }}>
-              Cancel
-            </Button>
-            <Button 
-              variant="destructive"
-              onClick={() => selectedOrg && handleToggleStatus(selectedOrg, 'suspended')}
-              disabled={!suspensionReason || isProcessing}
-            >
-              {isProcessing ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Suspending...
-                </>
-              ) : (
-                'Suspend Organization'
-              )}
+            <Button onClick={handleCreateOrg} disabled={isCreating}>
+              {isCreating && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Create Organization
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Organization Details Dialog */}
-      <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-        <DialogContent className="max-w-2xl">
+      <Dialog open={showOrgDetails} onOpenChange={setShowOrgDetails}>
+        <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>Organization Details</DialogTitle>
+            <DialogDescription>
+              View detailed information about {selectedOrg?.name}
+            </DialogDescription>
           </DialogHeader>
+          
           {selectedOrg && (
-            <div className="space-y-4">
+            <div className="grid gap-4 py-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-muted-foreground">Name</Label>
-                  <p className="font-medium">{selectedOrg.name}</p>
+                  <Label className="text-sm font-medium">Name</Label>
+                  <p className="text-sm text-muted-foreground">{selectedOrg.name}</p>
                 </div>
                 <div>
-                  <Label className="text-muted-foreground">Status</Label>
-                  <div className="mt-1">{getStatusBadge(selectedOrg.status)}</div>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Plan Type</Label>
-                  <div className="mt-1">{getPlanBadge(selectedOrg.planType)}</div>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Contact Email</Label>
-                  <p className="font-medium">{selectedOrg.contactEmail}</p>
-                </div>
-                {selectedOrg.contactPhone && (
-                  <div>
-                    <Label className="text-muted-foreground">Contact Phone</Label>
-                    <p className="font-medium">{selectedOrg.contactPhone}</p>
-                  </div>
-                )}
-                {selectedOrg.owner && (
-                  <div>
-                    <Label className="text-muted-foreground">Owner</Label>
-                    <p className="font-medium">
-                      {selectedOrg.owner.firstName} {selectedOrg.owner.lastName}
-                      <span className="text-sm text-muted-foreground block">
-                        {selectedOrg.owner.email}
-                      </span>
-                    </p>
-                  </div>
-                )}
-                {selectedOrg.industry && (
-                  <div>
-                    <Label className="text-muted-foreground">Industry</Label>
-                    <p className="font-medium">{selectedOrg.industry}</p>
-                  </div>
-                )}
-                {selectedOrg.companySize && (
-                  <div>
-                    <Label className="text-muted-foreground">Company Size</Label>
-                    <p className="font-medium">{selectedOrg.companySize}</p>
-                  </div>
-                )}
-              </div>
-
-              <div className="border-t pt-4">
-                <h4 className="font-medium mb-2">Statistics</h4>
-                <div className="grid grid-cols-3 gap-4 text-sm">
-                  <Card>
-                    <CardContent className="p-3">
-                      <div className="flex items-center gap-2">
-                        <Users className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium">{selectedOrg.stats.userCount}</span>
-                        <span className="text-muted-foreground">Users</span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-3">
-                      <div className="flex items-center gap-2">
-                        <Package className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium">{selectedOrg.stats.appCount}</span>
-                        <span className="text-muted-foreground">Apps</span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-3">
-                      <div className="flex items-center gap-2">
-                        <Building2 className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium">{selectedOrg.stats.contractCount}</span>
-                        <span className="text-muted-foreground">Contracts</span>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <Label className="text-sm font-medium">Status</Label>
+                  <div className="mt-1">{getStatusBadge(selectedOrg.status || 'unknown')}</div>
                 </div>
               </div>
-
-              <div className="border-t pt-4 text-sm text-muted-foreground">
-                <div className="flex justify-between">
-                  <span>Created</span>
-                  <span>{new Date(selectedOrg.createdAt).toLocaleString()}</span>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium">Plan</Label>
+                  <div className="mt-1">{getPlanBadge(selectedOrg.plan || selectedOrg.planType || 'free')}</div>
                 </div>
-                <div className="flex justify-between mt-1">
-                  <span>Last Updated</span>
-                  <span>{new Date(selectedOrg.updatedAt).toLocaleString()}</span>
+                <div>
+                  <Label className="text-sm font-medium">Subdomain</Label>
+                  <p className="text-sm text-muted-foreground">{selectedOrg.subdomain || 'Not set'}</p>
                 </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium">Industry</Label>
+                  <p className="text-sm text-muted-foreground">{selectedOrg.industry || 'Not specified'}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Created</Label>
+                  <p className="text-sm text-muted-foreground">
+                    {new Date(selectedOrg.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+              
+              {selectedOrg.description && (
+                <div>
+                  <Label className="text-sm font-medium">Description</Label>
+                  <p className="text-sm text-muted-foreground">{selectedOrg.description}</p>
+                </div>
+              )}
+              
+              <div>
+                <Label className="text-sm font-medium">Organization ID</Label>
+                <p className="text-sm text-muted-foreground font-mono">{selectedOrg.id}</p>
               </div>
             </div>
           )}
+          
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDetailOpen(false)}>
+            <Button variant="outline" onClick={() => setShowOrgDetails(false)}>
               Close
             </Button>
           </DialogFooter>
@@ -927,4 +566,6 @@ export function GlobalOrgManager() {
       </Dialog>
     </div>
   );
-}
+};
+
+export default GlobalOrgManager;

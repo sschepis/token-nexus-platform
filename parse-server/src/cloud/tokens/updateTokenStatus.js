@@ -1,5 +1,3 @@
-const Parse = require('parse/node');
-
 /**
  * Update token status (e.g., pending -> confirmed, confirmed -> suspended)
  * @param {Object} request - Parse Cloud Function request

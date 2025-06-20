@@ -204,10 +204,10 @@ const Navbar = ({ openSidebar }: NavbarProps) => {
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               
-              <Link href="/settings/profile" passHref legacyBehavior>
+              <Link href="/account" passHref legacyBehavior>
                 <DropdownMenuItem>
                   <User className="mr-2 h-4 w-4" />
-                  <span>Profile</span>
+                  <span>Account</span>
                 </DropdownMenuItem>
               </Link>
               
@@ -221,7 +221,7 @@ const Navbar = ({ openSidebar }: NavbarProps) => {
               {hasSystemAdminAccess && (
                 <>
                   <DropdownMenuSeparator />
-                  <Link href="/system-admin" passHref legacyBehavior>
+                  <Link href="/system-admin/dashboard" passHref legacyBehavior>
                     <DropdownMenuItem>
                       <Shield className="mr-2 h-4 w-4" />
                       <span>System Admin</span>

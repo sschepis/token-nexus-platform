@@ -1,7 +1,12 @@
 /**
  * Identity Management Cloud Functions
  * Parse Cloud Functions for the Identity Management standard application
+ * Integrates with IdentityFactory and Identity smart contracts on Base Sepolia
  */
+
+// Contract addresses from basesep deployment
+const IDENTITY_FACTORY_ADDRESS = '0x5c970fD1E772548Be3Dc3de62381Fd8b2b3fAb96';
+const IDENTITY_CONTRACT_ADDRESS = '0x4C6fE457018d32B9aEc2aA99F655b5aCD7d0D658';
 
 // Identity Management Functions
 Parse.Cloud.define('createIdentity', async (request) => {
@@ -112,6 +117,193 @@ Parse.Cloud.define('createIdentity', async (request) => {
   } catch (error) {
     console.error('Error creating identity:', error);
     throw new Error(`Failed to create identity: ${error.message}`);
+  }
+});
+
+// On-chain identity management functions
+Parse.Cloud.define('createOnChainIdentity', async (request) => {
+  const { user, params } = request;
+  
+  try {
+    // Validate user permissions
+    if (!user) {
+      throw new Error('User must be authenticated');
+    }
+    
+    // Validate required parameters
+    const { walletAddress, organizationId } = params;
+    
+    if (!walletAddress) {
+      throw new Error('Wallet address is required');
+    }
+    
+    // Check if on-chain identity already exists for this wallet
+    const existingOnChainIdentity = await new Parse.Query('OnChainIdentity')
+      .equalTo('walletAddress', walletAddress.toLowerCase())
+      .equalTo('organizationId', organizationId || 'default')
+      .first({ useMasterKey: true });
+      
+    if (existingOnChainIdentity) {
+      throw new Error('On-chain identity already exists for this wallet');
+    }
+    
+    // Create new on-chain identity record
+    const OnChainIdentity = Parse.Object.extend('OnChainIdentity');
+    const onChainIdentity = new OnChainIdentity();
+    
+    // Set basic information
+    onChainIdentity.set('user', user);
+    onChainIdentity.set('organizationId', organizationId || 'default');
+    onChainIdentity.set('walletAddress', walletAddress.toLowerCase());
+    onChainIdentity.set('factoryAddress', IDENTITY_FACTORY_ADDRESS);
+    onChainIdentity.set('status', 'pending_deployment');
+    onChainIdentity.set('claims', []);
+    onChainIdentity.set('keys', []);
+    onChainIdentity.set('attributes', {});
+    onChainIdentity.set('controllers', []);
+    
+    // Set metadata
+    onChainIdentity.set('createdBy', user);
+    onChainIdentity.set('lastModifiedBy', user);
+    
+    // Save on-chain identity
+    const savedOnChainIdentity = await onChainIdentity.save(null, { useMasterKey: true });
+    
+    // Create audit log entry
+    await Parse.Cloud.run('createAuditEntry', {
+      action: 'onchain_identity_created',
+      entityType: 'OnChainIdentity',
+      entityId: savedOnChainIdentity.id,
+      userId: user.id,
+      details: {
+        walletAddress,
+        factoryAddress: IDENTITY_FACTORY_ADDRESS,
+        organizationId: organizationId || 'default'
+      }
+    });
+    
+    return {
+      success: true,
+      onChainIdentityId: savedOnChainIdentity.id,
+      walletAddress: walletAddress.toLowerCase(),
+      factoryAddress: IDENTITY_FACTORY_ADDRESS,
+      status: 'pending_deployment',
+      message: 'On-chain identity created successfully, ready for blockchain deployment'
+    };
+    
+  } catch (error) {
+    console.error('Error creating on-chain identity:', error);
+    throw new Error(`Failed to create on-chain identity: ${error.message}`);
+  }
+});
+
+Parse.Cloud.define('updateOnChainIdentityDeployment', async (request) => {
+  const { user, params } = request;
+  
+  try {
+    const { onChainIdentityId, contractAddress, transactionHash, blockNumber } = params;
+    
+    if (!onChainIdentityId || !contractAddress || !transactionHash) {
+      throw new Error('Missing required parameters');
+    }
+    
+    // Get existing on-chain identity
+    const onChainIdentity = await new Parse.Query('OnChainIdentity')
+      .equalTo('objectId', onChainIdentityId)
+      .first({ useMasterKey: true });
+      
+    if (!onChainIdentity) {
+      throw new Error('On-chain identity not found');
+    }
+    
+    // Check permissions
+    if (onChainIdentity.get('user').id !== user.id && !user.get('isAdmin')) {
+      throw new Error('Insufficient permissions to update this on-chain identity');
+    }
+    
+    // Update deployment information
+    onChainIdentity.set('status', 'deployed');
+    onChainIdentity.set('contractAddress', contractAddress.toLowerCase());
+    onChainIdentity.set('deploymentTxHash', transactionHash);
+    onChainIdentity.set('deploymentBlock', blockNumber);
+    onChainIdentity.set('deployedAt', new Date());
+    onChainIdentity.set('lastModifiedBy', user);
+    onChainIdentity.set('lastModifiedAt', new Date());
+    
+    const savedOnChainIdentity = await onChainIdentity.save(null, { useMasterKey: true });
+    
+    // Create audit log entry
+    await Parse.Cloud.run('createAuditEntry', {
+      action: 'onchain_identity_deployed',
+      entityType: 'OnChainIdentity',
+      entityId: savedOnChainIdentity.id,
+      userId: user.id,
+      details: {
+        contractAddress,
+        transactionHash,
+        blockNumber
+      }
+    });
+    
+    return {
+      success: true,
+      onChainIdentity: savedOnChainIdentity.toJSON(),
+      message: 'On-chain identity deployment updated successfully'
+    };
+    
+  } catch (error) {
+    console.error('Error updating on-chain identity deployment:', error);
+    throw new Error(`Failed to update on-chain identity deployment: ${error.message}`);
+  }
+});
+
+Parse.Cloud.define('getOnChainIdentity', async (request) => {
+  const { user, params } = request;
+  
+  try {
+    const { walletAddress, onChainIdentityId, organizationId } = params;
+    
+    let query = new Parse.Query('OnChainIdentity');
+    
+    if (onChainIdentityId) {
+      query.equalTo('objectId', onChainIdentityId);
+    } else if (walletAddress) {
+      query.equalTo('walletAddress', walletAddress.toLowerCase());
+      if (organizationId) {
+        query.equalTo('organizationId', organizationId);
+      }
+    } else {
+      query.equalTo('user', user);
+      if (organizationId) {
+        query.equalTo('organizationId', organizationId);
+      }
+    }
+    
+    const onChainIdentity = await query
+      .include('user')
+      .first({ useMasterKey: true });
+      
+    if (!onChainIdentity) {
+      return {
+        success: false,
+        message: 'On-chain identity not found'
+      };
+    }
+    
+    // Check permissions
+    if (onChainIdentity.get('user').id !== user.id && !user.get('isAdmin')) {
+      throw new Error('Insufficient permissions to view this on-chain identity');
+    }
+    
+    return {
+      success: true,
+      onChainIdentity: onChainIdentity.toJSON(),
+      message: 'On-chain identity details retrieved successfully'
+    };
+    
+  } catch (error) {
+    console.error('Error getting on-chain identity details:', error);
+    throw new Error(`Failed to get on-chain identity details: ${error.message}`);
   }
 });
 

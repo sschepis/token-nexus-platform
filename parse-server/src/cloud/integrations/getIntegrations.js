@@ -1,5 +1,3 @@
-const Parse = require('parse/node');
-
 /**
  * Get all integrations for the organization
  * @param {Object} request - Parse Cloud Function request

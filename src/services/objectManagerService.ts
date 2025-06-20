@@ -1,6 +1,7 @@
 // src/services/objectManagerService.ts
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Parse from 'parse';
+import { safeParseCloudRun } from '../utils/parseUtils';
 import { CustomObject, CustomField, ObjectRecord } from '@/types/object-manager.d'; // Corrected import path
 
 export class ObjectManagerService {
@@ -277,7 +278,7 @@ export class ObjectManagerService {
         throw new Error('Confirmation is required to delete an object');
       }
       // Call a Cloud Function for schema deletion and data purging
-      await Parse.Cloud.run('deleteObjectSchemaAndData', { objectApiName, confirmDelete });
+      await safeParseCloudRun('deleteObjectSchemaAndData', { objectApiName, confirmDelete });
     } catch (error) {
       console.error('[ObjectManagerService] Error deleting object:', error);
       throw error;
@@ -296,7 +297,7 @@ export class ObjectManagerService {
   async addFieldToObject(objectApiName: string, field: CustomField): Promise<CustomObject> {
     try {
       // Call a Cloud Function to add the field
-      const updatedSchema = await Parse.Cloud.run('addFieldToObjectSchema', { objectApiName, field });
+      const updatedSchema = await safeParseCloudRun('addFieldToObjectSchema', { objectApiName, field });
       return this.getObjectByApiName(updatedSchema.className || objectApiName); // Use className from updatedSchema if available
     } catch (error) {
       console.error('[ObjectManagerService] Error adding field to object:', error);
@@ -317,7 +318,7 @@ export class ObjectManagerService {
   async updateFieldInObject(objectApiName: string, fieldApiName: string, updates: Partial<CustomField>): Promise<CustomObject> {
     try {
       // Call a Cloud Function to update the field
-      const updatedSchema = await Parse.Cloud.run('updateFieldInObjectSchema', { objectApiName, fieldApiName, updates });
+      const updatedSchema = await safeParseCloudRun('updateFieldInObjectSchema', { objectApiName, fieldApiName, updates });
       return this.getObjectByApiName(updatedSchema.className || objectApiName); // Use className from updatedSchema if available
     } catch (error) {
       console.error('[ObjectManagerService] Error updating field in object:', error);
@@ -337,7 +338,7 @@ export class ObjectManagerService {
   async deleteFieldFromObject(objectApiName: string, fieldApiName: string): Promise<CustomObject> {
     try {
       // Call a Cloud Function to remove the field
-      const updatedSchema = await Parse.Cloud.run('removeFieldFromObjectSchema', { objectApiName, fieldApiName });
+      const updatedSchema = await safeParseCloudRun('removeFieldFromObjectSchema', { objectApiName, fieldApiName });
       return this.getObjectByApiName(updatedSchema.className || objectApiName); // Use className from updatedSchema if available
     } catch (error) {
       console.error('[ObjectManagerService] Error deleting field from object:', error);

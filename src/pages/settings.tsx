@@ -1,28 +1,30 @@
 import React, { useState, useEffect } from "react";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { usePageController } from "@/hooks/usePageController";
-import { usePermission } from "@/hooks/usePermission";
 import { useToast } from "@/hooks/use-toast";
 import { fetchCurrentOrgDetails } from "@/store/slices/orgSlice";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
-import ProfileSettings from "@/components/settings/ProfileSettings";
 import OrganizationSettings from "@/components/settings/OrganizationSettings";
 import SecuritySettings from "@/components/settings/SecuritySettings";
 import BillingSettings from "@/components/settings/BillingSettings";
 import AIAssistantSettings from "@/components/settings/AIAssistantSettings";
 
 const SettingsPage = () => {
-  const [activeTab, setActiveTab] = useState("profile");
+  const [activeTab, setActiveTab] = useState("organization");
   const dispatch = useAppDispatch();
   const { currentOrg, isLoading: isOrgLoading, error: orgError } = useAppSelector((state) => state.org);
   const { user } = useAppSelector((state) => state.auth);
 
   // Use modern page controller integration
-  const pageController = usePageController('settings');
-  const canManageSettings = usePermission('settings:manage');
+  const pageController = usePageController({
+    pageId: 'settings',
+    pageName: 'Settings',
+    description: 'Organization settings and configuration',
+    category: 'management'
+  });
   const { toast } = useToast();
   
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -115,18 +117,13 @@ const SettingsPage = () => {
           </div>
         </div>
 
-        <Tabs defaultValue="profile" value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid grid-cols-5 md:w-fit w-full">
-            <TabsTrigger value="profile">Profile</TabsTrigger>
+        <Tabs defaultValue="organization" value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <TabsList className="grid grid-cols-4 md:w-fit w-full">
             <TabsTrigger value="organization">Organization</TabsTrigger>
             <TabsTrigger value="ai-assistant">AI Assistant</TabsTrigger>
             <TabsTrigger value="security">Security</TabsTrigger>
             <TabsTrigger value="billing">Billing</TabsTrigger>
           </TabsList>
-          
-          <TabsContent value="profile" className="space-y-4">
-            <ProfileSettings user={user} />
-          </TabsContent>
           
           <TabsContent value="organization" className="space-y-4">
             <OrganizationSettings />

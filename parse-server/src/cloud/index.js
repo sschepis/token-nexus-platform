@@ -3,37 +3,49 @@
  * Registers and exports all cloud functions
  */
 
-const content = require('./content');
-const templates = require('./templates');
-const media = require('./media');
-const website = require('./website');
+// Note: content, templates, media, and website modules don't exist yet
+// const content = require('./content');
+// const templates = require('./templates');
+// const media = require('./media');
+// const website = require('./website');
 const utils = require('../utils');
 const logger = utils.logger;
+const StandardAppFunctionLoader = require('../utils/standardAppFunctionLoader');
 
 // Require domain-specific cloud function modules.
 // Parse.Cloud.define calls within these files will register the functions.
 require('./auth');
-require('./appStore');
+// DISABLED: Causes duplicate cloud function loading conflicts with primary system
+// require('./appStore');
 require('./marketplace'); // Require the new marketplace module
+// Re-enabled: Primary system organization functions now disabled
 require('./organizations');
-require('./users');
-require('./userManagement'); // Require the new user management module
-require('./orgAppInstallations');
-require('./orgUsers'); // Require the new orgUsers module
-require('./tokens'); // Require the new tokens module
-require('./notifications'); // Require the new notifications module
-require('./audit'); // Require the new audit module
-require('./integrations'); // Require the new integrations module
-require('./dashboard'); // Require the new dashboard module
-require('./ai-assistant/main'); // Load AI Assistant cloud functions
+// DISABLED: Causes duplicate cloud function loading conflicts with primary system
+// require('./users');
+// require('./userManagement'); // Require the new user management module
+// require('./orgAppInstallations');
+// require('./orgUsers'); // Require the new orgUsers module
+// require('./tokens'); // Require the new tokens module
+// DISABLED: Causes duplicate cloud function loading conflicts with primary system
+// require('./notifications'); // Require the new notifications module
+// require('./audit'); // Require the new audit module
+// require('./integrations'); // Require the new integrations module
+// require('./dashboard'); // Require the new dashboard module
+// require('./ai-assistant/main.js'); // DISABLED - Duplicate of cloud/functions/ai/aiAssistant.js
  
  /**
  * Initialize cloud functions and jobs
  * @param {Object} config - Configuration options
  */
-const initialize = (config = {}) => {
+const initialize = async (config = {}) => {
   try {
     logger.info('Initializing cloud functions and jobs...');
+
+    // Load standard app cloud functions
+    if (config.standardApps?.enabled !== false) {
+      const standardAppLoader = new StandardAppFunctionLoader(Parse);
+      await standardAppLoader.loadAllStandardAppFunctions();
+    }
 
     // Register background jobs (defined below)
     registerJobs();
@@ -150,14 +162,11 @@ module.exports = {
   initialize,
   registerJobs,
   registerWebhooks,
-  // Content management
-  ...content,
-  // Template management
-  ...templates,
-  // Media management
-  ...media,
-  // Website management
-  ...website,
+  // Note: Content, template, media, and website modules don't exist yet
+  // ...content,
+  // ...templates,
+  // ...media,
+  // ...website,
   // Note: Cloud functions defined in the required modules (auth, appStore, etc.)
   // are automatically registered with Parse Server. No need to spread them here.
 };

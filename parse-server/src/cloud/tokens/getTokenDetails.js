@@ -1,5 +1,3 @@
-const Parse = require('parse/node');
-
 /**
  * Get detailed information about a specific token
  * @param {Object} request - Parse Cloud Function request

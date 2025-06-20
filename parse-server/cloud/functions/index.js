@@ -1,11 +1,15 @@
 // Centralized Cloud Function imports for Parse Server
 
+// Load CMS Classes first (required for Parse Object registration)
+require('../../src/classes');
+
 // Identity Management (Load first to avoid conflicts)
 require('./identity-management/identityFunctions');
 
 // Core Organization Management (Primary organization functions)
 require('./organization/organizationManagement');
-require('./organization/organizations');
+// DISABLED: Replaced with newer implementation in src/cloud/organizations
+// require('./organization/organizations');
 require('./organization/orgUsers');
 
 // User Management (Load after organization to avoid getUserDetails conflict)
@@ -84,6 +88,7 @@ require('./analytics');
 require('./application');
 require('./assistant');
 require('./auth');
+require('../../src/cloud/auth'); // Load the customUserLogin function
 require('./components');
 require('./initialization');
 // require('./organization'); // DISABLED - causes duplicate organization function imports

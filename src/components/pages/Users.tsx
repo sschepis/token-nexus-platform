@@ -3,6 +3,7 @@ import Parse from 'parse';
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchOrgUsers, removeUserFromOrganization, OrgUser } from "@/store/slices/userSlice";
 import { KycStatus, UserRole } from "@/store/slices/userSlice";
+import { isParseReady } from "@/utils/parseUtils";
 import { usePageController } from "@/hooks/usePageController";
 import { usePermission } from "@/hooks/usePermission";
 import { useToast } from "@/hooks/use-toast";
@@ -70,18 +71,38 @@ const Users = () => {
   const [selectedUser, setSelectedUser] = useState<OrgUser | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [controllerError, setControllerError] = useState<string | null>(null);
+  const [parseReady, setParseReady] = useState(false);
+
+  // Check Parse readiness periodically
+  useEffect(() => {
+    const checkParseReadiness = () => {
+      const ready = isParseReady();
+      setParseReady(ready);
+      
+      if (!ready) {
+        // Check again in 500ms if Parse isn't ready
+        setTimeout(checkParseReadiness, 500);
+      }
+    };
+    
+    checkParseReadiness();
+  }, []);
 
   useEffect(() => {
     console.log('Users page - currentOrg:', currentOrg);
     console.log('Users page - authOrgId:', authOrgId);
     console.log('Users page - effectiveOrgId:', effectiveOrgId);
-    if (effectiveOrgId) {
+    console.log('Users page - Parse ready:', parseReady);
+    
+    if (effectiveOrgId && parseReady) {
       console.log('Dispatching fetchOrgUsers with orgId:', effectiveOrgId);
       dispatch(fetchOrgUsers({ orgId: effectiveOrgId }));
+    } else if (effectiveOrgId && !parseReady) {
+      console.log('Parse not ready yet, waiting before fetching users');
     } else {
       console.log('No effective orgId available, cannot fetch users');
     }
-  }, [dispatch, effectiveOrgId]);
+  }, [dispatch, effectiveOrgId, parseReady]);
 
   const runSearchAction = async (term: string) => {
     if (!pageController.isRegistered) return;

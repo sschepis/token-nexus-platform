@@ -3,10 +3,12 @@
 const config = require('../src/config');
 
 // Import webhook functions
-require('./functions/webhooks');
+// DISABLED: Already loaded in functions/index.js to prevent duplicates
+// require('./functions/webhooks');
 
 // Import NEW refactored organization functions from src/cloud/organizations
-require('../src/cloud/organizations'); // This will load index.js in that directory
+// DISABLED: This was causing duplicate cloud function loading conflicts
+// require('../src/cloud/organizations'); // This will load index.js in that directory
 
 // Import application functions
 const {
@@ -19,15 +21,17 @@ const {
 require('./functions/dependencies');
 require('./functions/environment');
 require('./functions/apis/api');
-require('./functions/triggers');
+// DISABLED: Already loaded in functions/index.js to prevent duplicates
+// require('./functions/triggers');
 require('./functions/theme/themes');
 require('./functions/templates/templates');
 
 // Import marketplace functions
-const {
-  fetchMarketplaceApps,
-  installMarketplaceApp,
-} = require('./functions/integrations/marketplaceManagement');
+// DISABLED: Already loaded in functions/index.js to prevent duplicates
+// const {
+//   fetchMarketplaceApps,
+//   installMarketplaceApp,
+// } = require('./functions/integrations/marketplaceManagement');
 
 // Import configuration functions
 const {
@@ -82,15 +86,18 @@ const { getOrganizationApplications } = require('./functions/application/applica
 
 // Load other cloud functions
 require('./functions/cms/pageManagement.js')(Parse);
-require('./functions/apis/apiManagement.js');
+// DISABLED: Already loaded in functions/index.js to prevent duplicates
+// require('./functions/apis/apiManagement.js');
 require('./functions/workflow/workflow.js')(Parse);
-require('./functions/assistant');
+// DISABLED: Already loaded in functions/index.js to prevent duplicates
+// require('./functions/assistant');
 require('./functions/reports/reportManagement.js')(Parse);
 require('./functions/security/securityEvents.js');
 require('./functions/theme/themeEditor.js');
 
 // Import NEW refactored modular functions
-require('./functions/triggers');
+// DISABLED: triggers already loaded in functions/index.js to prevent duplicates
+// require('./functions/triggers');
 require('./functions/access-policy');
 
 // Import custom schemas
@@ -103,8 +110,9 @@ module.exports = {
   createApplication,
   updateApplication,
   // Marketplace functions
-  fetchMarketplaceApps,
-  installMarketplaceApp,
+  // DISABLED: Already loaded in functions/index.js to prevent duplicates
+  // fetchMarketplaceApps,
+  // installMarketplaceApp,
   // Configuration functions
   getAppConfiguration,
   updateAppConfiguration,

@@ -12,7 +12,8 @@
 require('./functions');
 
 // Load setup functions
-require('./setup');
+// DISABLED: Causes duplicate cloud function loading conflicts with primary system
+// require('./setup');
 
 // Register access control middleware.
 // This requires files that set up Parse.Cloud.beforeSave/Find/etc. hooks.

@@ -485,11 +485,12 @@ Parse.Cloud.define("getAppInstallationDetails", async (request) => {
 
 module.exports = {
   // Export functions for testing
-  fetchAppDefinitions: Parse.Cloud.getFunction("fetchAppDefinitions"),
-  fetchAppVersionsForDefinition: Parse.Cloud.getFunction("fetchAppVersionsForDefinition"),
-  fetchOrgAppInstallations: Parse.Cloud.getFunction("fetchOrgAppInstallations"),
-  installApp: Parse.Cloud.getFunction("installApp"),
-  uninstallApp: Parse.Cloud.getFunction("uninstallApp"),
-  updateAppSettings: Parse.Cloud.getFunction("updateAppSettings"),
-  getAppInstallationDetails: Parse.Cloud.getFunction("getAppInstallationDetails")
+  // Note: Parse.Cloud.getFunction doesn't exist, commenting out for now
+  // fetchAppDefinitions: Parse.Cloud.getFunction("fetchAppDefinitions"),
+  // fetchAppVersionsForDefinition: Parse.Cloud.getFunction("fetchAppVersionsForDefinition"),
+  // fetchOrgAppInstallations: Parse.Cloud.getFunction("fetchOrgAppInstallations"),
+  // installApp: Parse.Cloud.getFunction("installApp"),
+  // uninstallApp: Parse.Cloud.getFunction("uninstallApp"),
+  // updateAppSettings: Parse.Cloud.getFunction("updateAppSettings"),
+  // getAppInstallationDetails: Parse.Cloud.getFunction("getAppInstallationDetails")
 };
