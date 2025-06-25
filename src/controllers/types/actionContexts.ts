@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import React from 'react';
+import * as React from 'react';
 import { NextRouter } from 'next/router';
 
 /**
@@ -10,6 +10,7 @@ export interface UserContext {
   userId: string;
   username?: string;
   email?: string;
+  isAdmin?: boolean; // Add isAdmin property
   roles: string[];
   permissions: string[];
   organizationId?: string;

@@ -51,15 +51,41 @@ const themeThunks = {
   loadOrganizationTheme: AsyncThunkFactory.create<string, OrganizationTheme>({
     name: 'theme/loadOrganizationTheme',
     cloudFunction: 'getOrganizationTheme',
-    transformParams: (organizationId: string) => ({}), // organizationId handled by middleware
+    transformParams: (organizationId: string) => ({ orgId: organizationId }),
     transformResponse: (result: any) => {
       if (result.success && result.theme) {
         return result.theme as OrganizationTheme;
       } else {
         // Return platform defaults if no custom theme
-        const themeEngine = getThemeEngine();
-        const platformDefaults = themeEngine.getPlatformDefaults();
-        return platformDefaults;
+        try {
+          const themeEngine = getThemeEngine();
+          const platformDefaults = themeEngine.getPlatformDefaults();
+          return platformDefaults;
+        } catch (error) {
+          // If theme engine fails, return a minimal theme that won't cause errors
+          // This prevents infinite loops while still providing basic functionality
+          console.warn('Theme engine failed, using minimal fallback theme:', error);
+          
+          // Use type assertion to bypass strict typing for emergency fallback
+          return {
+            id: 'fallback',
+            name: 'Fallback Theme',
+            version: '1.0.0',
+            description: 'Emergency fallback theme',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            // Minimal required properties to prevent crashes
+            colors: { primary: '#007bff' },
+            typography: { fontFamily: 'system-ui' },
+            spacing: { md: '1rem' },
+            borderRadius: { md: '0.375rem' },
+            shadows: { md: '0 4px 6px rgba(0,0,0,0.1)' },
+            components: {},
+            branding: { companyName: '' },
+            layout: { containerMaxWidth: '1200px' },
+            animations: { duration: { normal: '300ms' } }
+          } as unknown as OrganizationTheme;
+        }
       }
     },
     errorMessage: 'Failed to load organization theme'
@@ -149,6 +175,102 @@ const themeThunks = {
       return resolvedTheme;
     },
     errorMessage: 'Failed to apply theme template'
+  }),
+
+  // Additional thunks for controller actions
+  getAvailableThemes: AsyncThunkFactory.create<{ orgId: string; includeCustom?: boolean; category?: string }, any[]>({
+    name: 'theme/getAvailableThemes',
+    cloudFunction: 'getAvailableThemes',
+    transformParams: (params) => ({
+      orgId: params.orgId,
+      includeCustom: params.includeCustom || true,
+      category: params.category
+    }),
+    transformResponse: (result: any) => {
+      if (result.success) {
+        return result.themes || result;
+      } else {
+        throw new Error(result.error || 'Failed to get available themes');
+      }
+    },
+    errorMessage: 'Failed to load available themes'
+  }),
+
+  createCustomTheme: AsyncThunkFactory.create<{ orgId: string; userId: string; themeData: any }, any>({
+    name: 'theme/createCustomTheme',
+    cloudFunction: 'createCustomTheme',
+    transformParams: (params) => ({
+      orgId: params.orgId,
+      userId: params.userId,
+      themeData: params.themeData
+    }),
+    transformResponse: (result: any) => {
+      if (result.success) {
+        toast.success('Custom theme created successfully');
+        return result.theme;
+      } else {
+        throw new Error(result.error || 'Failed to create custom theme');
+      }
+    },
+    errorMessage: 'Failed to create custom theme'
+  }),
+
+  updateThemeCustomization: AsyncThunkFactory.create<{ orgId: string; userId: string; customizations: any; merge?: boolean }, any>({
+    name: 'theme/updateThemeCustomization',
+    cloudFunction: 'updateThemeCustomization',
+    transformParams: (params) => ({
+      orgId: params.orgId,
+      userId: params.userId,
+      customizations: params.customizations,
+      merge: params.merge !== false
+    }),
+    transformResponse: (result: any) => {
+      if (result.success) {
+        toast.success('Theme customization updated successfully');
+        return result.theme;
+      } else {
+        throw new Error(result.error || 'Failed to update theme customization');
+      }
+    },
+    errorMessage: 'Failed to update theme customization'
+  }),
+
+  deleteCustomTheme: AsyncThunkFactory.create<{ themeTemplateId: string }, { deleted: boolean; themeTemplateId: string }>({
+    name: 'theme/deleteCustomTheme',
+    cloudFunction: 'deleteCustomTheme',
+    transformParams: (params) => ({
+      themeTemplateId: params.themeTemplateId
+    }),
+    transformResponse: (result: any) => {
+      if (result.success) {
+        toast.success('Custom theme deleted successfully');
+        return { deleted: true, themeTemplateId: result.themeTemplateId };
+      } else {
+        throw new Error(result.error || 'Failed to delete custom theme');
+      }
+    },
+    errorMessage: 'Failed to delete custom theme'
+  }),
+
+  applyTheme: AsyncThunkFactory.create<{ orgId: string; userId: string; themeId?: string; themeName?: string; customizations?: any }, any>({
+    name: 'theme/applyTheme',
+    cloudFunction: 'applyTheme',
+    transformParams: (params) => ({
+      orgId: params.orgId,
+      userId: params.userId,
+      themeId: params.themeId,
+      themeName: params.themeName,
+      customizations: params.customizations || {}
+    }),
+    transformResponse: (result: any) => {
+      if (result.success) {
+        toast.success('Theme applied successfully');
+        return result.theme;
+      } else {
+        throw new Error(result.error || 'Failed to apply theme');
+      }
+    },
+    errorMessage: 'Failed to apply theme'
   })
 };
 
@@ -159,7 +281,12 @@ export const {
   resetOrganizationTheme,
   validateTheme,
   loadThemeTemplates,
-  applyThemeTemplate
+  applyThemeTemplate,
+  getAvailableThemes,
+  createCustomTheme,
+  updateThemeCustomization,
+  deleteCustomTheme,
+  applyTheme
 } = themeThunks;
 
 const initialState: ThemeState = createAsyncInitialState({
@@ -387,6 +514,62 @@ const themeSlice = createSlice({
       },
       onRejected: (state, action) => {
         state.templatesError = action.payload || 'Failed to load theme templates';
+      }
+    });
+
+    // Get available themes
+    AsyncReducerBuilder.addAsyncCase(builder, themeThunks.getAvailableThemes, {
+      loadingFlag: 'templatesLoading',
+      onFulfilled: (state, action) => {
+        state.templates = action.payload;
+        state.templatesError = null;
+      },
+      onRejected: (state, action) => {
+        state.templatesError = action.payload || 'Failed to get available themes';
+      }
+    });
+
+    // Create custom theme
+    AsyncReducerBuilder.addAsyncCase(builder, themeThunks.createCustomTheme, {
+      loadingFlag: 'isUpdating',
+      onFulfilled: (state, action) => {
+        // Add the new custom theme to templates
+        state.templates.push(action.payload);
+        state.editorState.isDirty = false;
+      }
+    });
+
+    // Update theme customization
+    AsyncReducerBuilder.addAsyncCase(builder, themeThunks.updateThemeCustomization, {
+      loadingFlag: 'isUpdating',
+      onFulfilled: (state, action) => {
+        state.currentTheme = action.payload;
+        state.editorState.isDirty = false;
+      }
+    });
+
+    // Delete custom theme
+    AsyncReducerBuilder.addAsyncCase(builder, themeThunks.deleteCustomTheme, {
+      loadingFlag: 'isUpdating',
+      onFulfilled: (state, action) => {
+        // Remove the deleted theme from templates
+        state.templates = state.templates.filter(
+          template => template.id !== action.payload.themeTemplateId
+        );
+      }
+    });
+
+    // Apply theme
+    AsyncReducerBuilder.addAsyncCase(builder, themeThunks.applyTheme, {
+      loadingFlag: 'isUpdating',
+      onFulfilled: (state, action) => {
+        state.currentTheme = action.payload;
+        state.editorState.isDirty = false;
+        
+        // Add to history
+        state.themeHistory = state.themeHistory.slice(0, state.historyIndex + 1);
+        state.themeHistory.push(action.payload);
+        state.historyIndex = state.themeHistory.length - 1;
       }
     });
   }

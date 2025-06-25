@@ -114,99 +114,6 @@ export const oauthAppsApi = {
   }
 };
 
-// Mock implementations for development
-const mockOauthAppsApis = {
-  createOAuthApp: (params: CreateOAuthAppParams) => {
-    const newApp = {
-      id: `oa-${Math.floor(Math.random() * 1000)}`,
-      clientId: `client-${Math.floor(Math.random() * 1000)}`,
-      clientSecret: `secret-${Math.floor(Math.random() * 1000)}`,
-      createdAt: new Date().toISOString(),
-      ...params,
-    };
-    return Promise.resolve({
-      success: true,
-      data: { oauthApp: newApp }
-    });
-  },
-
-  getOAuthApps: (params?: OAuthAppFilters) => {
-    return Promise.resolve({
-      success: true,
-      data: {
-        oauthApps: [
-          {
-            id: 'oa-1',
-            name: 'My OAuth App',
-            clientId: 'client-123',
-            redirectUris: ['https://app.example.com/oauth/callback'],
-            description: 'App for testing OAuth flows.',
-            createdAt: new Date().toISOString(),
-          },
-          {
-            id: 'oa-2',
-            name: 'Mobile App OAuth',
-            clientId: 'client-456',
-            redirectUris: ['https://mobile.example.com/oauth/callback', 'https://mobile.example.com/oauth/redirect'],
-            description: 'OAuth app for mobile application.',
-            createdAt: new Date(Date.now() - 86400000).toISOString(),
-          },
-        ],
-        totalCount: 2,
-      }
-    });
-  },
-
-  updateOAuthApp: (oauthAppId: string, params: UpdateOAuthAppParams) => {
-    return Promise.resolve({
-      success: true,
-      data: { oauthApp: { id: oauthAppId, ...params, updatedAt: new Date().toISOString() } }
-    });
-  },
-
-  regenerateOAuthSecret: (oauthAppId: string) => {
-    return Promise.resolve({
-      success: true,
-      data: { 
-        clientSecret: `new-secret-${Math.floor(Math.random() * 1000)}`, 
-        message: 'OAuth secret regenerated successfully.',
-        regeneratedAt: new Date().toISOString()
-      }
-    });
-  },
-
-  deleteOAuthApp: (oauthAppId: string) => {
-    return Promise.resolve({
-      success: true,
-      data: { success: true, message: `OAuth App ${oauthAppId} deleted successfully` }
-    });
-  },
-
-  batchDeleteOAuthApps: (oauthAppIds: string[]) => {
-    return Promise.resolve({
-      results: oauthAppIds.map(() => ({ success: true })),
-      successCount: oauthAppIds.length,
-      errorCount: 0
-    });
-  },
-
-  batchUpdateOAuthApps: (updates: Array<{ oauthAppId: string; params: UpdateOAuthAppParams }>) => {
-    return Promise.resolve({
-      results: updates.map(() => ({ success: true })),
-      successCount: updates.length,
-      errorCount: 0
-    });
-  },
-
-  batchRegenerateOAuthSecrets: (oauthAppIds: string[]) => {
-    return Promise.resolve({
-      results: oauthAppIds.map(() => ({ success: true })),
-      successCount: oauthAppIds.length,
-      errorCount: 0
-    });
-  }
-};
-
 // Export individual functions for backward compatibility
 export const {
   createOAuthApp,
@@ -219,8 +126,5 @@ export const {
   batchRegenerateOAuthSecrets
 } = oauthAppsApi;
 
-// Use mock or real API based on environment
-const finalOAuthAppsApi = process.env.NEXT_PUBLIC_USE_MOCK_API === 'true' ? mockOauthAppsApis : oauthAppsApi;
-
 // Default export
-export default finalOAuthAppsApi;
+export default oauthAppsApi;

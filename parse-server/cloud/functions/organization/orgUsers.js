@@ -4,29 +4,52 @@ const createLogger = require('../../utils/logger'); // Assuming a utility for lo
 const logger = createLogger('OrgUsersCloudFunction');
 
 Parse.Cloud.define('getOrgUsers', withOrganizationContext(async (request) => {
-  const { user, organization, organizationId } = request;
+  const { user, organization, organizationId, params } = request;
+  // Handle both organizationId from middleware and orgId from params
+  const targetOrgId = organizationId || params.orgId;
 
-  logger.info(`getOrgUsers called by user ${user.id} for organization ${organizationId}`);
+  logger.info(`getOrgUsers called by user ${user.id} for organization ${targetOrgId}`);
 
   if (!user) {
     logger.warn('getOrgUsers: User not authenticated.');
     throw new Parse.Error(Parse.Error.SESSION_MISSING, 'User must be authenticated.');
   }
 
-  if (!organization) {
-    logger.warn(`getOrgUsers: Organization not found for ID ${organizationId}.`);
+  if (!organization && targetOrgId) {
+    // Try to fetch the organization if we have an orgId but no organization object
+    try {
+      const Organization = Parse.Object.extend('Organization');
+      const query = new Parse.Query(Organization);
+      const fetchedOrg = await query.get(targetOrgId, { useMasterKey: true });
+      if (fetchedOrg) {
+        // Update the request object with the fetched organization
+        request.organization = fetchedOrg;
+        request.organizationId = targetOrgId;
+      } else {
+        logger.warn(`getOrgUsers: Organization not found for ID ${targetOrgId}.`);
+        throw new Parse.Error(Parse.Error.OBJECT_NOT_FOUND, 'Organization not found.');
+      }
+    } catch (error) {
+      logger.warn(`getOrgUsers: Error fetching organization for ID ${targetOrgId}: ${error.message}`);
+      throw new Parse.Error(Parse.Error.OBJECT_NOT_FOUND, 'Organization not found.');
+    }
+  } else if (!organization) {
+    logger.warn(`getOrgUsers: No organization context available.`);
     throw new Parse.Error(Parse.Error.OBJECT_NOT_FOUND, 'Organization not found.');
   }
 
   try {
+    // Use the organization from request (either from middleware or manually fetched)
+    const targetOrganization = request.organization;
+    
     const OrgRole = Parse.Object.extend('OrgRole');
     const roleQuery = new Parse.Query(OrgRole);
-    roleQuery.equalTo('organization', organization);
+    roleQuery.equalTo('organization', targetOrganization);
     roleQuery.equalTo('isActive', true);
     roleQuery.include('user'); // Important: Include the full User object
     roleQuery.descending('createdAt');
 
-    logger.debug(`getOrgUsers: Querying OrgRole for organization ${organization.id}`);
+    logger.debug(`getOrgUsers: Querying OrgRole for organization ${targetOrganization.id}`);
     const orgRoles = await roleQuery.find({ useMasterKey: true });
     logger.debug(`getOrgUsers: Found ${orgRoles.length} OrgRole entries.`);
 
@@ -86,5 +109,64 @@ Parse.Cloud.define('getOrgUsers', withOrganizationContext(async (request) => {
   } catch (error) {
     logger.error(`Error in getOrgUsers cloud function for org ${organizationId}: ${error.message}`, error);
     throw new Parse.Error(Parse.Error.INTERNAL_SERVER_ERROR, `Failed to retrieve organization users: ${error.message}`);
+  }
+}));
+
+Parse.Cloud.define('getUserCount', withOrganizationContext(async (request) => {
+  const { user, organization, organizationId, params } = request;
+  // Handle both organizationId from middleware and orgId from params
+  const targetOrgId = organizationId || params.organizationId;
+
+  logger.info(`getUserCount called by user ${user.id} for organization ${targetOrgId}`);
+
+  if (!user) {
+    logger.warn('getUserCount: User not authenticated.');
+    throw new Parse.Error(Parse.Error.SESSION_MISSING, 'User must be authenticated.');
+  }
+
+  if (!organization && targetOrgId) {
+    // Try to fetch the organization if we have an orgId but no organization object
+    try {
+      const Organization = Parse.Object.extend('Organization');
+      const query = new Parse.Query(Organization);
+      const fetchedOrg = await query.get(targetOrgId, { useMasterKey: true });
+      if (fetchedOrg) {
+        // Update the request object with the fetched organization
+        request.organization = fetchedOrg;
+        request.organizationId = targetOrgId;
+      } else {
+        logger.warn(`getUserCount: Organization not found for ID ${targetOrgId}.`);
+        throw new Parse.Error(Parse.Error.OBJECT_NOT_FOUND, 'Organization not found.');
+      }
+    } catch (error) {
+      logger.warn(`getUserCount: Error fetching organization for ID ${targetOrgId}: ${error.message}`);
+      throw new Parse.Error(Parse.Error.OBJECT_NOT_FOUND, 'Organization not found.');
+    }
+  } else if (!organization) {
+    logger.warn(`getUserCount: No organization context available.`);
+    throw new Parse.Error(Parse.Error.OBJECT_NOT_FOUND, 'Organization not found.');
+  }
+
+  try {
+    // Use the organization from request (either from middleware or manually fetched)
+    const targetOrganization = request.organization;
+    
+    const OrgRole = Parse.Object.extend('OrgRole');
+    const roleQuery = new Parse.Query(OrgRole);
+    roleQuery.equalTo('organization', targetOrganization);
+    roleQuery.equalTo('isActive', true);
+
+    logger.debug(`getUserCount: Counting OrgRole entries for organization ${targetOrganization.id}`);
+    const count = await roleQuery.count({ useMasterKey: true });
+    logger.info(`getUserCount: Retrieved count ${count} for organization ${targetOrganization.id}`);
+
+    return {
+      success: true,
+      count: count
+    };
+
+  } catch (error) {
+    logger.error(`Error in getUserCount cloud function for org ${organizationId}: ${error.message}`, error);
+    throw new Parse.Error(Parse.Error.INTERNAL_SERVER_ERROR, `Failed to retrieve user count: ${error.message}`);
   }
 }));

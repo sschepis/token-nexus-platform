@@ -1,5 +1,5 @@
 import { ActionDefinition, ActionContext, ActionResult } from '../../types/ActionTypes';
-import { Route, RouteHandler } from '../../../types/routes.d';
+import { Route, RouteHandler } from '../../../types/routes';
 import { fetchRoutesAction } from '../management/fetchRoutes';
 
 export const searchRoutesAction: ActionDefinition = {
@@ -7,7 +7,7 @@ export const searchRoutesAction: ActionDefinition = {
   name: 'Search Routes',
   description: 'Search routes by path, method, or type',
   category: 'data',
-  permissions: ['routes:read'],
+  permissions: ['org_admin', 'system:admin', 'developer', 'viewer'],
   parameters: [
     {
       name: 'query',

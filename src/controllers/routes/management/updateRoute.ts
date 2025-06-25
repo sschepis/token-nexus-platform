@@ -1,5 +1,5 @@
 import { ActionDefinition, ActionContext, ActionResult } from '../../types/ActionTypes';
-import { Route } from '../../../types/routes.d';
+import { Route } from '../../../types/routes';
 
 export const updateRouteAction: ActionDefinition = {
   id: 'updateRoute',

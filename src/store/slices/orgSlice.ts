@@ -313,13 +313,13 @@ export const fetchUserOrganizations = createAsyncThunk(
 
       const userDetailsResponse: any = await callCloudFunction('getUserDetails', { userId: currentUserId });
       
-      if (!userDetailsResponse || !userDetailsResponse.success || !userDetailsResponse.data || !userDetailsResponse.data.organizations) {
+      if (!userDetailsResponse || !userDetailsResponse.success || !userDetailsResponse.organizations) {
         console.warn('getUserDetails did not return expected organizations array:', userDetailsResponse);
         return { organizations: [] as Organization[], currentOrganization: null };
       }
       
-      const organizations = userDetailsResponse.data.organizations.map((orgJson: any) => serializeOrganization(orgJson));
-      const currentOrganization = userDetailsResponse.data.currentOrganization ? serializeOrganization(userDetailsResponse.data.currentOrganization) : null;
+      const organizations = userDetailsResponse.organizations.map((orgJson: any) => serializeOrganization(orgJson));
+      const currentOrganization = userDetailsResponse.currentOrganization ? serializeOrganization(userDetailsResponse.currentOrganization) : null;
       
       return { organizations, currentOrganization };
     } catch (error: any) {

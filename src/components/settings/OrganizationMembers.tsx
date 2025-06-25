@@ -23,7 +23,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
-import Parse from 'parse';
+import { settingsApi } from '@/services/api/settings';
 import { 
   Users, 
   Plus, 
@@ -74,16 +74,14 @@ const OrganizationMembers = () => {
 
     setLoading(true);
     try {
-      const result = await Parse.Cloud.run('getOrganizationMembers', {
-        organizationId: currentOrg.id,
-        page,
-        limit: 10
-      });
+      const response = await settingsApi.getOrganizationMembers(currentOrg.id);
 
-      if (result.success) {
-        setMembers(result.members);
-        setTotalPages(result.totalPages);
+      if (response.success) {
+        setMembers(response.data);
+        setTotalPages(Math.ceil(response.data.length / 10)); // Simple pagination for now
         setCurrentPage(page);
+      } else {
+        throw new Error(response.error || 'Failed to fetch members');
       }
     } catch (error) {
       console.error('Error fetching members:', error);
@@ -102,18 +100,19 @@ const OrganizationMembers = () => {
 
     setInviting(true);
     try {
-      const result = await Parse.Cloud.run('inviteUserToOrganization', {
-        organizationId: currentOrg.id,
+      const response = await settingsApi.inviteUserToOrganization(currentOrg.id, {
         email: inviteEmail,
         role: inviteRole
       });
 
-      if (result.success) {
-        toast.success(result.message);
+      if (response.success) {
+        toast.success(response.data.message || 'User invited successfully');
         setShowInviteDialog(false);
         setInviteEmail('');
         setInviteRole('member');
         fetchMembers(currentPage);
+      } else {
+        throw new Error(response.error || 'Failed to invite user');
       }
     } catch (error) {
       console.error('Error inviting user:', error);
@@ -128,15 +127,16 @@ const OrganizationMembers = () => {
 
     setProcessingMemberId(memberId);
     try {
-      const result = await Parse.Cloud.run('updateOrganizationMemberRole', {
-        organizationId: currentOrg.id,
+      const response = await settingsApi.updateOrganizationMemberRole(currentOrg.id, {
         userId,
-        newRole
+        role: newRole
       });
 
-      if (result.success) {
-        toast.success(result.message);
+      if (response.success) {
+        toast.success(response.data.message || 'Member role updated successfully');
         fetchMembers(currentPage);
+      } else {
+        throw new Error(response.error || 'Failed to update member role');
       }
     } catch (error) {
       console.error('Error updating role:', error);
@@ -155,14 +155,13 @@ const OrganizationMembers = () => {
 
     setProcessingMemberId(memberId);
     try {
-      const result = await Parse.Cloud.run('removeOrganizationMember', {
-        organizationId: currentOrg.id,
-        userId
-      });
+      const response = await settingsApi.removeOrganizationMember(currentOrg.id, userId);
 
-      if (result.success) {
-        toast.success(result.message);
+      if (response.success) {
+        toast.success(response.data.message || 'Member removed successfully');
         fetchMembers(currentPage);
+      } else {
+        throw new Error(response.error || 'Failed to remove member');
       }
     } catch (error) {
       console.error('Error removing member:', error);

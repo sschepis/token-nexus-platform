@@ -20,8 +20,8 @@ import {
   XCircle
 } from 'lucide-react';
 import { useAppSelector } from '../../store/hooks';
-import Parse from 'parse';
 import { toast } from 'sonner';
+import appFrameworkApi from '../../services/api/appFramework';
 
 interface AppFrameworkStatus {
   schemas: {
@@ -123,20 +123,22 @@ export const AppFrameworkManager: React.FC = () => {
       setLoading(true);
       
       // Load framework status
-      const statusResult = await Parse.Cloud.run('getAppFrameworkStatus');
-      setStatus(statusResult.status);
+      const statusResponse = await appFrameworkApi.getAppFrameworkStatus();
+      if (statusResponse.success) {
+        setStatus(statusResponse.data.status);
+      }
 
       // Load components for current organization
       if (currentOrg?.id) {
-        const [jobsResult, triggersResult, apisResult] = await Promise.all([
-          Parse.Cloud.run('getAppScheduledJobs', { organizationId: currentOrg.id }),
-          Parse.Cloud.run('getAppTriggers', { organizationId: currentOrg.id }),
-          Parse.Cloud.run('getAppAPIs', { organizationId: currentOrg.id })
+        const [jobsResponse, triggersResponse, apisResponse] = await Promise.all([
+          appFrameworkApi.getAppScheduledJobs({ organizationId: currentOrg.id }),
+          appFrameworkApi.getAppTriggers({ organizationId: currentOrg.id }),
+          appFrameworkApi.getAppAPIs({ organizationId: currentOrg.id })
         ]);
 
-        setScheduledJobs(jobsResult.jobs || []);
-        setTriggers(triggersResult.triggers || []);
-        setApis(apisResult.apis || []);
+        setScheduledJobs(jobsResponse.success ? jobsResponse.data : []);
+        setTriggers(triggersResponse.success ? triggersResponse.data : []);
+        setApis(apisResponse.success ? apisResponse.data : []);
       }
     } catch (error) {
       console.error('Failed to load framework status:', error);
@@ -149,13 +151,18 @@ export const AppFrameworkManager: React.FC = () => {
   const initializeFramework = async () => {
     try {
       setLoading(true);
-      const result = await Parse.Cloud.run('initializeAppFramework');
+      const response = await appFrameworkApi.initializeAppFramework();
       
-      if (result.success) {
-        toast.success('App framework initialized successfully');
-        await loadFrameworkStatus();
+      if (response.success) {
+        const result = response.data;
+        if (result.success) {
+          toast.success('App framework initialized successfully');
+          await loadFrameworkStatus();
+        } else {
+          toast.error(`Initialization completed with ${result.results?.errors?.length || 0} errors`);
+        }
       } else {
-        toast.error(`Initialization completed with ${result.results.errors.length} errors`);
+        toast.error(response.error || 'Failed to initialize app framework');
       }
     } catch (error) {
       console.error('Framework initialization failed:', error);
@@ -167,9 +174,14 @@ export const AppFrameworkManager: React.FC = () => {
 
   const toggleScheduledJob = async (jobId: string, enabled: boolean) => {
     try {
-      await Parse.Cloud.run('toggleAppScheduledJob', { jobObjectId: jobId, enabled });
-      toast.success(`Job ${enabled ? 'enabled' : 'disabled'} successfully`);
-      await loadFrameworkStatus();
+      const response = await appFrameworkApi.toggleAppScheduledJob({ jobObjectId: jobId, enabled });
+      
+      if (response.success) {
+        toast.success(`Job ${enabled ? 'enabled' : 'disabled'} successfully`);
+        await loadFrameworkStatus();
+      } else {
+        toast.error(response.error || 'Failed to update job status');
+      }
     } catch (error) {
       console.error('Failed to toggle job:', error);
       toast.error('Failed to update job status');
@@ -178,9 +190,14 @@ export const AppFrameworkManager: React.FC = () => {
 
   const toggleTrigger = async (triggerId: string, enabled: boolean) => {
     try {
-      await Parse.Cloud.run('toggleAppTrigger', { triggerObjectId: triggerId, enabled });
-      toast.success(`Trigger ${enabled ? 'enabled' : 'disabled'} successfully`);
-      await loadFrameworkStatus();
+      const response = await appFrameworkApi.toggleAppTrigger({ triggerObjectId: triggerId, enabled });
+      
+      if (response.success) {
+        toast.success(`Trigger ${enabled ? 'enabled' : 'disabled'} successfully`);
+        await loadFrameworkStatus();
+      } else {
+        toast.error(response.error || 'Failed to update trigger status');
+      }
     } catch (error) {
       console.error('Failed to toggle trigger:', error);
       toast.error('Failed to update trigger status');
@@ -189,9 +206,14 @@ export const AppFrameworkManager: React.FC = () => {
 
   const toggleAPI = async (apiId: string, enabled: boolean) => {
     try {
-      await Parse.Cloud.run('toggleAppAPI', { apiObjectId: apiId, enabled });
-      toast.success(`API ${enabled ? 'enabled' : 'disabled'} successfully`);
-      await loadFrameworkStatus();
+      const response = await appFrameworkApi.toggleAppAPI({ apiObjectId: apiId, enabled });
+      
+      if (response.success) {
+        toast.success(`API ${enabled ? 'enabled' : 'disabled'} successfully`);
+        await loadFrameworkStatus();
+      } else {
+        toast.error(response.error || 'Failed to update API status');
+      }
     } catch (error) {
       console.error('Failed to toggle API:', error);
       toast.error('Failed to update API status');
@@ -200,9 +222,14 @@ export const AppFrameworkManager: React.FC = () => {
 
   const executeJob = async (jobId: string) => {
     try {
-      await Parse.Cloud.run('executeAppScheduledJob', { jobObjectId: jobId });
-      toast.success('Job executed successfully');
-      await loadFrameworkStatus();
+      const response = await appFrameworkApi.executeAppScheduledJob({ jobObjectId: jobId });
+      
+      if (response.success) {
+        toast.success('Job executed successfully');
+        await loadFrameworkStatus();
+      } else {
+        toast.error(response.error || 'Failed to execute job');
+      }
     } catch (error) {
       console.error('Failed to execute job:', error);
       toast.error('Failed to execute job');

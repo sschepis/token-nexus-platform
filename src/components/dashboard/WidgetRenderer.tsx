@@ -37,8 +37,17 @@ export const WidgetRenderer: React.FC<WidgetRendererProps> = ({ widget, isEditin
         return <ChartWidget id={widget.id} config={widget.config} />;
       case 'installedApps':
         return <InstalledAppsWidget />;
+      case 'metric':
+        // Handle legacy 'metric' widget type by mapping to userMetrics
+        return <UserMetricsWidget id={widget.id} config={widget.config} />;
       default:
-        return <div>Unknown widget type: {widget.type}</div>;
+        console.warn(`Unknown widget type: ${widget.type}. Available types: tokenStats, recentTokens, userMetrics, activityFeed, quickActions, chartWidget, installedApps, metric`);
+        return (
+          <div className="p-4 text-center text-muted-foreground">
+            <p>Unknown widget type: <code>{widget.type}</code></p>
+            <p className="text-xs mt-2">This widget type is not supported. Please remove it and add a supported widget.</p>
+          </div>
+        );
     }
   };
 

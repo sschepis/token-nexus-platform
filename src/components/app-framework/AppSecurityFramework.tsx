@@ -23,8 +23,8 @@ import {
   EyeOff
 } from 'lucide-react';
 import { useAppSelector } from '../../store/hooks';
-import Parse from 'parse';
 import { toast } from 'sonner';
+import { securityApiWithMocks } from '../../services/api/security';
 
 interface Permission {
   id: string;
@@ -114,20 +114,22 @@ export const AppSecurityFramework: React.FC = () => {
   }, [currentOrg]);
 
   const loadSecurityData = async () => {
+    if (!currentOrg?.id) return;
+    
     try {
       setLoading(true);
       
       const [permissionsResult, rolesResult, policiesResult, contextsResult] = await Promise.all([
-        Parse.Cloud.run('getAppPermissions', { organizationId: currentOrg?.id }),
-        Parse.Cloud.run('getAppRoles', { organizationId: currentOrg?.id }),
-        Parse.Cloud.run('getSecurityPolicies', { organizationId: currentOrg?.id }),
-        Parse.Cloud.run('getAppSecurityContexts', { organizationId: currentOrg?.id })
+        securityApiWithMocks.getAppPermissions({ organizationId: currentOrg.id }),
+        securityApiWithMocks.getAppRoles({ organizationId: currentOrg.id }),
+        securityApiWithMocks.getSecurityPolicies({ organizationId: currentOrg.id }),
+        securityApiWithMocks.getAppSecurityContexts({ organizationId: currentOrg.id })
       ]);
 
-      setPermissions(permissionsResult.permissions || []);
-      setRoles(rolesResult.roles || []);
-      setPolicies(policiesResult.policies || []);
-      setAppContexts(contextsResult.contexts || []);
+      setPermissions(permissionsResult.success ? permissionsResult.data : []);
+      setRoles(rolesResult.success ? rolesResult.data : []);
+      setPolicies(policiesResult.success ? policiesResult.data : []);
+      setAppContexts(contextsResult.success ? contextsResult.data : []);
     } catch (error) {
       console.error('Failed to load security data:', error);
       toast.error('Failed to load security framework data');
@@ -137,16 +139,22 @@ export const AppSecurityFramework: React.FC = () => {
   };
 
   const createPermission = async () => {
+    if (!currentOrg?.id) return;
+    
     try {
-      await Parse.Cloud.run('createAppPermission', {
-        organizationId: currentOrg?.id,
+      const response = await securityApiWithMocks.createAppPermission({
+        organizationId: currentOrg.id,
         ...newPermission
       });
       
-      toast.success('Permission created successfully');
-      setNewPermission({ name: '', description: '', category: 'app' });
-      setShowCreateForm(false);
-      await loadSecurityData();
+      if (response.success) {
+        toast.success('Permission created successfully');
+        setNewPermission({ name: '', description: '', category: 'app' });
+        setShowCreateForm(false);
+        await loadSecurityData();
+      } else {
+        toast.error(response.error || 'Failed to create permission');
+      }
     } catch (error) {
       console.error('Failed to create permission:', error);
       toast.error('Failed to create permission');
@@ -154,16 +162,22 @@ export const AppSecurityFramework: React.FC = () => {
   };
 
   const createRole = async () => {
+    if (!currentOrg?.id) return;
+    
     try {
-      await Parse.Cloud.run('createAppRole', {
-        organizationId: currentOrg?.id,
+      const response = await securityApiWithMocks.createAppRole({
+        organizationId: currentOrg.id,
         ...newRole
       });
       
-      toast.success('Role created successfully');
-      setNewRole({ name: '', description: '', permissions: [] });
-      setShowCreateForm(false);
-      await loadSecurityData();
+      if (response.success) {
+        toast.success('Role created successfully');
+        setNewRole({ name: '', description: '', permissions: [] });
+        setShowCreateForm(false);
+        await loadSecurityData();
+      } else {
+        toast.error(response.error || 'Failed to create role');
+      }
     } catch (error) {
       console.error('Failed to create role:', error);
       toast.error('Failed to create role');
@@ -171,23 +185,29 @@ export const AppSecurityFramework: React.FC = () => {
   };
 
   const createPolicy = async () => {
+    if (!currentOrg?.id) return;
+    
     try {
-      await Parse.Cloud.run('createSecurityPolicy', {
-        organizationId: currentOrg?.id,
+      const response = await securityApiWithMocks.createSecurityPolicy({
+        organizationId: currentOrg.id,
         ...newPolicy
       });
       
-      toast.success('Security policy created successfully');
-      setNewPolicy({
-        name: '',
-        description: '',
-        type: 'app_isolation',
-        rules: {},
-        enabled: true,
-        priority: 100
-      });
-      setShowCreateForm(false);
-      await loadSecurityData();
+      if (response.success) {
+        toast.success('Security policy created successfully');
+        setNewPolicy({
+          name: '',
+          description: '',
+          type: 'app_isolation',
+          rules: {},
+          enabled: true,
+          priority: 100
+        });
+        setShowCreateForm(false);
+        await loadSecurityData();
+      } else {
+        toast.error(response.error || 'Failed to create security policy');
+      }
     } catch (error) {
       console.error('Failed to create policy:', error);
       toast.error('Failed to create security policy');
@@ -196,9 +216,14 @@ export const AppSecurityFramework: React.FC = () => {
 
   const togglePolicy = async (policyId: string, enabled: boolean) => {
     try {
-      await Parse.Cloud.run('toggleSecurityPolicy', { policyId, enabled });
-      toast.success(`Policy ${enabled ? 'enabled' : 'disabled'} successfully`);
-      await loadSecurityData();
+      const response = await securityApiWithMocks.toggleSecurityPolicy({ policyId, enabled });
+      
+      if (response.success) {
+        toast.success(`Policy ${enabled ? 'enabled' : 'disabled'} successfully`);
+        await loadSecurityData();
+      } else {
+        toast.error(response.error || 'Failed to update policy status');
+      }
     } catch (error) {
       console.error('Failed to toggle policy:', error);
       toast.error('Failed to update policy status');
@@ -207,9 +232,31 @@ export const AppSecurityFramework: React.FC = () => {
 
   const deleteItem = async (type: string, id: string) => {
     try {
-      await Parse.Cloud.run(`delete${type}`, { id });
-      toast.success(`${type} deleted successfully`);
-      await loadSecurityData();
+      let response;
+      
+      switch (type) {
+        case 'Permission':
+          response = await securityApiWithMocks.deletePermission({ id });
+          break;
+        case 'Role':
+          response = await securityApiWithMocks.deleteRole({ id });
+          break;
+        case 'SecurityPolicy':
+          response = await securityApiWithMocks.deleteSecurityPolicy({ id });
+          break;
+        case 'SecurityContext':
+          response = await securityApiWithMocks.deleteSecurityContext({ id });
+          break;
+        default:
+          throw new Error(`Unknown type: ${type}`);
+      }
+      
+      if (response.success) {
+        toast.success(`${type} deleted successfully`);
+        await loadSecurityData();
+      } else {
+        toast.error(response.error || `Failed to delete ${type}`);
+      }
     } catch (error) {
       console.error(`Failed to delete ${type}:`, error);
       toast.error(`Failed to delete ${type}`);
@@ -218,12 +265,17 @@ export const AppSecurityFramework: React.FC = () => {
 
   const validateAppSecurity = async (appId: string) => {
     try {
-      const result = await Parse.Cloud.run('validateAppSecurity', { appId });
+      const response = await securityApiWithMocks.validateAppSecurity({ appId });
       
-      if (result.valid) {
-        toast.success('App security validation passed');
+      if (response.success) {
+        const result = response.data;
+        if (result.valid) {
+          toast.success('App security validation passed');
+        } else {
+          toast.error(`Security validation failed: ${result.issues.join(', ')}`);
+        }
       } else {
-        toast.error(`Security validation failed: ${result.issues.join(', ')}`);
+        toast.error(response.error || 'Failed to validate app security');
       }
     } catch (error) {
       console.error('Failed to validate app security:', error);

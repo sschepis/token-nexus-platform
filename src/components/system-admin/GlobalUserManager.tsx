@@ -8,8 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
-import Parse from 'parse';
 import { callCloudFunction } from '@/utils/apiUtils';
+import usersApi from '@/services/api/users';
 import { useAppSelector } from '@/store/hooks';
 import { useOrganizationContext } from '@/hooks/useOrganizationContext';
 import { isParseReady } from '@/utils/parseUtils';
@@ -227,9 +227,9 @@ export function GlobalUserManager() {
   const handleCreateUser = async () => {
     setIsProcessing(true);
     try {
-      const result = await Parse.Cloud.run('createUserByAdmin', createFormData);
-      if (result.success) {
-        toast.success(result.message);
+      const response = await usersApi.createUserByAdmin(createFormData);
+      if (response.success && response.data.success) {
+        toast.success(response.data.message);
         setIsCreateOpen(false);
         setCreateFormData({
           email: '',
@@ -242,6 +242,8 @@ export function GlobalUserManager() {
         });
         fetchUsers();
         fetchStats();
+      } else {
+        toast.error(response.error || 'Failed to create user');
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to create user');
@@ -255,14 +257,16 @@ export function GlobalUserManager() {
     
     setIsProcessing(true);
     try {
-      const result = await Parse.Cloud.run('updateUserByAdmin', {
+      const response = await usersApi.updateUserByAdmin({
         userId: selectedUser.id,
-        updates: editFormData
+        ...editFormData
       });
-      if (result.success) {
-        toast.success(result.message);
+      if (response.success && response.data.success) {
+        toast.success(response.data.message);
         setIsEditOpen(false);
         fetchUsers();
+      } else {
+        toast.error(response.error || 'Failed to update user');
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to update user');
@@ -276,16 +280,17 @@ export function GlobalUserManager() {
     
     setIsProcessing(true);
     try {
-      const result = await Parse.Cloud.run('resetUserPasswordByAdmin', {
+      const response = await usersApi.resetUserPasswordByAdmin({
         userId: selectedUser.id,
-        newPassword: tempPassword,
-        requireReset: requirePasswordReset
+        newPassword: tempPassword
       });
-      if (result.success) {
-        toast.success(result.message);
+      if (response.success && response.data.success) {
+        toast.success(response.data.message);
         setIsPasswordResetOpen(false);
         setTempPassword('');
         setRequirePasswordReset(true);
+      } else {
+        toast.error(response.error || 'Failed to reset password');
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to reset password');
@@ -302,15 +307,16 @@ export function GlobalUserManager() {
 
     setIsProcessing(true);
     try {
-      const result = await Parse.Cloud.run('toggleUserStatus', {
+      const response = await usersApi.toggleUserStatus({
         userId: user.id,
-        isActive: !newStatus,
-        reason: `${action}d by system administrator`
+        isInactive: newStatus
       });
-      if (result.success) {
-        toast.success(result.message);
+      if (response.success && response.data.success) {
+        toast.success(response.data.message);
         fetchUsers();
         fetchStats();
+      } else {
+        toast.error(response.error || `Failed to ${action} user`);
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : `Failed to ${action} user`);
@@ -320,7 +326,7 @@ export function GlobalUserManager() {
   };
 
   const handleDeleteUser = async (user: GlobalUser, hardDelete = false) => {
-    const confirmMsg = hardDelete 
+    const confirmMsg = hardDelete
       ? 'Are you sure you want to permanently delete this user? This action cannot be undone.'
       : 'Are you sure you want to delete this user?';
     
@@ -328,14 +334,15 @@ export function GlobalUserManager() {
 
     setIsProcessing(true);
     try {
-      const result = await Parse.Cloud.run('deleteUserByAdmin', {
-        userId: user.id,
-        hardDelete
+      const response = await usersApi.deleteUserByAdmin({
+        userId: user.id
       });
-      if (result.success) {
-        toast.success(result.message);
+      if (response.success && response.data.success) {
+        toast.success(response.data.message);
         fetchUsers();
         fetchStats();
+      } else {
+        toast.error(response.error || 'Failed to delete user');
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to delete user');
@@ -349,15 +356,17 @@ export function GlobalUserManager() {
 
     setIsProcessing(true);
     try {
-      const result = await Parse.Cloud.run('impersonateUser', {
+      const response = await usersApi.impersonateUser({
         userId: user.id
       });
-      if (result.success) {
+      if (response.success && response.data.success) {
         toast.success('Impersonation session created. Opening in new window...');
         
         // Open new window with impersonation session
-        const impersonateUrl = `${window.location.origin}/impersonate?token=${result.sessionToken}&userId=${result.userId}`;
+        const impersonateUrl = `${window.location.origin}/impersonate?token=${response.data.sessionToken}&userId=${user.id}`;
         window.open(impersonateUrl, '_blank');
+      } else {
+        toast.error(response.error || 'Failed to impersonate user');
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to impersonate user');

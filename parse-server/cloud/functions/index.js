@@ -32,6 +32,9 @@ require('./ai/aiAssistantSettings');
 // require('./ai/aiFunctions'); // Commented out as file not found
 require('./ai/scheduledTasks');
 
+// MCP Servers
+require('./mcp-servers');
+
 
 // Blockchain & Contracts
 require('./blockchain/blockchain');
@@ -42,6 +45,7 @@ require('./blockchain/contractDeployment');
 
 // Schema & Artifacts
 require('./schema/schemas');
+require('./schema/reportsIntegrationsSchemas');
 require('./artifacts/artifacts');
 require('./object-management/objectManager');
 
@@ -61,6 +65,7 @@ require('./cms/marketingCMS');
 require('./cms/pageBuilder');
 require('./cms/pageManagement');
 require('./cms/component');
+require('./page-builder');
 
 // Global Management
 // require('./global/globalOrgManagement'); // DISABLED - causes createOrganization duplicate
@@ -76,6 +81,8 @@ require('./configuration/platformConfig');
 require('./environment'); // Environment related functions
 require('./security/errorTracking');
 require('./analytics/getSystemAnalytics');
+require('./analytics/systemAdminMetrics');
+require('./analytics/systemAdminActivity');
 require('./bootstrap/initialization');
 require('./testing/visualTesting');
 require('./testing/visualTestingApi');
@@ -97,6 +104,9 @@ require('./triggers');
 require('./webhooks');
 require('./tokens');
 require('./oauth');
+
+// Theme Management Functions
+require('./theme/themeManagement');
 
 // No module.exports needed here.
 // The require() statements are enough to define the Parse.Cloud.defines globally.

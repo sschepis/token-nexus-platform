@@ -1,5 +1,6 @@
 
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import Parse from 'parse';
 
 export interface User {
   id: string;
@@ -22,27 +23,12 @@ export interface AuthState {
   developerMode: boolean;
 }
 
-// Including system:admin in the initial permissions
+// Clean initial state - permissions will be populated by session restoration
 const initialState: AuthState = {
   user: null,
   token: null,
   orgId: null,
-  permissions: [
-    "dashboard:read",
-    "objects:read",
-    "tokens:read",
-    "users:read",
-    "integrations:read",
-    "reports:read",
-    "audit:read",
-    "notifications:read",
-    "settings:read",
-    "system:admin",
-    "apps:read",
-    "apps:manage",
-    "apps:install",
-    "apps:configure"
-  ],
+  permissions: [], // Empty - will be populated by session restoration
   isAuthenticated: false,
   isLoading: false,
   error: null,
@@ -83,9 +69,29 @@ export const authSlice = createSlice({
       state.developerMode = false;
       state.error = null;
       state.isLoading = false;
+      
+      // Clear Parse session to prevent token mismatch
+      try {
+        if (typeof window !== 'undefined' && Parse?.User?.logOut) {
+          Parse.User.logOut().catch((error: any) => {
+            console.debug('[Auth] Parse logout error (non-critical):', error);
+          });
+        }
+      } catch (error) {
+        console.debug('[Auth] Parse logout error (non-critical):', error);
+      }
     },
     updatePermissions: (state, action: PayloadAction<string[]>) => {
       state.permissions = action.payload;
+      console.log('[Auth] Permissions updated:', action.payload);
+    },
+    refreshPermissions: (state, action: PayloadAction<{ permissions: string[]; orgId: string | null }>) => {
+      state.permissions = action.payload.permissions;
+      state.orgId = action.payload.orgId;
+      if (state.user) {
+        state.user.organizationId = action.payload.orgId;
+      }
+      console.log('[Auth] Permissions and organization refreshed:', action.payload);
     },
     switchOrg: (state, action: PayloadAction<string>) => {
       state.orgId = action.payload;
@@ -99,14 +105,15 @@ export const authSlice = createSlice({
   },
 });
 
-export const { 
-  loginStart, 
-  loginSuccess, 
-  loginFailed, 
-  logout, 
-  updatePermissions, 
+export const {
+  loginStart,
+  loginSuccess,
+  loginFailed,
+  logout,
+  updatePermissions,
+  refreshPermissions,
   switchOrg,
-  toggleDeveloperMode 
+  toggleDeveloperMode
 } = authSlice.actions;
 
 export default authSlice.reducer;

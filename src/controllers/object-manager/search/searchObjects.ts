@@ -1,5 +1,5 @@
 import { ActionDefinition, ActionContext, ActionResult } from '../../types/ActionTypes';
-import { objectManagerService } from '@/services/objectManagerService';
+import { objectManagerApi } from '@/services/api';
 
 export const searchObjectsAction: ActionDefinition = {
   id: 'searchObjects',
@@ -43,12 +43,19 @@ export const searchObjectsAction: ActionDefinition = {
         };
       }
 
-      const filteredObjects = await objectManagerService.fetchObjects(orgId, {
+      const response = await objectManagerApi.fetchObjects({
+        orgId,
         searchTerm: searchTerm as string,
         includeInactive: false,
         objectType: undefined,
         includeRecordCount: true,
       });
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to search objects');
+      }
+
+      const filteredObjects = response.data || [];
 
       return {
         success: true,

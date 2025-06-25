@@ -269,15 +269,24 @@ Parse.Cloud.define('aiAssistantQuery', withOrganizationContext(async request => 
   }
 
   try {
-    if (!organization) {
-      throw new Error('User must be associated with an organization');
-    }
+    // Check if user is system admin
+    const isSystemAdmin = user.get('isAdmin') === true || user.get('isSystemAdmin') === true;
+    
+    let config;
+    if (isSystemAdmin && !organization) {
+      // For system admins without organization context, use default AI config
+      config = { ai: { enabled: true } };
+    } else {
+      if (!organization) {
+        throw new Error('User must be associated with an organization');
+      }
+      
+      // Get AI service (already imported as AIService)
+      config = await configService.getOrganizationConfig(organization.id);
 
-    // Get AI service (already imported as AIService)
-    const config = await configService.getOrganizationConfig(organization.id);
-
-    if (!config.ai?.enabled) {
-      throw new Error('AI features are not enabled for this organization');
+      if (!config.ai?.enabled) {
+        throw new Error('AI features are not enabled for this organization');
+      }
     }
 
     const messages = [
@@ -288,15 +297,16 @@ Parse.Cloud.define('aiAssistantQuery', withOrganizationContext(async request => 
     ];
 
     // Process the message through AI service
+    const safeOrganizationId = organization?.id || organizationId || 'system';
     const aiResponse = await AIService.processMessage(
       config.ai?.provider || 'deepseek', // Use configured provider or default
       messages,
       {
         conversationId: conversationId,
-        organizationId: organization.id, // Pass organizationId explicitly
+        organizationId: safeOrganizationId, // Pass organizationId explicitly
         user: user // Pass user for logging if needed
       },
-      organization.id // Pass organizationId to processMessage
+      safeOrganizationId // Pass organizationId to processMessage
     );
 
     return {
@@ -840,8 +850,777 @@ class PermissionService {
   }
 }
 
+// AI Conversation Management Cloud Functions
+// These functions support the AI Assistant page controller actions
+
+/**
+ * Fetch AI conversations for the current user's organization
+ */
+Parse.Cloud.define('fetchAIConversations', withOrganizationContext(async (request) => {
+  const { user, organization, organizationId } = request;
+  const { limit = 20, skip = 0, status } = request.params;
+
+  if (!user) {
+    throw new Error('User must be authenticated');
+  }
+
+  // Check if user is system admin
+  const isSystemAdmin = user.get('isAdmin') === true || user.get('isSystemAdmin') === true;
+  
+  if (!organization && !isSystemAdmin) {
+    throw new Error('User must be associated with an organization');
+  }
+
+  // For system admins without organization context, use the provided organizationId
+  let targetOrganization = organization;
+  let targetOrganizationId = organizationId;
+  
+  if (isSystemAdmin && !organization && request.params.organizationId) {
+    const Organization = Parse.Object.extend('Organization');
+    const query = new Parse.Query(Organization);
+    targetOrganization = await query.get(request.params.organizationId, { useMasterKey: true });
+    targetOrganizationId = request.params.organizationId;
+  }
+
+  if (!targetOrganization && !isSystemAdmin) {
+    throw new Error('Organization context is required');
+  }
+
+  try {
+    const AIConversation = Parse.Object.extend('AIConversation');
+    const query = new Parse.Query(AIConversation);
+    
+    // Filter by organization (use target organization for system admins)
+    if (targetOrganization) {
+      query.equalTo('organization', targetOrganization);
+    } else if (isSystemAdmin) {
+      // System admin can see all conversations if no specific org
+      // No organization filter applied
+    }
+    
+    // Filter by status if provided
+    if (status) {
+      query.equalTo('status', status);
+    }
+    
+    // Order by most recent first
+    query.descending('updatedAt');
+    query.limit(limit);
+    query.skip(skip);
+    
+    // Include user information
+    query.include('user');
+    
+    const conversations = await query.find({ useMasterKey: true });
+    
+    return {
+      success: true,
+      conversations: conversations.map(conv => ({
+        id: conv.id,
+        title: conv.get('title'),
+        status: conv.get('status'),
+        messageCount: conv.get('messageCount') || 0,
+        createdAt: conv.get('createdAt'),
+        updatedAt: conv.get('updatedAt'),
+        user: {
+          id: conv.get('user').id,
+          firstName: conv.get('user').get('firstName'),
+          lastName: conv.get('user').get('lastName'),
+          email: conv.get('user').get('email')
+        }
+      }))
+    };
+  } catch (error) {
+    console.error('Error fetching AI conversations:', error);
+    throw new Parse.Error(Parse.Error.INTERNAL_SERVER_ERROR, 'Failed to fetch conversations');
+  }
+}));
+
+/**
+ * Create a new AI conversation
+ */
+Parse.Cloud.define('createAIConversation', withOrganizationContext(async (request) => {
+  const { user, organization, organizationId } = request;
+  const { title, initialMessage } = request.params;
+
+  if (!user) {
+    throw new Error('User must be authenticated');
+  }
+
+  // Check if user is system admin
+  const isSystemAdmin = user.get('isAdmin') === true || user.get('isSystemAdmin') === true;
+  
+  if (!organization && !isSystemAdmin) {
+    throw new Error('User must be associated with an organization');
+  }
+
+  // For system admins without organization context, use the provided organizationId
+  let targetOrganization = organization;
+  if (isSystemAdmin && !organization && request.params.organizationId) {
+    const Organization = Parse.Object.extend('Organization');
+    const query = new Parse.Query(Organization);
+    targetOrganization = await query.get(request.params.organizationId, { useMasterKey: true });
+  }
+
+  if (!targetOrganization && !isSystemAdmin) {
+    throw new Error('Organization context is required');
+  }
+
+  if (!title) {
+    throw new Error('Conversation title is required');
+  }
+
+  try {
+    const AIConversation = Parse.Object.extend('AIConversation');
+    const conversation = new AIConversation();
+    
+    conversation.set('title', title);
+    conversation.set('status', 'active');
+    conversation.set('messageCount', 0);
+    if (targetOrganization) {
+      conversation.set('organization', targetOrganization);
+    }
+    conversation.set('user', user);
+    
+    const savedConversation = await conversation.save(null, { useMasterKey: true });
+    
+    // If there's an initial message, create it
+    if (initialMessage) {
+      await Parse.Cloud.run('sendAIMessage', {
+        conversationId: savedConversation.id,
+        content: initialMessage,
+        role: 'user'
+      });
+    }
+    
+    return {
+      success: true,
+      conversation: {
+        id: savedConversation.id,
+        title: savedConversation.get('title'),
+        status: savedConversation.get('status'),
+        messageCount: savedConversation.get('messageCount'),
+        createdAt: savedConversation.get('createdAt'),
+        updatedAt: savedConversation.get('updatedAt')
+      }
+    };
+  } catch (error) {
+    console.error('Error creating AI conversation:', error);
+    throw new Parse.Error(Parse.Error.INTERNAL_SERVER_ERROR, 'Failed to create conversation');
+  }
+}));
+
+/**
+ * Archive an AI conversation
+ */
+Parse.Cloud.define('archiveAIConversation', withOrganizationContext(async (request) => {
+  const { user, organization, organizationId } = request;
+  const { conversationId } = request.params;
+
+  if (!user) {
+    throw new Error('User must be authenticated');
+  }
+
+  if (!conversationId) {
+    throw new Error('Conversation ID is required');
+  }
+
+  // Check if user is system admin
+  const isSystemAdmin = user.get('isAdmin') === true || user.get('isSystemAdmin') === true;
+
+  try {
+    const AIConversation = Parse.Object.extend('AIConversation');
+    const query = new Parse.Query(AIConversation);
+    
+    // Only filter by organization if not system admin or if organization is available
+    if (organization) {
+      query.equalTo('organization', organization);
+    } else if (!isSystemAdmin) {
+      throw new Error('Organization context is required');
+    }
+    
+    const conversation = await query.get(conversationId, { useMasterKey: true });
+    
+    if (!conversation) {
+      throw new Error('Conversation not found');
+    }
+    
+    conversation.set('status', 'archived');
+    await conversation.save(null, { useMasterKey: true });
+    
+    return {
+      success: true,
+      message: 'Conversation archived successfully'
+    };
+  } catch (error) {
+    console.error('Error archiving AI conversation:', error);
+    throw new Parse.Error(Parse.Error.INTERNAL_SERVER_ERROR, 'Failed to archive conversation');
+  }
+}));
+
+/**
+ * Delete an AI conversation
+ */
+Parse.Cloud.define('deleteAIConversation', withOrganizationContext(async (request) => {
+  const { user, organization, organizationId } = request;
+  const { conversationId } = request.params;
+
+  if (!user) {
+    throw new Error('User must be authenticated');
+  }
+
+  if (!conversationId) {
+    throw new Error('Conversation ID is required');
+  }
+
+  // Check if user is system admin
+  const isSystemAdmin = user.get('isAdmin') === true || user.get('isSystemAdmin') === true;
+
+  try {
+    const AIConversation = Parse.Object.extend('AIConversation');
+    const query = new Parse.Query(AIConversation);
+    
+    // Only filter by organization if not system admin or if organization is available
+    if (organization) {
+      query.equalTo('organization', organization);
+    } else if (!isSystemAdmin) {
+      throw new Error('Organization context is required');
+    }
+    
+    const conversation = await query.get(conversationId, { useMasterKey: true });
+    
+    if (!conversation) {
+      throw new Error('Conversation not found');
+    }
+    
+    // Delete all messages in the conversation first
+    const AIMessage = Parse.Object.extend('AIMessage');
+    const messageQuery = new Parse.Query(AIMessage);
+    messageQuery.equalTo('conversation', conversation);
+    
+    const messages = await messageQuery.find({ useMasterKey: true });
+    await Parse.Object.destroyAll(messages, { useMasterKey: true });
+    
+    // Delete the conversation
+    await conversation.destroy({ useMasterKey: true });
+    
+    return {
+      success: true,
+      message: 'Conversation deleted successfully'
+    };
+  } catch (error) {
+    console.error('Error deleting AI conversation:', error);
+    throw new Parse.Error(Parse.Error.INTERNAL_SERVER_ERROR, 'Failed to delete conversation');
+  }
+}));
+
+/**
+ * Fetch messages for a specific AI conversation
+ */
+Parse.Cloud.define('fetchAIMessages', withOrganizationContext(async (request) => {
+  const { user, organization, organizationId } = request;
+  const { conversationId, limit = 50, skip = 0 } = request.params;
+
+  if (!user) {
+    throw new Error('User must be authenticated');
+  }
+
+  if (!conversationId) {
+    throw new Error('Conversation ID is required');
+  }
+
+  // Check if user is system admin
+  const isSystemAdmin = user.get('isAdmin') === true || user.get('isSystemAdmin') === true;
+
+  try {
+    // Verify conversation belongs to organization
+    const AIConversation = Parse.Object.extend('AIConversation');
+    const convQuery = new Parse.Query(AIConversation);
+    
+    // Only filter by organization if not system admin or if organization is available
+    if (organization) {
+      convQuery.equalTo('organization', organization);
+    } else if (!isSystemAdmin) {
+      throw new Error('Organization context is required');
+    }
+    
+    const conversation = await convQuery.get(conversationId, { useMasterKey: true });
+    
+    if (!conversation) {
+      throw new Error('Conversation not found');
+    }
+    
+    // Fetch messages
+    const AIMessage = Parse.Object.extend('AIMessage');
+    const query = new Parse.Query(AIMessage);
+    query.equalTo('conversation', conversation);
+    query.ascending('createdAt');
+    query.limit(limit);
+    query.skip(skip);
+    query.include('user');
+    
+    const messages = await query.find({ useMasterKey: true });
+    
+    return {
+      success: true,
+      messages: messages.map(msg => ({
+        id: msg.id,
+        content: msg.get('content'),
+        role: msg.get('role'),
+        createdAt: msg.get('createdAt'),
+        user: msg.get('user') ? {
+          id: msg.get('user').id,
+          firstName: msg.get('user').get('firstName'),
+          lastName: msg.get('user').get('lastName')
+        } : null
+      }))
+    };
+  } catch (error) {
+    console.error('Error fetching AI messages:', error);
+    throw new Parse.Error(Parse.Error.INTERNAL_SERVER_ERROR, 'Failed to fetch messages');
+  }
+}));
+
+/**
+ * Send a message in an AI conversation
+ */
+Parse.Cloud.define('sendAIMessage', withOrganizationContext(async (request) => {
+  const { user, organization, organizationId } = request;
+  const { conversationId, content, role = 'user' } = request.params;
+
+  if (!user) {
+    throw new Error('User must be authenticated');
+  }
+
+  if (!conversationId || !content) {
+    throw new Error('Conversation ID and content are required');
+  }
+
+  // Check if user is system admin
+  const isSystemAdmin = user.get('isAdmin') === true || user.get('isSystemAdmin') === true;
+
+  try {
+    // Verify conversation belongs to organization
+    const AIConversation = Parse.Object.extend('AIConversation');
+    const convQuery = new Parse.Query(AIConversation);
+    
+    // Only filter by organization if not system admin or if organization is available
+    if (organization) {
+      convQuery.equalTo('organization', organization);
+    } else if (!isSystemAdmin) {
+      throw new Error('Organization context is required');
+    }
+    
+    const conversation = await convQuery.get(conversationId, { useMasterKey: true });
+    
+    if (!conversation) {
+      throw new Error('Conversation not found');
+    }
+    
+    // Create the message
+    const AIMessage = Parse.Object.extend('AIMessage');
+    const message = new AIMessage();
+    
+    message.set('content', content);
+    message.set('role', role);
+    message.set('conversation', conversation);
+    message.set('organization', organization);
+    message.set('user', user);
+    
+    const savedMessage = await message.save(null, { useMasterKey: true });
+    
+    // Update conversation message count and timestamp
+    const currentCount = conversation.get('messageCount') || 0;
+    conversation.set('messageCount', currentCount + 1);
+    conversation.set('updatedAt', new Date());
+    await conversation.save(null, { useMasterKey: true });
+    
+    // If this is a user message, generate AI response
+    if (role === 'user') {
+      try {
+        // Get conversation history
+        const messageQuery = new Parse.Query(AIMessage);
+        messageQuery.equalTo('conversation', conversation);
+        messageQuery.ascending('createdAt');
+        messageQuery.limit(20); // Last 20 messages for context
+        
+        const recentMessages = await messageQuery.find({ useMasterKey: true });
+        
+        const messages = recentMessages.map(msg => ({
+          role: msg.get('role'),
+          content: msg.get('content')
+        }));
+        
+        // Generate AI response
+        const aiResponse = await Parse.Cloud.run('processAIMessage', {
+          provider: 'deepseek', // Default provider
+          messages: messages,
+          options: {
+            conversationId: conversationId,
+            organizationId: organizationId
+          }
+        });
+        
+        // Save AI response
+        const aiMessage = new AIMessage();
+        aiMessage.set('content', aiResponse.content || aiResponse.response);
+        aiMessage.set('role', 'assistant');
+        aiMessage.set('conversation', conversation);
+        aiMessage.set('organization', organization);
+        
+        await aiMessage.save(null, { useMasterKey: true });
+        
+        // Update message count again
+        conversation.set('messageCount', currentCount + 2);
+        await conversation.save(null, { useMasterKey: true });
+        
+      } catch (aiError) {
+        console.error('Error generating AI response:', aiError);
+        // Don't fail the user message if AI response fails
+      }
+    }
+    
+    return {
+      success: true,
+      message: {
+        id: savedMessage.id,
+        content: savedMessage.get('content'),
+        role: savedMessage.get('role'),
+        createdAt: savedMessage.get('createdAt')
+      }
+    };
+  } catch (error) {
+    console.error('Error sending AI message:', error);
+    throw new Parse.Error(Parse.Error.INTERNAL_SERVER_ERROR, 'Failed to send message');
+  }
+}));
+
+/**
+ * Delete an AI message
+ */
+Parse.Cloud.define('deleteAIMessage', withOrganizationContext(async (request) => {
+  const { user, organization, organizationId } = request;
+  const { messageId } = request.params;
+
+  if (!user) {
+    throw new Error('User must be authenticated');
+  }
+
+  if (!messageId) {
+    throw new Error('Message ID is required');
+  }
+
+  // Check if user is system admin
+  const isSystemAdmin = user.get('isAdmin') === true || user.get('isSystemAdmin') === true;
+
+  try {
+    const AIMessage = Parse.Object.extend('AIMessage');
+    const query = new Parse.Query(AIMessage);
+    
+    // Only filter by organization if not system admin or if organization is available
+    if (organization) {
+      query.equalTo('organization', organization);
+    } else if (!isSystemAdmin) {
+      throw new Error('Organization context is required');
+    }
+    
+    const message = await query.get(messageId, { useMasterKey: true });
+    
+    if (!message) {
+      throw new Error('Message not found');
+    }
+    
+    // Get conversation to update message count
+    const conversation = message.get('conversation');
+    await conversation.fetch({ useMasterKey: true });
+    
+    // Delete the message
+    await message.destroy({ useMasterKey: true });
+    
+    // Update conversation message count
+    const currentCount = conversation.get('messageCount') || 0;
+    conversation.set('messageCount', Math.max(0, currentCount - 1));
+    await conversation.save(null, { useMasterKey: true });
+    
+    return {
+      success: true,
+      message: 'Message deleted successfully'
+    };
+  } catch (error) {
+    console.error('Error deleting AI message:', error);
+    throw new Parse.Error(Parse.Error.INTERNAL_SERVER_ERROR, 'Failed to delete message');
+  }
+}));
+
+/**
+ * Get AI configuration for the organization
+ */
+Parse.Cloud.define('getAIConfiguration', withOrganizationContext(async (request) => {
+  const { user, organization, organizationId } = request;
+
+  if (!user) {
+    throw new Error('User must be authenticated');
+  }
+
+  // Check if user is system admin
+  const isSystemAdmin = user.get('isAdmin') === true || user.get('isSystemAdmin') === true;
+  
+  if (!organization && !isSystemAdmin) {
+    throw new Error('User must be associated with an organization');
+  }
+
+  // For system admins without organization context, use the provided organizationId
+  let targetOrganizationId = organizationId;
+  if (isSystemAdmin && !organization && request.params.organizationId) {
+    targetOrganizationId = request.params.organizationId;
+  }
+
+  if (!targetOrganizationId && !isSystemAdmin) {
+    throw new Error('Organization context is required');
+  }
+
+  try {
+    const config = await configService.getOrganizationConfig(targetOrganizationId);
+    
+    return {
+      success: true,
+      configuration: {
+        enabled: config.ai?.enabled || false,
+        provider: config.ai?.provider || 'deepseek',
+        streamingEnabled: config.ai?.streamingEnabled || false,
+        maxTokens: config.ai?.maxTokens || 1000,
+        temperature: config.ai?.temperature || 0.7,
+        features: config.ai?.features || {}
+      }
+    };
+  } catch (error) {
+    console.error('Error getting AI configuration:', error);
+    throw new Parse.Error(Parse.Error.INTERNAL_SERVER_ERROR, 'Failed to get AI configuration');
+  }
+}));
+
+/**
+ * Get AI usage statistics for the organization
+ */
+Parse.Cloud.define('getAIStatistics', withOrganizationContext(async (request) => {
+  const { user, organization, organizationId } = request;
+  const { timeframe = '30d' } = request.params;
+
+  if (!user) {
+    throw new Error('User must be authenticated');
+  }
+
+  // Check if user is system admin
+  const isSystemAdmin = user.get('isAdmin') === true || user.get('isSystemAdmin') === true;
+  
+  if (!organization && !isSystemAdmin) {
+    throw new Error('User must be associated with an organization');
+  }
+
+  // For system admins without organization context, use the provided organizationId
+  let targetOrganization = organization;
+  if (isSystemAdmin && !organization && request.params.organizationId) {
+    const Organization = Parse.Object.extend('Organization');
+    const query = new Parse.Query(Organization);
+    targetOrganization = await query.get(request.params.organizationId, { useMasterKey: true });
+  }
+
+  if (!targetOrganization && !isSystemAdmin) {
+    throw new Error('Organization context is required');
+  }
+
+  try {
+    // Calculate date range based on timeframe
+    const now = new Date();
+    let startDate;
+    
+    switch (timeframe) {
+      case '24h':
+        startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        break;
+      case '7d':
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case '30d':
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        break;
+      default:
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    }
+    
+    // Get conversation statistics
+    const AIConversation = Parse.Object.extend('AIConversation');
+    const convQuery = new Parse.Query(AIConversation);
+    if (targetOrganization) {
+      convQuery.equalTo('organization', targetOrganization);
+    }
+    convQuery.greaterThanOrEqualTo('createdAt', startDate);
+    
+    const conversationCount = await convQuery.count({ useMasterKey: true });
+    
+    // Get message statistics
+    const AIMessage = Parse.Object.extend('AIMessage');
+    const msgQuery = new Parse.Query(AIMessage);
+    if (targetOrganization) {
+      msgQuery.equalTo('organization', targetOrganization);
+    }
+    msgQuery.greaterThanOrEqualTo('createdAt', startDate);
+    
+    const messageCount = await msgQuery.count({ useMasterKey: true });
+    
+    // Get user message count
+    const userMsgQuery = new Parse.Query(AIMessage);
+    if (targetOrganization) {
+      userMsgQuery.equalTo('organization', targetOrganization);
+    }
+    userMsgQuery.equalTo('role', 'user');
+    userMsgQuery.greaterThanOrEqualTo('createdAt', startDate);
+    
+    const userMessageCount = await userMsgQuery.count({ useMasterKey: true });
+    
+    // Get AI usage data
+    const Usage = Parse.Object.extend('AIUsage');
+    const usageQuery = new Parse.Query(Usage);
+    if (targetOrganization) {
+      usageQuery.equalTo('organization', targetOrganization);
+    }
+    usageQuery.greaterThanOrEqualTo('date', startDate);
+    
+    const usageData = await usageQuery.find({ useMasterKey: true });
+    
+    const totalTokens = usageData.reduce((sum, usage) => sum + (usage.get('tokens') || 0), 0);
+    const totalCost = usageData.reduce((sum, usage) => sum + (usage.get('cost') || 0), 0);
+    const avgLatency = usageData.length > 0
+      ? usageData.reduce((sum, usage) => sum + (usage.get('latency') || 0), 0) / usageData.length
+      : 0;
+    
+    return {
+      success: true,
+      statistics: {
+        timeframe,
+        conversations: conversationCount,
+        totalMessages: messageCount,
+        userMessages: userMessageCount,
+        aiMessages: messageCount - userMessageCount,
+        totalTokens,
+        totalCost: Math.round(totalCost * 10000) / 10000, // Round to 4 decimal places
+        averageLatency: Math.round(avgLatency),
+        requestCount: usageData.length
+      }
+    };
+  } catch (error) {
+    console.error('Error getting AI statistics:', error);
+    throw new Parse.Error(Parse.Error.INTERNAL_SERVER_ERROR, 'Failed to get AI statistics');
+  }
+}));
+
+/**
+ * Export AI conversation data
+ */
+Parse.Cloud.define('exportAIData', withOrganizationContext(async (request) => {
+  const { user, organization, organizationId } = request;
+  const { format = 'json', includeMessages = true } = request.params;
+
+  if (!user) {
+    throw new Error('User must be authenticated');
+  }
+
+  // Check if user is system admin
+  const isSystemAdmin = user.get('isAdmin') === true || user.get('isSystemAdmin') === true;
+  
+  if (!organization && !isSystemAdmin) {
+    throw new Error('User must be associated with an organization');
+  }
+
+  // For system admins without organization context, use the provided organizationId
+  let targetOrganization = organization;
+  let targetOrganizationId = organizationId;
+  
+  if (isSystemAdmin && !organization && request.params.organizationId) {
+    const Organization = Parse.Object.extend('Organization');
+    const query = new Parse.Query(Organization);
+    targetOrganization = await query.get(request.params.organizationId, { useMasterKey: true });
+    targetOrganizationId = request.params.organizationId;
+  }
+
+  if (!targetOrganization && !isSystemAdmin) {
+    throw new Error('Organization context is required');
+  }
+
+  try {
+    // Get all conversations
+    const AIConversation = Parse.Object.extend('AIConversation');
+    const convQuery = new Parse.Query(AIConversation);
+    if (targetOrganization) {
+      convQuery.equalTo('organization', targetOrganization);
+    }
+    convQuery.include('user');
+    convQuery.descending('createdAt');
+    
+    const conversations = await convQuery.find({ useMasterKey: true });
+    
+    const exportData = {
+      exportDate: new Date().toISOString(),
+      organizationId: targetOrganizationId,
+      conversationCount: conversations.length,
+      conversations: []
+    };
+    
+    for (const conv of conversations) {
+      const convData = {
+        id: conv.id,
+        title: conv.get('title'),
+        status: conv.get('status'),
+        messageCount: conv.get('messageCount'),
+        createdAt: conv.get('createdAt'),
+        updatedAt: conv.get('updatedAt'),
+        user: {
+          id: conv.get('user').id,
+          firstName: conv.get('user').get('firstName'),
+          lastName: conv.get('user').get('lastName'),
+          email: conv.get('user').get('email')
+        }
+      };
+      
+      if (includeMessages) {
+        const AIMessage = Parse.Object.extend('AIMessage');
+        const msgQuery = new Parse.Query(AIMessage);
+        msgQuery.equalTo('conversation', conv);
+        msgQuery.ascending('createdAt');
+        msgQuery.include('user');
+        
+        const messages = await msgQuery.find({ useMasterKey: true });
+        
+        convData.messages = messages.map(msg => ({
+          id: msg.id,
+          content: msg.get('content'),
+          role: msg.get('role'),
+          createdAt: msg.get('createdAt'),
+          user: msg.get('user') ? {
+            id: msg.get('user').id,
+            firstName: msg.get('user').get('firstName'),
+            lastName: msg.get('user').get('lastName')
+          } : null
+        }));
+      }
+      
+      exportData.conversations.push(convData);
+    }
+    
+    return {
+      success: true,
+      format,
+      data: exportData,
+      filename: `ai-conversations-${organizationId}-${new Date().toISOString().split('T')[0]}.${format}`
+    };
+  } catch (error) {
+    console.error('Error exporting AI data:', error);
+    throw new Parse.Error(Parse.Error.INTERNAL_SERVER_ERROR, 'Failed to export AI data');
+  }
+}));
+
 // Ensure these are globally available or handled via dependency injection pattern used by Parse Server's initialization
-// Removed module.exports structure and global assignments from the original file 
+// Removed module.exports structure and global assignments from the original file
 // if they are not intended for direct module consumption.
 // Assuming that the Parse Server setup (e.g., in server.js) ensures Parse is global
 // and resolves services like UnifiedLLMService, ToolExecutor, etc., if needed.

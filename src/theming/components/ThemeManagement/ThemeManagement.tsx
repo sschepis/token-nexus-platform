@@ -1,50 +1,41 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { useSelector } from 'react-redux';
+import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Separator } from '@/components/ui/separator';
-import { 
-  Palette, 
-  Sparkles, 
-  Settings, 
-  Eye, 
-  Save, 
-  Download,
-  Upload,
-  History,
-  Info,
-  CheckCircle,
-  AlertTriangle
-} from 'lucide-react';
+import { Settings, Sparkles, History, AlertTriangle } from 'lucide-react';
 import { ThemeEditor } from '../ThemeEditor/ThemeEditor';
 import { ThemeTemplateGallery } from '../ThemeTemplateGallery/ThemeTemplateGallery';
-import { 
-  selectCurrentTheme, 
-  selectThemeLoading, 
+import {
+  selectCurrentTheme,
+  selectThemeLoading,
   selectThemeError,
   selectValidationResult,
   selectEditorState,
-  selectIsPreviewMode,
-  loadOrganizationTheme,
-  saveOrganizationTheme,
-  clearPreview
+  selectIsPreviewMode
 } from '@/store/slices/themeSlice';
 import { useTheme } from '../../providers/ThemeContext';
-import type { AppDispatch } from '@/store/store';
+import { useThemeActions } from '../../../hooks/useThemeActions';
+import {
+  ThemeHeader,
+  ThemeActions,
+  ThemePreview,
+  ThemeInfo,
+  type ThemeStatus
+} from '../../../components/theme';
+import type { UsePageControllerReturn } from '../../../hooks/usePageController';
 
 interface ThemeManagementProps {
   organizationId: string;
+  pageController: UsePageControllerReturn;
   className?: string;
 }
 
 export const ThemeManagement: React.FC<ThemeManagementProps> = ({
   organizationId,
+  pageController,
   className = ''
 }) => {
-  const dispatch = useDispatch<AppDispatch>();
   const currentTheme = useSelector(selectCurrentTheme);
   const isLoading = useSelector(selectThemeLoading);
   const error = useSelector(selectThemeError);
@@ -57,35 +48,47 @@ export const ThemeManagement: React.FC<ThemeManagementProps> = ({
   const [activeTab, setActiveTab] = useState<'editor' | 'templates' | 'history'>('editor');
   const [showTemplateGallery, setShowTemplateGallery] = useState(false);
 
+  // Initialize theme actions hook
+  const themeActions = useThemeActions({
+    pageController,
+    onError: (error) => console.error('Theme action failed:', error),
+    onSuccess: (message) => console.log('Theme action succeeded:', message)
+  });
+
   // Load organization theme on mount
   useEffect(() => {
     if (organizationId && !currentTheme) {
-      dispatch(loadOrganizationTheme(organizationId));
+      themeActions.handleGetCurrentTheme();
     }
-  }, [organizationId, currentTheme, dispatch]);
+  }, [organizationId, currentTheme, themeActions]);
+
+  // Handle exit preview
+  const handleExitPreview = useCallback(() => {
+    themeActions.handleRefreshThemes();
+    if (currentTheme) {
+      applyTheme(currentTheme);
+    }
+  }, [themeActions, currentTheme, applyTheme]);
 
   // Handle save theme
   const handleSaveTheme = useCallback(async () => {
     if (!currentTheme) return;
-
-    try {
-      await dispatch(saveOrganizationTheme(currentTheme)).unwrap();
+    const success = await themeActions.handleApplyTheme(currentTheme);
+    if (success) {
       await applyTheme(currentTheme);
-    } catch (error) {
-      console.error('Failed to save theme:', error);
     }
-  }, [currentTheme, dispatch, applyTheme]);
+  }, [currentTheme, themeActions, applyTheme]);
 
-  // Handle exit preview
-  const handleExitPreview = useCallback(() => {
-    dispatch(clearPreview());
-    if (currentTheme) {
-      applyTheme(currentTheme);
+  // Handle browse templates
+  const handleBrowseTemplates = useCallback(async () => {
+    const themes = await themeActions.handleGetAvailableThemes();
+    if (themes.length > 0) {
+      setShowTemplateGallery(true);
     }
-  }, [dispatch, currentTheme, applyTheme]);
+  }, [themeActions]);
 
   // Get theme status
-  const getThemeStatus = () => {
+  const getThemeStatus = (): ThemeStatus | null => {
     if (!validationResult) return null;
 
     const hasErrors = validationResult.errors.length > 0;
@@ -132,113 +135,30 @@ export const ThemeManagement: React.FC<ThemeManagementProps> = ({
 
   return (
     <div className={`theme-management ${className}`}>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Palette className="h-8 w-8" />
-            Theme Management
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Customize your organization's visual identity and branding
-          </p>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          {/* Theme Status */}
-          {themeStatus && (
-            <Badge 
-              variant={themeStatus.type === 'error' ? 'destructive' : 
-                      themeStatus.type === 'warning' ? 'secondary' : 'default'}
-              className="flex items-center gap-1"
-            >
-              {themeStatus.type === 'error' && <AlertTriangle className="h-3 w-3" />}
-              {themeStatus.type === 'warning' && <Info className="h-3 w-3" />}
-              {themeStatus.type === 'success' && <CheckCircle className="h-3 w-3" />}
-              {themeStatus.message}
-            </Badge>
-          )}
-
-          {/* Preview Mode Indicator */}
-          {isPreviewMode && (
-            <Badge variant="outline" className="flex items-center gap-1">
-              <Eye className="h-3 w-3" />
-              Preview Mode
-            </Badge>
-          )}
-
-          {/* Unsaved Changes Indicator */}
-          {editorState.isDirty && (
-            <Badge variant="outline">
-              Unsaved Changes
-            </Badge>
-          )}
-        </div>
-      </div>
+      {/* Theme Header */}
+      <ThemeHeader
+        themeStatus={themeStatus}
+        isPreviewMode={isPreviewMode}
+        hasUnsavedChanges={editorState.isDirty}
+      />
 
       {/* Preview Mode Alert */}
-      {isPreviewMode && (
-        <Alert className="mb-6">
-          <Eye className="h-4 w-4" />
-          <AlertDescription className="flex items-center justify-between">
-            <span>
-              You are currently previewing a theme. Changes are temporary until you apply them.
-            </span>
-            <Button variant="outline" size="sm" onClick={handleExitPreview}>
-              Exit Preview
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
+      <ThemePreview
+        isPreviewMode={isPreviewMode}
+        onExitPreview={handleExitPreview}
+      />
 
       {/* Quick Actions */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="text-base">Quick Actions</CardTitle>
-          <CardDescription>
-            Common theme management tasks
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-3">
-            <Button
-              variant="outline"
-              onClick={() => setShowTemplateGallery(true)}
-              className="flex items-center gap-2"
-            >
-              <Sparkles className="h-4 w-4" />
-              Browse Templates
-            </Button>
-            
-            <Button
-              onClick={handleSaveTheme}
-              disabled={!editorState.isDirty || isLoading}
-              className="flex items-center gap-2"
-            >
-              <Save className="h-4 w-4" />
-              Save Theme
-            </Button>
-            
-            <Button
-              variant="outline"
-              className="flex items-center gap-2"
-              disabled
-            >
-              <Download className="h-4 w-4" />
-              Export Theme
-            </Button>
-            
-            <Button
-              variant="outline"
-              className="flex items-center gap-2"
-              disabled
-            >
-              <Upload className="h-4 w-4" />
-              Import Theme
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <ThemeActions
+        onBrowseTemplates={handleBrowseTemplates}
+        onSaveTheme={handleSaveTheme}
+        onRefreshThemes={() => { themeActions.handleRefreshThemes(); }}
+        onPreviewTheme={() => { themeActions.handlePreviewTheme(currentTheme); }}
+        isLoading={isLoading}
+        hasUnsavedChanges={editorState.isDirty}
+        canSave={!!currentTheme}
+        canPreview={!!currentTheme}
+      />
 
       {/* Main Content */}
       {showTemplateGallery ? (
@@ -301,59 +221,10 @@ export const ThemeManagement: React.FC<ThemeManagementProps> = ({
 
       {/* Theme Information Panel */}
       {currentTheme && (
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle className="text-base">Current Theme Information</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
-              <div>
-                <p className="font-medium text-muted-foreground">Name</p>
-                <p>{currentTheme.name}</p>
-              </div>
-              <div>
-                <p className="font-medium text-muted-foreground">Version</p>
-                <p>{currentTheme.version}</p>
-              </div>
-              <div>
-                <p className="font-medium text-muted-foreground">Last Updated</p>
-                <p>{new Date(currentTheme.updatedAt).toLocaleDateString()}</p>
-              </div>
-              <div>
-                <p className="font-medium text-muted-foreground">Template</p>
-                <p>{currentTheme.templateId || 'Custom'}</p>
-              </div>
-            </div>
-            
-            {validationResult && (
-              <>
-                <Separator className="my-4" />
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                  <div>
-                    <p className="font-medium text-muted-foreground">Accessibility Score</p>
-                    <p className={validationResult.accessibilityScore >= 80 ? 'text-green-600' : 
-                                 validationResult.accessibilityScore >= 60 ? 'text-yellow-600' : 'text-red-600'}>
-                      {validationResult.accessibilityScore}/100
-                    </p>
-                  </div>
-                  <div>
-                    <p className="font-medium text-muted-foreground">Performance Score</p>
-                    <p className={validationResult.performanceScore >= 80 ? 'text-green-600' : 
-                                 validationResult.performanceScore >= 60 ? 'text-yellow-600' : 'text-red-600'}>
-                      {validationResult.performanceScore}/100
-                    </p>
-                  </div>
-                  <div>
-                    <p className="font-medium text-muted-foreground">Issues</p>
-                    <p>
-                      {validationResult.errors.length} errors, {validationResult.warnings.length} warnings
-                    </p>
-                  </div>
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
+        <ThemeInfo
+          theme={currentTheme}
+          validationResult={validationResult}
+        />
       )}
     </div>
   );

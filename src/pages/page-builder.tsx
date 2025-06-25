@@ -8,8 +8,10 @@ import { CustomComponent } from '@/types/component-library';
 import { usePageController } from '@/hooks/usePageController';
 import { pageBuilderPageController } from '@/controllers/PageBuilderPageController';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, RefreshCw } from 'lucide-react';
+import { AlertCircle, RefreshCw, LayoutPanelLeft, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 import GrapesEditor from '@/components/page-builder/GrapesEditor';
 import PageBuilderHeader from '@/components/page-builder/layouts/PageBuilderHeader';
@@ -18,16 +20,16 @@ import PageBuilderStatusBar from '@/components/page-builder/layouts/PageBuilderS
 
 const PageBuilderPage: NextPage = () => {
   const { toast } = useToast();
-  const { hasPermission } = usePermission();
+  const { hasPermission, checkAnyPermission } = usePermission();
   const [isLoading, setIsLoading] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [controllerPages, setControllerPages] = useState<any[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [controllerError, setControllerError] = useState<string | null>(null);
 
-  // Permission checks
-  const canRead = hasPermission('pages:read');
-  const canWrite = hasPermission('pages:write');
-  const canReadComponents = hasPermission('components:read');
+  // Permission checks using standardized pattern
+  const canRead = checkAnyPermission(['pages:read', 'org_admin']);
+  const canWrite = checkAnyPermission(['pages:write', 'org_admin']);
+  const canReadComponents = checkAnyPermission(['components:read', 'org_admin']);
 
   // Initialize page controller
   const pageController = usePageController({
@@ -81,7 +83,7 @@ const PageBuilderPage: NextPage = () => {
     if (!pageController.isRegistered || !canRead) return;
     
     setIsLoading(true);
-    setError(null);
+    setControllerError(null);
     
     try {
       const result = await pageController.executeAction('fetchPages', { includeInactive: true });
@@ -94,7 +96,7 @@ const PageBuilderPage: NextPage = () => {
           description: "Pages loaded successfully",
         });
       } else {
-        setError(result.error || 'Failed to load pages');
+        setControllerError(result.error || 'Failed to load pages');
         toast({
           title: "Error loading pages",
           description: result.error || 'Failed to load pages',
@@ -103,7 +105,7 @@ const PageBuilderPage: NextPage = () => {
       }
     } catch (error) {
       console.error('Error loading pages:', error);
-      setError('Failed to load pages');
+      setControllerError('Failed to load pages');
       toast({
         title: "Error loading pages",
         description: 'Failed to load pages',
@@ -196,11 +198,38 @@ const PageBuilderPage: NextPage = () => {
     }
   }, [pageController, currentPage, loadPages, canWrite, toast]);
 
-  // Handle refresh
-  const handleRefresh = useCallback(() => {
-    setError(null);
-    loadPages();
-  }, [loadPages]);
+  // Handle refresh using standardized action execution pattern
+  const handleRefresh = useCallback(async () => {
+    if (!pageController.isRegistered) {
+      setControllerError("Page controller not registered");
+      return;
+    }
+    
+    setControllerError(null);
+    setIsLoading(true);
+    
+    try {
+      const result = await pageController.executeAction('fetchPages', {
+        includeInactive: true
+      });
+      
+      if (result.success) {
+        const pagesData = result.data as { pages: any[] };
+        setControllerPages(pagesData.pages || []);
+        toast({
+          title: "Success",
+          description: "Pages refreshed successfully"
+        });
+      } else {
+        setControllerError(`Failed to refresh: ${result.error}`);
+      }
+    } catch (error) {
+      setControllerError("Failed to refresh pages");
+      console.error('Page refresh error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [pageController, toast]);
 
   // Handle component selection from library
   const handleComponentSelect = useCallback((component: CustomComponent) => {
@@ -279,30 +308,33 @@ const PageBuilderPage: NextPage = () => {
   // Show permission error if user can't read pages
   if (!canRead) {
     return (
-      <>
+      <div className="space-y-6">
         <Head>
           <title>Page Builder - Token Nexus Platform</title>
           <meta name="description" content="Visual page builder with AI assistance and component library" />
         </Head>
 
-        <div className="h-screen flex flex-col bg-background p-6">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+        {/* Page Header Section */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <LayoutPanelLeft className="h-8 w-8" />
             <div>
               <h1 className="text-3xl font-bold tracking-tight">Page Builder</h1>
-              <p className="text-muted-foreground mt-2">
+              <p className="text-muted-foreground">
                 Visual page builder with AI assistance and component library
               </p>
             </div>
           </div>
-          
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              You don't have permission to access the page builder. Please contact your administrator.
-            </AlertDescription>
-          </Alert>
         </div>
-      </>
+        
+        {/* Permission Error */}
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            You don't have permission to access the page builder. Please contact your administrator.
+          </AlertDescription>
+        </Alert>
+      </div>
     );
   }
 
@@ -321,81 +353,104 @@ const PageBuilderPage: NextPage = () => {
   }
 
   return (
-    <>
+    <div className="space-y-6">
       <Head>
         <title>Page Builder - Token Nexus Platform</title>
         <meta name="description" content="Visual page builder with AI assistance and component library" />
       </Head>
 
-      <div className="h-screen flex flex-col bg-background">
-        {/* Display error */}
-        {error && (
-          <div className="p-4">
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription className="flex items-center justify-between">
-                <span>{error}</span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleRefresh}
-                  disabled={isLoading}
-                >
-                  <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                  Retry
-                </Button>
-              </AlertDescription>
-            </Alert>
+      {/* Page Header Section */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <LayoutPanelLeft className="h-8 w-8" />
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Page Builder</h1>
+            <p className="text-muted-foreground">
+              Visual page builder with AI assistance and component library
+            </p>
           </div>
-        )}
-
-        <PageBuilderHeader
-          currentPageTitle={currentPage?.title || ''}
-          lastSaved={lastSaved}
-          aiAssistantActive={aiAssistantActive}
-          suggestionsCount={suggestions.length}
-          layoutOptimizationsCount={layoutOptimizations.length}
-          deviceMode={deviceMode}
-          currentView={currentView}
-          showPageList={showPageList}
-          showComponentLibrary={showComponentLibrary}
-          showAIAssistant={showAIAssistant}
-          showStyles={showStyles}
-          isLoading={isLoading}
-          onDeviceChange={handleDeviceChange}
-          onViewChange={handleViewChange}
-          onTogglePageList={togglePageList}
-          onToggleComponentLibrary={toggleComponentLibrary}
-          onToggleAIAssistantPanel={toggleAIAssistantPanel}
-          onToggleStyles={toggleStyles}
-          onToggleFullscreen={toggleFullscreen}
-          onSave={() => handleSave('', '', {})}
-        />
-
-        <PageBuilderMainContent
-          showPageList={showPageList}
-          showComponentLibrary={showComponentLibrary && canReadComponents}
-          showAIAssistant={showAIAssistant}
-          customComponents={canReadComponents ? customComponents : []}
-          onComponentSelect={handleComponentSelect}
-          onComponentDragStart={handleComponentDragStart}
-          onComponentDrop={handleComponentDrop}
-          onAISuggestionApply={handleAISuggestionApply}
-          onLayoutOptimizationApply={handleLayoutOptimizationApply}
-          onSave={handleSave}
-        />
-
-        <PageBuilderStatusBar
-          deviceMode={deviceMode}
-          currentView={currentView}
-          customComponents={canReadComponents ? customComponents : []}
-          aiAssistantActive={aiAssistantActive}
-          suggestionsCount={suggestions.length}
-          layoutOptimizationsCount={layoutOptimizations.length}
-          lastSaved={lastSaved}
-        />
+        </div>
+        
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2">
+          {/* AI Assistant Badge */}
+          {pageController.isRegistered && (
+            <Badge variant="outline" className="text-xs">
+              <Zap className="h-3 w-3 mr-1" />
+              {pageController.getAvailableActions().length} AI actions
+            </Badge>
+          )}
+          <Button onClick={handleRefresh} disabled={!canRead || isLoading}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        </div>
       </div>
-    </>
+
+      {/* Error Display */}
+      {controllerError && (
+        <div className="bg-destructive/15 text-destructive p-4 rounded-md">
+          <AlertCircle className="h-4 w-4 inline mr-2" />
+          {controllerError}
+        </div>
+      )}
+
+      {/* Content Area */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Page Builder Interface</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="h-screen flex flex-col bg-background">
+            <PageBuilderHeader
+              currentPageTitle={currentPage?.title || ''}
+              lastSaved={lastSaved}
+              aiAssistantActive={aiAssistantActive}
+              suggestionsCount={suggestions.length}
+              layoutOptimizationsCount={layoutOptimizations.length}
+              deviceMode={deviceMode}
+              currentView={currentView}
+              showPageList={showPageList}
+              showComponentLibrary={showComponentLibrary}
+              showAIAssistant={showAIAssistant}
+              showStyles={showStyles}
+              isLoading={isLoading}
+              onDeviceChange={handleDeviceChange}
+              onViewChange={handleViewChange}
+              onTogglePageList={togglePageList}
+              onToggleComponentLibrary={toggleComponentLibrary}
+              onToggleAIAssistantPanel={toggleAIAssistantPanel}
+              onToggleStyles={toggleStyles}
+              onToggleFullscreen={toggleFullscreen}
+              onSave={() => handleSave('', '', {})}
+            />
+
+            <PageBuilderMainContent
+              showPageList={showPageList}
+              showComponentLibrary={showComponentLibrary && canReadComponents}
+              showAIAssistant={showAIAssistant}
+              customComponents={canReadComponents ? customComponents : []}
+              onComponentSelect={handleComponentSelect}
+              onComponentDragStart={handleComponentDragStart}
+              onComponentDrop={handleComponentDrop}
+              onAISuggestionApply={handleAISuggestionApply}
+              onLayoutOptimizationApply={handleLayoutOptimizationApply}
+              onSave={handleSave}
+            />
+
+            <PageBuilderStatusBar
+              deviceMode={deviceMode}
+              currentView={currentView}
+              customComponents={canReadComponents ? customComponents : []}
+              aiAssistantActive={aiAssistantActive}
+              suggestionsCount={suggestions.length}
+              layoutOptimizationsCount={layoutOptimizations.length}
+              lastSaved={lastSaved}
+            />
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 

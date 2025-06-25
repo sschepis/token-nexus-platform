@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { RouteHandler } from "@/types/routes";
+import { useAppSelector } from "@/store/hooks";
+import { usePageController } from "@/hooks/usePageController";
+import { usePermission } from "@/hooks/usePermission";
+import { useToast } from "@/hooks/use-toast";
 import {
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle 
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
 } from "@/components/ui/card";
 import {
   Table,
@@ -20,41 +23,56 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
-import { usePageController } from "@/hooks/usePageController";
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { 
-  addRoute, 
-  deleteRoute, 
-  updateRoute, 
-  setSelectedRoute 
-} from "@/store/slices/routeSlice";
-import RouteDetail from "@/components/routes/RouteDetail";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DialogDescription } from "@radix-ui/react-dialog";
 import { Label } from "@/components/ui/label";
-import { HttpMethod, Route } from "@/types/routes";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Navigation, Plus, Trash2, RefreshCw } from "lucide-react";
-import { useRouter } from "next/router";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import RouteDetail from "@/components/routes/RouteDetail";
+import { HttpMethod, Route, RouteHandler } from "@/types/routes";
+import { 
+  Navigation, 
+  Plus, 
+  Trash2, 
+  RefreshCw, 
+  Loader2, 
+  AlertCircle, 
+  Zap 
+} from "lucide-react";
 
 const Routes = () => {
+  const { currentOrg } = useAppSelector((state) => state.org);
+  const { orgId: authOrgId } = useAppSelector((state) => state.auth);
   const { toast } = useToast();
-  const router = useRouter();
   
-  // Try to use the controller, but fall back to Redux if not available
-  const { executeAction, isRegistered } = usePageController({
+  const effectiveOrgId = currentOrg?.id || authOrgId;
+  
+  // Use standardized page controller integration
+  const pageController = usePageController({
     pageId: 'routes',
     pageName: 'Routes Management',
     description: 'Manage application routes, endpoints, and navigation',
     category: 'system',
-    permissions: ['routes:read', 'routes:write'],
+    permissions: ['routes:read'],
     tags: ['routes', 'navigation', 'management']
   });
-  const dispatch = useAppDispatch();
-  const { routes: reduxRoutes, selectedRouteId: reduxSelectedRouteId } = useAppSelector((state) => state.route);
+
+  // Permission checks - System admins (isAdmin=true) automatically get all permissions via usePermission hook
+  const { hasPermission, checkAnyPermission, user, isAuthenticated } = usePermission();
   
-  // Local state
+  console.log('[Routes] Permission debug:', {
+    isAuthenticated,
+    userId: user?.id,
+    userIsAdmin: user?.isAdmin,
+    user: user
+  });
+  
+  const canRead = checkAnyPermission(['routes:read', 'routes:write', 'routes:manage']);
+  const canWrite = checkAnyPermission(['routes:write', 'routes:manage']);
+  
+  console.log('[Routes] Permission results:', { canRead, canWrite });
+
+  // Local state management
   const [routes, setRoutes] = useState<Route[]>([]);
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("all");
@@ -64,65 +82,60 @@ const Routes = () => {
   const [newTarget, setNewTarget] = useState("");
   const [newType, setNewType] = useState<"page" | "function" | "redirect">("page");
   const [searchTerm, setSearchTerm] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [useController, setUseController] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [controllerError, setControllerError] = useState<string | null>(null);
 
-  // Determine which data source to use
-  const effectiveRoutes = useController ? routes : reduxRoutes;
-  const effectiveSelectedRouteId = useController ? selectedRouteId : reduxSelectedRouteId;
-
-  // Get the selected route from the state
-  const selectedRoute = effectiveSelectedRouteId 
-    ? effectiveRoutes.find(route => route.id === effectiveSelectedRouteId) 
-    : null;
-
-  // Check if controller is available and switch to it
-  useEffect(() => {
-    if (isRegistered && executeAction) {
-      setUseController(true);
-      fetchRoutesFromController();
-    } else {
-      setUseController(false);
+  // Load routes function
+  const loadRoutes = async () => {
+    if (!pageController.isRegistered || !canRead) {
+      setControllerError("Cannot load routes: Controller not available or insufficient permissions");
+      return;
     }
-  }, [isRegistered, executeAction]);
-
-  const fetchRoutesFromController = async () => {
-    if (!executeAction) return;
     
-    setLoading(true);
+    setIsLoading(true);
+    setError(null);
+    setControllerError(null);
+    
     try {
-      const result = await executeAction('fetchRoutes', { includeInactive: true });
+      const result = await pageController.executeAction('fetchRoutes', { includeInactive: true });
+      
       if (result.success && result.data) {
-        const routesData = result.data as { routes: Route[] };
+        const routesData = result.data as { routes: Route[]; total: number; sources: string[] };
         setRoutes(routesData.routes || []);
       } else {
-        toast({
-          title: "Error fetching routes",
-          description: result.error || "Failed to load routes",
-          variant: "destructive",
-        });
+        setControllerError(`Failed to load routes: ${result.error}`);
+        console.error('Load routes error:', result.error);
       }
     } catch (error) {
-      toast({
-        title: "Error fetching routes",
-        description: "Failed to load routes",
-        variant: "destructive",
-      });
+      console.error('Error loading routes:', error);
+      setControllerError("Failed to load routes");
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
+  // Load routes on component mount
+  useEffect(() => {
+    if (pageController.isRegistered) {
+      loadRoutes();
+    }
+  }, [pageController.isRegistered]);
+
+  const selectedRoute = selectedRouteId 
+    ? routes.find(route => route.id === selectedRouteId) 
+    : null;
+
   // Filter routes based on active tab and search term
-  const filteredRoutes = effectiveRoutes.filter((route) => {
-    const matchesTab = 
-      activeTab === "all" || 
-      (activeTab === "active" && route.active) || 
+  const filteredRoutes = routes.filter((route) => {
+    const matchesTab =
+      activeTab === "all" ||
+      (activeTab === "active" && route.active) ||
       (activeTab === "inactive" && !route.active) ||
       (activeTab === "protected" && route.protected) ||
       (activeTab === "public" && !route.protected);
 
-    const matchesSearch = 
+    const matchesSearch =
       searchTerm === "" ||
       route.path.toLowerCase().includes(searchTerm.toLowerCase());
 
@@ -130,6 +143,15 @@ const Routes = () => {
   });
 
   const handleAddRoute = async () => {
+    if (!canWrite) {
+      toast({
+        title: "Permission denied",
+        description: "You don't have permission to create routes",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!newPath.startsWith("/")) {
       toast({
         title: "Invalid route path",
@@ -148,211 +170,268 @@ const Routes = () => {
       return;
     }
 
-    if (useController && executeAction) {
-      // Use controller
-      try {
-        const result = await executeAction('addRoute', {
-          path: newPath,
-          method: newMethod,
-          handlerType: newType,
-          target: newTarget,
-          protected: true
-        });
+    if (!pageController.isRegistered) {
+      toast({
+        title: "Controller not available",
+        description: "Controller not available",
+        variant: "destructive",
+      });
+      return;
+    }
 
-        if (result.success) {
-          toast({
-            title: "Route created",
-            description: result.message || `Added route ${newPath} with ${newMethod} method`,
-          });
-          
-          setNewRouteOpen(false);
-          setNewPath("");
-          setNewTarget("");
-          
-          // Refresh routes list
-          await fetchRoutesFromController();
-        } else {
-          toast({
-            title: "Error creating route",
-            description: result.error || "Failed to create route",
-            variant: "destructive",
-          });
-        }
-      } catch (error) {
+    try {
+      const result = await pageController.executeAction('addRoute', {
+        path: newPath,
+        method: newMethod,
+        handlerType: newType,
+        target: newTarget,
+        protected: newType !== "redirect" // Default protection based on type
+      });
+
+      if (result.success) {
+        toast({
+          title: "Route created",
+          description: `Route ${newPath} created successfully`,
+        });
+        
+        // Refresh routes from controller
+        await loadRoutes();
+        
+        setNewRouteOpen(false);
+        setNewPath("");
+        setNewTarget("");
+      } else {
         toast({
           title: "Error creating route",
-          description: "Failed to create route",
+          description: result.error || 'Failed to create route',
           variant: "destructive",
         });
       }
-    } else {
-      // Use Redux fallback
-      dispatch(addRoute({
-        path: newPath,
-        method: newMethod,
-        handler: {
-          type: newType,
-          target: newTarget,
-          description: `${newType === "page" ? "Page" : newType === "function" ? "Function" : "Redirect"} for ${newPath}`
-        }
-      }));
-      
+    } catch (error) {
+      console.error('Error creating route:', error);
       toast({
-        title: "Route created",
-        description: `Added route ${newPath} with ${newMethod} method`,
+        title: "Error creating route",
+        description: 'Failed to create route',
+        variant: "destructive",
       });
-      
-      setNewRouteOpen(false);
-      setNewPath("");
-      setNewTarget("");
     }
   };
 
   const handleToggleActive = async (routeId: string, currentActive: boolean) => {
-    if (useController && executeAction) {
-      // Use controller
-      try {
-        const result = await executeAction('toggleRouteStatus', {
-          routeId,
-          active: !currentActive
-        });
+    if (!canWrite) {
+      toast({
+        title: "Permission denied",
+        description: "You don't have permission to modify routes",
+        variant: "destructive",
+      });
+      return;
+    }
 
-        if (result.success) {
-          toast({
-            title: `Route ${!currentActive ? "activated" : "deactivated"}`,
-            description: result.message || `The route has been ${!currentActive ? "activated" : "deactivated"}`,
-          });
-          
-          // Refresh routes list
-          await fetchRoutesFromController();
-        } else {
-          toast({
-            title: "Error updating route",
-            description: result.error || "Failed to update route status",
-            variant: "destructive",
-          });
-        }
-      } catch (error) {
+    if (!pageController.isRegistered) {
+      toast({
+        title: "Controller not available",
+        description: "Controller not available",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const result = await pageController.executeAction('toggleRouteStatus', {
+        routeId,
+        active: !currentActive
+      });
+
+      if (result.success) {
+        toast({
+          title: "Route updated",
+          description: `Route ${!currentActive ? "activated" : "deactivated"} successfully`,
+        });
+        
+        // Refresh routes from controller
+        await loadRoutes();
+      } else {
         toast({
           title: "Error updating route",
-          description: "Failed to update route status",
+          description: result.error || 'Failed to toggle route status',
           variant: "destructive",
         });
       }
-    } else {
-      // Use Redux fallback
-      dispatch(updateRoute({
-        routeId,
-        updates: { active: !currentActive }
-      }));
-      
+    } catch (error) {
+      console.error('Error toggling route status:', error);
       toast({
-        title: `Route ${!currentActive ? "activated" : "deactivated"}`,
-        description: `The route has been ${!currentActive ? "activated" : "deactivated"}`,
+        title: "Error updating route",
+        description: 'Failed to toggle route status',
+        variant: "destructive",
       });
     }
   };
 
   const handleViewRoute = (routeId: string) => {
-    if (useController) {
-      setSelectedRouteId(routeId);
-    } else {
-      dispatch(setSelectedRoute(routeId));
-    }
+    setSelectedRouteId(routeId);
     setActiveTab("detail");
   };
 
   const handleSelectRoute = (routeId: string | null) => {
-    if (useController) {
-      setSelectedRouteId(routeId);
-    } else {
-      dispatch(setSelectedRoute(routeId));
-    }
+    setSelectedRouteId(routeId);
     if (routeId === null) {
       setActiveTab("all");
     }
   };
 
   const handleDeleteRoute = async (routeId: string, path: string) => {
-    if (confirm(`Are you sure you want to delete the route ${path}?`)) {
-      if (useController && executeAction) {
-        // Use controller
-        try {
-          const result = await executeAction('deleteRoute', { routeId });
+    if (!canWrite) {
+      toast({
+        title: "Permission denied",
+        description: "You don't have permission to delete routes",
+        variant: "destructive",
+      });
+      return;
+    }
 
-          if (result.success) {
-            toast({
-              title: "Route deleted",
-              description: result.message || `Route ${path} has been deleted`,
-            });
-            
-            // Refresh routes list
-            await fetchRoutesFromController();
-          } else {
-            toast({
-              title: "Error deleting route",
-              description: result.error || "Failed to delete route",
-              variant: "destructive",
-            });
-          }
-        } catch (error) {
-          toast({
-            title: "Error deleting route",
-            description: "Failed to delete route",
-            variant: "destructive",
-          });
-        }
-      } else {
-        // Use Redux fallback
-        dispatch(deleteRoute(routeId));
+    if (!confirm(`Are you sure you want to delete the route ${path}?`)) {
+      return;
+    }
+
+    if (!pageController.isRegistered) {
+      toast({
+        title: "Controller not available",
+        description: "Controller not available",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const result = await pageController.executeAction('deleteRoute', { routeId });
+
+      if (result.success) {
         toast({
           title: "Route deleted",
-          description: `Route ${path} has been deleted`,
+          description: `Route ${path} deleted successfully`,
+        });
+        
+        if (selectedRouteId === routeId) {
+          handleSelectRoute(null);
+        }
+        
+        // Refresh routes from controller
+        await loadRoutes();
+      } else {
+        toast({
+          title: "Error deleting route",
+          description: result.error || 'Failed to delete route',
+          variant: "destructive",
         });
       }
+    } catch (error) {
+      console.error('Error deleting route:', error);
+      toast({
+        title: "Error deleting route",
+        description: 'Failed to delete route',
+        variant: "destructive",
+      });
     }
   };
 
-  return (
-    <div className="space-y-6">
+  const handleRefreshRoutes = async () => {
+    await loadRoutes();
+  };
+
+  const handleSearchRoutes = async (query: string) => {
+    if (!pageController.isRegistered || !query.trim()) {
+      return;
+    }
+
+    try {
+      const result = await pageController.executeAction('searchRoutes', {
+        query: query.trim(),
+        filters: {
+          active: activeTab === "active" ? true : activeTab === "inactive" ? false : undefined,
+          protected: activeTab === "protected" ? true : activeTab === "public" ? false : undefined
+        }
+      });
+
+      if (result.success && result.data) {
+        const searchData = result.data as { routes: Route[]; total: number; query: string; filters?: Record<string, unknown> };
+        setRoutes(searchData.routes || []);
+      }
+    } catch (error) {
+      console.error('Error searching routes:', error);
+    }
+  };
+
+  // Show permission error if user can't read routes
+  if (!canRead) {
+    return (
+      <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Routes</h1>
             <p className="text-muted-foreground mt-2">
               Manage API routes, page routes, and redirects
-              {useController && (
-                <Badge variant="outline" className="ml-2">
-                  Controller Registry
-                </Badge>
-              )}
-              {!useController && (
-                <Badge variant="secondary" className="ml-2">
-                  Redux Store
-                </Badge>
-              )}
             </p>
           </div>
+        </div>
+        
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            You don't have permission to view routes. Please contact your administrator.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="flex items-center gap-3">
+            <Navigation className="h-8 w-8" />
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Routes</h1>
+              <p className="text-muted-foreground mt-1">
+                Manage API routes, page routes, and redirects
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {controllerError && (
+          <div className="bg-destructive/15 text-destructive px-4 py-2 rounded-md">
+            {controllerError}
+          </div>
+        )}
+        
+        <div className="flex items-center space-x-2">
+          {pageController.isRegistered && (
+            <div className="flex items-center gap-2 mr-2">
+              <Badge variant="outline" className="text-xs">
+                <Zap className="h-3 w-3 mr-1" />
+                {pageController.getAvailableActions().length} AI actions
+              </Badge>
+            </div>
+          )}
+          <Button
+            variant="outline"
+            onClick={handleRefreshRoutes}
+            disabled={isLoading}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
           
-          <div className="flex gap-2">
-            {useController && (
-              <Button
-                variant="outline"
-                onClick={fetchRoutesFromController}
-                disabled={loading}
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
-            )}
-            
+          {canWrite && (
             <Dialog open={newRouteOpen} onOpenChange={setNewRouteOpen}>
               <DialogTrigger asChild>
                 <Button>
-                  <Navigation className="h-4 w-4 mr-2" />
+                  <Plus className="h-4 w-4 mr-2" />
                   Add Route
                 </Button>
               </DialogTrigger>
-              
+          
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Add New Route</DialogTitle>
@@ -420,89 +499,108 @@ const Routes = () => {
                 </div>
               </DialogContent>
             </Dialog>
-          </div>
+          )}
         </div>
+      </div>
 
-        <div className="flex items-center space-x-2">
-          <Input
-            placeholder="Search routes..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="max-w-sm"
+      {/* Display local error */}
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            {error}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <div className="flex items-center space-x-2">
+        <Input
+          placeholder="Search routes..."
+          value={searchTerm}
+          onChange={(e) => {
+            setSearchTerm(e.target.value);
+            handleSearchRoutes(e.target.value);
+          }}
+          className="max-w-sm"
+        />
+      </div>
+
+      <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="all">All Routes</TabsTrigger>
+          <TabsTrigger value="active">Active</TabsTrigger>
+          <TabsTrigger value="inactive">Inactive</TabsTrigger>
+          <TabsTrigger value="protected">Protected</TabsTrigger>
+          <TabsTrigger value="public">Public</TabsTrigger>
+          {selectedRoute && (
+            <TabsTrigger value="detail">Route Detail</TabsTrigger>
+          )}
+        </TabsList>
+
+        <TabsContent value="all" className="space-y-4">
+          <RouteTable
+            routes={filteredRoutes}
+            handleToggleActive={handleToggleActive}
+            handleViewRoute={handleViewRoute}
+            handleDeleteRoute={handleDeleteRoute}
+            isLoading={isLoading}
+            canWrite={canWrite}
           />
-        </div>
+        </TabsContent>
 
-        <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
-          <TabsList>
-            <TabsTrigger value="all">All Routes</TabsTrigger>
-            <TabsTrigger value="active">Active</TabsTrigger>
-            <TabsTrigger value="inactive">Inactive</TabsTrigger>
-            <TabsTrigger value="protected">Protected</TabsTrigger>
-            <TabsTrigger value="public">Public</TabsTrigger>
-            {activeTab === "detail" && (
-              <TabsTrigger value="detail">Route Detail</TabsTrigger>
-            )}
-          </TabsList>
+        <TabsContent value="active" className="space-y-4">
+          <RouteTable
+            routes={filteredRoutes}
+            handleToggleActive={handleToggleActive}
+            handleViewRoute={handleViewRoute}
+            handleDeleteRoute={handleDeleteRoute}
+            isLoading={isLoading}
+            canWrite={canWrite}
+          />
+        </TabsContent>
 
-          <TabsContent value="all" className="space-y-4">
-            <RouteTable 
-              routes={filteredRoutes} 
-              handleToggleActive={handleToggleActive} 
-              handleViewRoute={handleViewRoute}
-              handleDeleteRoute={handleDeleteRoute}
-              loading={loading}
+        <TabsContent value="inactive" className="space-y-4">
+          <RouteTable
+            routes={filteredRoutes}
+            handleToggleActive={handleToggleActive}
+            handleViewRoute={handleViewRoute}
+            handleDeleteRoute={handleDeleteRoute}
+            isLoading={isLoading}
+            canWrite={canWrite}
+          />
+        </TabsContent>
+
+        <TabsContent value="protected" className="space-y-4">
+          <RouteTable
+            routes={filteredRoutes}
+            handleToggleActive={handleToggleActive}
+            handleViewRoute={handleViewRoute}
+            handleDeleteRoute={handleDeleteRoute}
+            isLoading={isLoading}
+            canWrite={canWrite}
+          />
+        </TabsContent>
+
+        <TabsContent value="public" className="space-y-4">
+          <RouteTable
+            routes={filteredRoutes}
+            handleToggleActive={handleToggleActive}
+            handleViewRoute={handleViewRoute}
+            handleDeleteRoute={handleDeleteRoute}
+            isLoading={isLoading}
+            canWrite={canWrite}
+          />
+        </TabsContent>
+
+        <TabsContent value="detail" className="space-y-4">
+          {selectedRoute && (
+            <RouteDetail
+              route={selectedRoute}
+              onClose={() => handleSelectRoute(null)}
             />
-          </TabsContent>
-
-          <TabsContent value="active" className="space-y-4">
-            <RouteTable 
-              routes={filteredRoutes} 
-              handleToggleActive={handleToggleActive} 
-              handleViewRoute={handleViewRoute}
-              handleDeleteRoute={handleDeleteRoute}
-              loading={loading}
-            />
-          </TabsContent>
-
-          <TabsContent value="inactive" className="space-y-4">
-            <RouteTable 
-              routes={filteredRoutes} 
-              handleToggleActive={handleToggleActive} 
-              handleViewRoute={handleViewRoute}
-              handleDeleteRoute={handleDeleteRoute}
-              loading={loading}
-            />
-          </TabsContent>
-
-          <TabsContent value="protected" className="space-y-4">
-            <RouteTable 
-              routes={filteredRoutes} 
-              handleToggleActive={handleToggleActive} 
-              handleViewRoute={handleViewRoute}
-              handleDeleteRoute={handleDeleteRoute}
-              loading={loading}
-            />
-          </TabsContent>
-
-          <TabsContent value="public" className="space-y-4">
-            <RouteTable 
-              routes={filteredRoutes} 
-              handleToggleActive={handleToggleActive} 
-              handleViewRoute={handleViewRoute}
-              handleDeleteRoute={handleDeleteRoute}
-              loading={loading}
-            />
-          </TabsContent>
-
-          <TabsContent value="detail" className="space-y-4">
-            {selectedRoute && (
-              <RouteDetail 
-                route={selectedRoute} 
-                onClose={() => handleSelectRoute(null)}
-              />
-            )}
-          </TabsContent>
-        </Tabs>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
@@ -512,28 +610,18 @@ interface RouteTableProps {
   handleToggleActive: (id: string, active: boolean) => void;
   handleViewRoute: (id: string) => void;
   handleDeleteRoute: (id: string, path: string) => void;
-  loading?: boolean;
+  isLoading?: boolean;
+  canWrite?: boolean;
 }
 
-const RouteTable = ({ routes, handleToggleActive, handleViewRoute, handleDeleteRoute, loading }: RouteTableProps) => {
-  if (loading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Route List</CardTitle>
-          <CardDescription>
-            Loading routes...
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center py-8">
-            <RefreshCw className="h-6 w-6 animate-spin" />
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
+const RouteTable = ({ 
+  routes, 
+  handleToggleActive, 
+  handleViewRoute, 
+  handleDeleteRoute, 
+  isLoading = false, 
+  canWrite = false 
+}: RouteTableProps) => {
   return (
     <Card>
       <CardHeader>
@@ -555,7 +643,16 @@ const RouteTable = ({ routes, handleToggleActive, handleViewRoute, handleDeleteR
             </TableRow>
           </TableHeader>
           <TableBody>
-            {routes.length > 0 ? (
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8">
+                  <div className="flex items-center justify-center">
+                    <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                    <span>Loading routes...</span>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : routes.length > 0 ? (
               routes.map((route) => (
                 <TableRow key={route.id}>
                   <TableCell className="font-medium">{route.path}</TableCell>
@@ -577,6 +674,7 @@ const RouteTable = ({ routes, handleToggleActive, handleViewRoute, handleDeleteR
                     <Switch
                       checked={route.active}
                       onCheckedChange={() => handleToggleActive(route.id, route.active)}
+                      disabled={isLoading || !canWrite}
                     />
                   </TableCell>
                   <TableCell>
@@ -590,17 +688,21 @@ const RouteTable = ({ routes, handleToggleActive, handleViewRoute, handleDeleteR
                       size="sm"
                       onClick={() => handleViewRoute(route.id)}
                       className="mr-2"
+                      disabled={isLoading}
                     >
                       View
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-destructive"
-                      onClick={() => handleDeleteRoute(route.id, route.path)}
-                    >
-                      Delete
-                    </Button>
+                    {canWrite && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive"
+                        onClick={() => handleDeleteRoute(route.id, route.path)}
+                        disabled={isLoading}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
               ))

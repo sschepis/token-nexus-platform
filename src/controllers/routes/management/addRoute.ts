@@ -1,5 +1,5 @@
 import { ActionDefinition, ActionContext, ActionResult } from '../../types/ActionTypes';
-import { Route, HttpMethod } from '../../../types/routes.d';
+import { Route, HttpMethod } from '../../../types/routes';
 import { v4 as uuidv4 } from 'uuid';
 
 export const addRouteAction: ActionDefinition = {

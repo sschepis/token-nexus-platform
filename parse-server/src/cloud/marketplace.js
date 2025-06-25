@@ -147,8 +147,8 @@ Parse.Cloud.define("fetchOrgAppInstallations", async (request) => {
     
     // Use existing getInstalledAppsForOrg function
     const installations = await Parse.Cloud.run("getInstalledAppsForOrg", {
-      orgId: orgId
-    });
+      organizationId: orgId
+    }, { user });
     
     // Transform to match expected OrgAppInstallation format
     const transformedInstallations = installations.map(inst => ({

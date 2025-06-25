@@ -273,4 +273,47 @@ module.exports = Parse => {
   Parse.Cloud.define('removeRole', removeRole);
   Parse.Cloud.define('searchUsers', searchUsers);
   Parse.Cloud.define('checkUserRole', checkUserRole); // Register checkUserRole as a cloud function
+
+  // Get user roles for permission service
+  const getUserRoles = async request => {
+    const { userId } = request.params;
+    const { user } = request;
+
+    if (!user) {
+      throw new Error('Authentication required');
+    }
+
+    try {
+      // Get target user
+      const targetUser = userId ?
+        await new Parse.Query(Parse.User).get(userId, { useMasterKey: true }) :
+        user;
+
+      if (!targetUser) {
+        throw new Error('User not found');
+      }
+
+      // Fetch user's roles
+      const roleQuery = new Parse.Query(Parse.Role);
+      roleQuery.equalTo('users', targetUser);
+      const userRoles = await roleQuery.find({ useMasterKey: true });
+
+      // Convert Parse roles to the format expected by permission service
+      const roles = userRoles.map(role => ({
+        getName: () => role.getName(),
+        get: (field) => role.get(field),
+        id: role.id
+      }));
+
+      return {
+        success: true,
+        roles: roles
+      };
+    } catch (error) {
+      console.error('Error fetching user roles:', error);
+      throw new Error('Failed to fetch user roles');
+    }
+  };
+
+  Parse.Cloud.define('getUserRoles', getUserRoles);
 };

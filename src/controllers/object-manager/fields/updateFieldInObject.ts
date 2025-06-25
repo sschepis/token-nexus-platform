@@ -1,6 +1,6 @@
 import { ActionDefinition, ActionContext, ActionResult } from '../../types/ActionTypes';
 import { CustomField } from '@/types/object-manager';
-import { objectManagerService } from '@/services/objectManagerService';
+import { objectManagerApi } from '@/services/api';
 
 export const updateFieldInObjectAction: ActionDefinition = {
   id: 'updateFieldInObject',
@@ -34,7 +34,15 @@ export const updateFieldInObjectAction: ActionDefinition = {
         };
       }
 
-      await objectManagerService.updateFieldInObject(objectApiName as string, fieldApiName as string, updates as Partial<CustomField>);
+      const response = await objectManagerApi.updateFieldInObject({
+        objectApiName: objectApiName as string,
+        fieldApiName: fieldApiName as string,
+        updates: updates as Partial<CustomField>
+      });
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to update field in object');
+      }
 
       return {
         success: true,

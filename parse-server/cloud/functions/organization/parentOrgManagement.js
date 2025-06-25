@@ -1,6 +1,48 @@
 // Cloud functions for Parent Organization Management
 const { withOrganizationContext } = require('../../middleware/organizationContextMiddleware');
 
+// Get parent organization
+Parse.Cloud.define('getParentOrganization', async (request) => {
+  const { user } = request;
+
+  if (!user) {
+    throw new Error('Authentication required');
+  }
+
+  try {
+    // Check if parent org exists
+    const Organization = Parse.Object.extend('Organization');
+    const parentQuery = new Parse.Query(Organization);
+    parentQuery.equalTo('isParentOrg', true);
+    const parentOrg = await parentQuery.first({ useMasterKey: true });
+
+    if (parentOrg) {
+      return {
+        success: true,
+        parentOrg: {
+          objectId: parentOrg.id,
+          name: parentOrg.get('name'),
+          contactEmail: parentOrg.get('contactEmail'),
+          contactPhone: parentOrg.get('contactPhone'),
+          isParentOrg: true,
+          status: parentOrg.get('status'),
+          settings: parentOrg.get('settings'),
+          createdAt: parentOrg.get('createdAt'),
+          updatedAt: parentOrg.get('updatedAt')
+        }
+      };
+    } else {
+      return {
+        success: true,
+        parentOrg: null
+      };
+    }
+  } catch (error) {
+    console.error('Error fetching parent organization:', error);
+    throw new Error('Failed to fetch parent organization');
+  }
+});
+
 // Initialize platform with parent organization
 Parse.Cloud.define('initializeParentOrganization', async (request) => {
   const { user } = request;

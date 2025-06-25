@@ -5,6 +5,8 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "@/components/ui/sonner";
+import { useAppSelector } from "@/store/hooks";
+import { objectManagerApi } from "@/services/api";
 import {
   Dialog,
   DialogContent,
@@ -61,27 +63,35 @@ const CreateObjectModal: React.FC<CreateObjectModalProps> = ({
     },
   });
 
+  const { currentOrg } = useAppSelector(state => state.org);
+
   const createMutation = useMutation({
     mutationFn: async (values: FormValues) => {
-      // Mock API call for now
-      return new Promise((resolve) => {
-        setTimeout(() => {
-          resolve({
-            id: `obj-${Date.now()}`,
-            ...values,
-            fields: [],
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          });
-        }, 500);
+      if (!currentOrg?.id) {
+        throw new Error('Organization not found');
+      }
+      
+      const response = await objectManagerApi.createObject({
+        orgId: currentOrg.id,
+        apiName: values.apiName,
+        label: values.label,
+        description: values.description,
+        fields: []
       });
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to create object');
+      }
+      
+      return response.data;
     },
     onSuccess: (data) => {
+      toast.success("Object created successfully");
       onSuccess(form.getValues());
       form.reset();
     },
-    onError: () => {
-      toast.error("Failed to create object. Please try again.");
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to create object. Please try again.");
     },
   });
 

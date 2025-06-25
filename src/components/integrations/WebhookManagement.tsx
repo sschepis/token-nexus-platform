@@ -34,7 +34,7 @@ import {
   updateWebhook,
   deleteWebhook,
   testWebhook,
-  clearErrors,
+  clearAllErrors,
 } from "@/store/slices/integrationSlice";
 import {
   AlertDialog,
@@ -84,7 +84,15 @@ export const WebhookManagement: React.FC = () => {
     isUpdating,
     isDeleting,
     isTesting,
-  } = useAppSelector((state) => state.integration);
+  } = useAppSelector((state) => ({
+    webhooks: state.integration.webhooks.items || [],
+    isLoadingWebhooks: state.integration.webhooks.isLoading,
+    webhookError: state.integration.webhooks.error,
+    isCreating: state.integration.webhooks.isCreating,
+    isUpdating: state.integration.webhooks.isUpdating,
+    isDeleting: state.integration.webhooks.isDeleting,
+    isTesting: state.integration.isTesting,
+  }));
 
   // Local state for forms
   const [newWebhookName, setNewWebhookName] = useState("");
@@ -111,7 +119,7 @@ export const WebhookManagement: React.FC = () => {
         description: webhookError,
         variant: "destructive",
       });
-      dispatch(clearErrors());
+      dispatch(clearAllErrors());
     }
   }, [webhookError, toast, dispatch]);
 
@@ -154,11 +162,13 @@ export const WebhookManagement: React.FC = () => {
     if (!editWebhookId) return;
 
     await dispatch(updateWebhook({
-      webhookId: editWebhookId,
-      name: editWebhookName,
-      url: editWebhookUrl,
-      events: editWebhookEvents,
-      method: editWebhookMethod as "GET" | "POST" | "PUT" | "DELETE",
+      id: editWebhookId,
+      params: {
+        name: editWebhookName,
+        url: editWebhookUrl,
+        events: editWebhookEvents,
+        method: editWebhookMethod as "GET" | "POST" | "PUT" | "DELETE",
+      },
     }));
     toast({
       title: "Webhook Updated",
@@ -168,7 +178,10 @@ export const WebhookManagement: React.FC = () => {
   };
 
   const handleToggleWebhook = async (id: string, currentStatus: boolean) => {
-    await dispatch(updateWebhook({ webhookId: id, isActive: !currentStatus }));
+    await dispatch(updateWebhook({
+      id: id,
+      params: { isActive: !currentStatus }
+    }));
     toast({
       title: "Webhook Status Updated",
       description: `Webhook has been ${!currentStatus ? "enabled" : "disabled"} successfully.`,

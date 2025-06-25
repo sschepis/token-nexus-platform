@@ -9,148 +9,110 @@ import { AnimatePresence } from 'framer-motion';
 import { PageTransition } from '@/components/ui/animated-container'; // Assuming path is correct
 import AppLayout from '@/components/layout/AppLayout'; // Added AppLayout import
 import '../styles/globals.css';
-import { initializeApp, PlatformStatus } from '@/services/appInitService'; // Path updated
+import { initializeApp, PlatformStatus } from '@/services/appInitService';
 import { initializeControllers } from '@/controllers/registerControllers'; // Import controller initializer
-import { useEffect, useState } from 'react'; // For initializeApp
+import { useEffect, useState, useRef } from 'react'; // For initializeApp
 import { useRouter } from 'next/router';
 import { useTheme } from '@/hooks/useTheme';
+import { AlertCircle, Loader2 } from 'lucide-react';
 
 // Create a client
 const queryClient = new QueryClient();
 
 function MyApp({ Component, pageProps }: AppProps) {
   const router = useRouter();
-  const [isInitialized, setIsInitialized] = useState(false);
-  const [hasInitialized, setHasInitialized] = useState(false);
+  // Use a ref to ensure initialization logic runs only once
+  const initRef = useRef(false);
+  const [isAppReady, setIsAppReady] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
-  const [initStep, setInitStep] = useState<string>('Starting...');
+  const [initStep, setInitStep] = useState<string>('Starting application initialization...');
 
   useEffect(() => {
-    // Only attempt initialization if it hasn't been successfully completed in this session
-    // and if the component instance itself hasn't already run the init cycle.
-    if (sessionStorage.getItem('appInitialized') === 'true' && !hasInitialized) {
-        setIsInitialized(true);
-        setHasInitialized(true);
-        return;
-    }
-
-    // Ensure initialization only runs once per component mount (and only if not already initialized)
-    if (hasInitialized) {
+    // Ensure this initialization logic runs only once
+    if (initRef.current) {
       return;
     }
+    initRef.current = true;
 
-    async function handleInitialization() {
-      setHasInitialized(true); // Mark that initialization has been attempted for this component instance
+    async function handleAppStartup() {
       try {
-        setInitStep('Checking if initializeApp exists...');
-        if (!initializeApp || typeof initializeApp !== 'function') {
-          throw new Error('initializeApp is not available');
-        }
-
-        setInitStep('Calling initializeApp...');
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Initialization timeout after 30 seconds')), 30000);
+        setInitStep('Initializing Parse and core services...');
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('Core initialization timed out (30 seconds)')), 30000);
         });
 
         const platformStatus = await Promise.race([
           initializeApp(),
           timeoutPromise
         ]) as PlatformStatus;
+
+        console.log('[App] Core application initialized. Platform status:', platformStatus);
         
-        setInitStep('Storing platform status in sessionStorage...');
-        sessionStorage.setItem('platformStatus', JSON.stringify(platformStatus));
-        
-        // Check authentication status after initialization
+        setInitStep('Registering page controllers...');
+        initializeControllers();
+        console.log('[App] All page controllers registered.');
+
+        // Determine next path based on platform status and authentication
         const { isAuthenticated: currentIsAuthenticated } = store.getState().auth;
+        let redirectPath: string | null = null;
 
         if (platformStatus.status === 'OPERATIONAL' || platformStatus.status === 'PARENT_ORG_CREATED') {
-            sessionStorage.setItem('appInitialized', 'true');
-            initializeControllers(); // Initialize controllers after app init and before routing
-            // If platform is operational and user is authenticated, redirect to dashboard
-            if (currentIsAuthenticated) {
-              setInitStep('Platform operational and authenticated, redirecting to dashboard...');
-              setIsInitialized(true); // Allow navigation to proceed
-              router.replace('/dashboard');
-              return;
-            } else {
-              setInitStep('Platform operational but not authenticated, redirecting to login...');
-              setIsInitialized(true); // Allow navigation to proceed
-              router.replace('/login');
-              return;
-            }
+          if (!currentIsAuthenticated) {
+            redirectPath = '/login';
+          }
         } else if (platformStatus.status === 'ERROR') {
           setInitError('Platform is in an error state. Please check server logs.');
-          setIsInitialized(true);
-          // Do not redirect, show error screen
-          return;
-        } else {
-            sessionStorage.removeItem('appInitialized'); // Explicitly remove if not fully initialized
-            setInitStep('Checking for redirects (setup phase)...');
-            // If platform is in a setup phase, redirect to appropriate setup page
-            if (platformStatus.status === 'PRISTINE' || platformStatus.status === 'CORE_ARTIFACTS_IMPORTED') {
-              setInitStep('Redirecting to bootstrap login...');
-              initializeControllers(); // Also initialize here for setup paths if needed
-              setIsInitialized(true); // Allow navigation to proceed
-              router.replace('/setup/bootstrap-login');
-              return;
-            } else if (platformStatus.status === 'PARENT_ORG_CREATING') {
-              setInitStep('Redirecting to create org admin...');
-              initializeControllers(); // And here
-              setIsInitialized(true); // Allow navigation to proceed
-              router.replace('/setup/create-org-admin');
-              return;
-            }
+          return; // Stay on error screen
+        } else if (platformStatus.status === 'PRISTINE' || platformStatus.status === 'CORE_ARTIFACTS_IMPORTED') {
+          redirectPath = '/setup/bootstrap-login';
+        } else if (platformStatus.status === 'PARENT_ORG_CREATING') {
+          redirectPath = '/setup/create-org-admin';
         }
 
-        setInitStep('Initialization complete!');
-        // Ensure controllers are initialized if no specific redirect happened but app is proceeding
-        if (!sessionStorage.getItem('appInitialized')) { // Fallback if not set earlier
-            initializeControllers();
+        if (redirectPath) {
+          router.replace(redirectPath);
         }
-        setIsInitialized(true);
+
+        setIsAppReady(true); // Mark application as fully ready
+        setInitStep('Application ready.');
+
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        setInitError(`Initialization failed at step "${initStep}": ${errorMessage}`);
-        console.error('App initialization error:', errorMessage);
-        sessionStorage.removeItem('appInitialized'); // Ensure we retry on next load if an error occurs
-        setIsInitialized(true); // Allow app to render, potentially showing the error
+        setInitError(`Application startup failed: ${errorMessage}. Current step: "${initStep}".`);
+        console.error('Application startup error:', errorMessage);
+        setIsAppReady(false); // Application not ready due to error
       }
     }
 
-    handleInitialization();
-  }, []); // Empty dependency array means it runs once on mount and not again
+    handleAppStartup();
+  }, [router, initStep]);
 
-  // Show loading screen while initializing
-  if (!isInitialized) {
+
+  // Show loading/error screen while not ready
+  if (!isAppReady) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-8">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background p-8 text-center">
         <div className="flex flex-col items-center max-w-md w-full">
           {initError ? (
-            <>
-              <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mb-4">
-                <div className="w-10 h-10 rounded-full bg-red-500"></div>
-              </div>
-              <h2 className="text-xl font-semibold text-red-600 mb-4">Initialization Error</h2>
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 w-full">
-                <p className="text-red-800 text-sm whitespace-pre-wrap">{initError}</p>
-              </div>
+            <div className="text-red-500">
+              <AlertCircle className="h-16 w-16 mx-auto mb-4" />
+              <h2 className="text-2xl font-semibold mb-3">Startup Error</h2>
+              <p className="text-sm font-mono whitespace-pre-wrap px-4 py-2 bg-red-50/50 rounded-md border border-red-200">
+                {initError}
+              </p>
               <button
                 onClick={() => window.location.reload()}
-                className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                className="mt-6 px-6 py-2 bg-red-600 text-white rounded-lg shadow-md hover:bg-red-700 transition-colors"
               >
-                Reload Page
+                Reload Application
               </button>
-            </>
+            </div>
           ) : (
-            <>
-              <div className="animate-pulse flex flex-col items-center">
-                <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center">
-                  <div className="w-10 h-10 rounded-full bg-primary"></div>
-                </div>
-                <p className="text-muted-foreground mt-4">Loading Token Nexus Platform...</p>
-                <p className="text-sm text-muted-foreground/70 mt-2">{initStep}</p>
-              </div>
-            </>
+            <div className="text-primary-foreground">
+              <Loader2 className="h-16 w-16 mx-auto mb-4 animate-spin" />
+              <h2 className="text-2xl font-semibold mb-3">Initializing Application</h2>
+              <p className="text-muted-foreground">{initStep}</p>
+            </div>
           )}
         </div>
       </div>

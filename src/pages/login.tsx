@@ -1,10 +1,10 @@
-import React, { useState } from "react";
-import { useRouter } from "next/router"; // Changed from react-router-dom
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/router";
 import { useAppDispatch } from "@/store/hooks";
 import { loginStart, loginSuccess, loginFailed } from "@/store/slices/authSlice";
-import { fetchOrgsSuccess, setCurrentOrgById, fetchUserOrganizations } from "@/store/slices/orgSlice";
+import { fetchUserOrganizations, setCurrentOrgById } from "@/store/slices/orgSlice";
 import { apiService } from "@/services/api";
-import { toast } from "@/hooks/use-toast"; // Assuming this is compatible or will be made compatible
+import { toast } from "@/hooks/use-toast";
 import Parse from "parse";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,16 +15,15 @@ import { Loader2 } from "lucide-react";
 
 const LoginPage = () => {
   const dispatch = useAppDispatch();
-  const router = useRouter(); // Changed from useNavigate
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!email || !password) {
+
+  const handleLoginInternal = async (loginEmail: string, loginPassword: string) => {
+    if (!loginEmail || !loginPassword) {
       toast({
         title: "Missing fields",
         description: "Please enter both email and password.",
@@ -37,7 +36,7 @@ const LoginPage = () => {
       setIsLoading(true);
       dispatch(loginStart());
       
-      const authResponse = await apiService.login({ email, password });
+      const authResponse = await apiService.login({ email: loginEmail, password: loginPassword });
       
       // Explicitly set the session token for Parse SDK immediately after successful login
       // This is critical to ensure subsequent API calls are authenticated.
@@ -66,7 +65,7 @@ const LoginPage = () => {
         description: "Welcome back to Token Nexus Platform.",
       });
       
-      router.push("/dashboard"); // Changed from navigate("/dashboard")
+      router.push("/dashboard");
     } catch (error) {
       dispatch(loginFailed("Invalid email or password."));
       toast({
@@ -77,6 +76,11 @@ const LoginPage = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await handleLoginInternal(email, password);
   };
 
   return (

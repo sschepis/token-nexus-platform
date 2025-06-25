@@ -1,8 +1,7 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAppSelector } from "@/store/hooks";
-import { apiService } from "@/services/api"; // Import apiService
-import { objectManagerService } from "@/services/objectManagerService"; // Import objectManagerService
+import { apiService, objectManagerApi } from "@/services/api"; // Import apiService and objectManagerApi
 import {
   Card,
   CardContent,
@@ -46,9 +45,13 @@ const ComponentLibrary: React.FC = () => {
   const { data: objects = [] } = useQuery({
     queryKey: ["customObjects", currentOrg?.id],
     queryFn: async () => {
-      const response = await objectManagerService.fetchObjects(currentOrg?.id || ''); // Pass currentOrg.id
-      return response;
-    }
+      const response = await objectManagerApi.fetchObjects({
+        orgId: currentOrg?.id || '',
+        includeRecordCount: false
+      });
+      return response.data || [];
+    },
+    enabled: !!currentOrg?.id
   });
 
   const handleCreateSuccess = () => {

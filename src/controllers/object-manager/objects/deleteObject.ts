@@ -1,5 +1,5 @@
 import { ActionDefinition, ActionContext, ActionResult } from '../../types/ActionTypes';
-import { objectManagerService } from '@/services/objectManagerService';
+import { objectManagerApi } from '@/services/api';
 
 export const deleteObjectAction: ActionDefinition = {
   id: 'deleteObject',
@@ -28,7 +28,14 @@ export const deleteObjectAction: ActionDefinition = {
         };
       }
 
-      await objectManagerService.deleteObject(objectId as string, confirmDelete as boolean);
+      const response = await objectManagerApi.deleteObject({
+        objectApiName: objectId as string, // Note: This assumes objectId is actually the API name
+        confirmDelete: confirmDelete as boolean
+      });
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to delete object');
+      }
 
       return {
         success: true,

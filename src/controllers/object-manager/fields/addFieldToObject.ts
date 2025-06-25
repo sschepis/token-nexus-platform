@@ -1,6 +1,6 @@
 import { ActionDefinition, ActionContext, ActionResult } from '../../types/ActionTypes';
 import { CustomField } from '@/types/object-manager';
-import { objectManagerService } from '@/services/objectManagerService';
+import { objectManagerApi } from '@/services/api';
 
 export const addFieldToObjectAction: ActionDefinition = {
   id: 'addFieldToObject',
@@ -41,7 +41,14 @@ export const addFieldToObjectAction: ActionDefinition = {
         ...(fieldType === 'Pointer' && (options as any).targetClass ? { targetClass: (options as any).targetClass } : {})
       };
 
-      await objectManagerService.addFieldToObject(objectApiName as string, newField);
+      const response = await objectManagerApi.addFieldToObject({
+        objectApiName: objectApiName as string,
+        field: newField
+      });
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to add field to object');
+      }
 
       return {
         success: true,

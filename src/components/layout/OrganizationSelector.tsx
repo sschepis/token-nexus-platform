@@ -32,21 +32,6 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({ clas
   const { currentOrg, userOrgs, isLoading, error } = useAppSelector((state) => state.org);
   const { orgId, user } = useAppSelector((state) => state.auth);
 
-  // Fetch user organizations on mount if not already loaded
-  useEffect(() => {
-    if (user && userOrgs.length === 0 && !isLoading) {
-      // Fetch user organizations with error handling
-      dispatch(fetchUserOrganizations()).unwrap().catch((error) => {
-        console.warn('Failed to fetch user organizations in selector:', error);
-        // Don't show error toast as this might be called automatically
-      });
-    }
-    
-    if (user && orgId && !currentOrg && !isLoading) {
-      // Fetch current organization details
-      dispatch(fetchCurrentOrgDetails(orgId));
-    }
-  }, [user, userOrgs.length, orgId, currentOrg, isLoading, dispatch]);
 
   const handleOrgChange = async (newOrgId: string) => {
     if (newOrgId !== currentOrg?.id) {

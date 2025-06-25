@@ -2,7 +2,7 @@ import { ActionDefinition } from '../types/actionDefinitions';
 import { ActionContext } from '../types/actionContexts';
 import { ActionResult } from '../types/actionResults';
 import { CustomField } from '@/types/object-manager';
-import { objectManagerService } from '@/services/objectManagerService';
+import { objectManagerApi } from '@/services/api';
 import { ObjectManagerPageController } from '../ObjectManagerPageController';
 
 /**
@@ -54,12 +54,19 @@ export function registerObjectCreateActions(controller: ObjectManagerPageControl
           };
         }
 
-        const newObject = await objectManagerService.createObject(orgId, {
+        const response = await objectManagerApi.createObject({
+          orgId,
           apiName: apiName as string,
           label: label as string,
           description: description as string,
           fields: fields as CustomField[]
         });
+
+        if (!response.success) {
+          throw new Error(response.error || 'Failed to create object');
+        }
+
+        const newObject = response.data;
 
         return {
           success: true,
@@ -144,7 +151,17 @@ export function registerObjectCreateActions(controller: ObjectManagerPageControl
           };
         }
 
-        const savedRecord = await objectManagerService.createRecord(orgId, objectApiName as string, recordData as Record<string, any>);
+        const response = await objectManagerApi.createRecord({
+          orgId,
+          objectApiName: objectApiName as string,
+          recordData: recordData as Record<string, any>
+        });
+
+        if (!response.success) {
+          throw new Error(response.error || 'Failed to create record');
+        }
+
+        const savedRecord = response.data;
 
         return {
           success: true,

@@ -21,7 +21,7 @@ export class UsersPageController extends BasePageController {
       description: 'Comprehensive user management interface with AI assistant integration',
       category: 'user-management',
       tags: ['users', 'organization', 'permissions', 'roles'],
-      permissions: ['org_admin', 'user_manager'],
+      permissions: ['org_admin', 'user_manager', 'users:read', 'users:write', 'system:admin'],
       version: '1.0.0'
     });
   }

@@ -1,15 +1,18 @@
 // src/controllers/ControllerRegistry.ts
 
 import { PageController } from './types/pageController';
-import { ActionDefinition, ActionParameter, ActionExample, ActionExecutor, ValidationRule } from './types/actionDefinitions';
-import { ActionContext, UserContext, OrganizationContext, NavigationContext, PageContext } from './types/actionContexts';
-import { ActionResult, ValidationResult } from './types/actionResults';
-import { PermissionResult, ApprovalStep, EscalationRule, ApprovalWorkflow } from './types/permissionsAndApprovals';
-import { ActionEvent, ActionEventType, ActionEventListener } from './types/actionEvents';
+import { ActionDefinition } from './types/actionDefinitions';
+import { ActionContext, UserContext } from './types/actionContexts';
+import { ActionResult, ValidationResult } from './types/actionResults'; // Keep ValidationResult for method signature
+import { PermissionManager, permissionManager } from './PermissionManager';
 import { ControllerRegistryConfig } from './types/controllerRegistryConfig';
 import { ActionDiscoveryQuery, ActionDiscoveryResult } from './types/actionDiscovery';
-import { AIToolDefinition } from './types/aiToolDefinition'; // Assuming this is needed here.
-import { PermissionManager, permissionManager } from './PermissionManager';
+import { ActionEvent, ActionEventListener } from './types/actionEvents'; // Keep for constructor config
+
+// Import the new services
+import { ActionValidationService, actionValidationService } from './services/ActionValidationService';
+import { ActionDiscoveryService, actionDiscoveryService } from './services/ActionDiscoveryService';
+import { ActionEventEmitter, actionEventEmitter } from './services/ActionEventEmitter';
 
 /**
  * Central registry for managing page controllers and their actions
@@ -17,13 +20,20 @@ import { PermissionManager, permissionManager } from './PermissionManager';
 export class ControllerRegistry {
   private pageControllers: Map<string, PageController> = new Map();
   private actionIndex: Map<string, { pageId: string; action: ActionDefinition }> = new Map();
-  private eventListeners: ActionEventListener[] = [];
   private permissionManager: PermissionManager;
   private config: ControllerRegistryConfig;
 
+  // Inject services
+  private actionValidationService: ActionValidationService;
+  private actionDiscoveryService: ActionDiscoveryService;
+  private actionEventEmitter: ActionEventEmitter;
+
   constructor(
     permissionManagerInstance: PermissionManager = permissionManager,
-    config: Partial<ControllerRegistryConfig> = {}
+    config: Partial<ControllerRegistryConfig> = {},
+    actionValidationServiceInstance: ActionValidationService = actionValidationService,
+    actionDiscoveryServiceInstance: ActionDiscoveryService = actionDiscoveryService,
+    actionEventEmitterInstance: ActionEventEmitter = actionEventEmitter
   ) {
     this.permissionManager = permissionManagerInstance;
     this.config = {
@@ -36,9 +46,16 @@ export class ControllerRegistry {
       ...config
     };
 
+    this.actionValidationService = actionValidationServiceInstance;
+    this.actionDiscoveryService = actionDiscoveryServiceInstance;
+    this.actionEventEmitter = actionEventEmitterInstance;
+
+    // Set registry reference in permission manager
+    this.permissionManager.setRegistry(this);
+
     // Register default event listeners
     this.config.eventListeners.forEach(listener => {
-      this.addEventListener(listener);
+      this.actionEventEmitter.addEventListener(listener);
     });
   }
 
@@ -66,18 +83,12 @@ export class ControllerRegistry {
     // Index all actions for quick lookup
     pageController.actions.forEach((action, actionId) => {
       const fullActionId = `${pageController.pageId}.${actionId}`;
-      console.log(`[DEBUG ControllerRegistry] Indexing action: ${fullActionId}`);
       this.actionIndex.set(fullActionId, {
         pageId: pageController.pageId,
         action
       });
     });
-    
-    console.log(`[DEBUG ControllerRegistry] Total actions indexed: ${this.actionIndex.size}`);
-    console.log(`[DEBUG ControllerRegistry] All indexed actions:`, Array.from(this.actionIndex.keys()));
-
-    // Emit registration event
-    this.emitEvent({
+    this.actionEventEmitter.emitEvent({
       type: 'action_registered',
       actionId: pageController.pageId,
       pageId: pageController.pageId,
@@ -88,8 +99,6 @@ export class ControllerRegistry {
         actionCount: pageController.actions.size
       }
     });
-
-    console.log(`Registered page controller: ${pageController.pageId} with ${pageController.actions.size} actions`);
   }
 
   /**
@@ -112,7 +121,7 @@ export class ControllerRegistry {
     this.pageControllers.delete(pageId);
 
     // Emit unregistration event
-    this.emitEvent({
+    this.actionEventEmitter.emitEvent({
       type: 'action_unregistered',
       actionId: pageId,
       pageId: pageId,
@@ -136,7 +145,7 @@ export class ControllerRegistry {
     }
 
     // Validate action
-    this.validateAction(action);
+    this.actionValidationService.validateAction(action);
 
     // Check action limit
     if (pageController.actions.size >= this.config.maxActionsPerPage) {
@@ -196,7 +205,7 @@ export class ControllerRegistry {
       const { pageId, action } = actionEntry;
 
       // Validate parameters
-      const validationResult = this.validateActionParameters(action, params);
+      const validationResult = this.actionValidationService.validateActionParameters(action, params);
       if (!validationResult.valid) {
         const errorMessage = `Parameter validation failed: ${validationResult.errors.map(e => e.message).join(', ')}`;
         throw new Error(errorMessage);
@@ -245,7 +254,7 @@ export class ControllerRegistry {
       }
 
       // Emit success event
-      this.emitEvent({
+      this.actionEventEmitter.emitEvent({
         type: 'action_executed',
         actionId,
         pageId,
@@ -283,7 +292,7 @@ export class ControllerRegistry {
 
       // Emit failure event
       const actionEntry = this.actionIndex.get(actionId);
-      this.emitEvent({
+      this.actionEventEmitter.emitEvent({
         type: 'action_failed',
         actionId,
         pageId: actionEntry?.pageId || 'unknown',
@@ -346,78 +355,31 @@ export class ControllerRegistry {
   }
 
   /**
+   * For debugging: Returns all registered action IDs.
+   */
+  public getAllRegisteredActionIds(): string[] {
+    return Array.from(this.actionIndex.keys());
+  }
+
+  /**
    * Discover actions based on query
    */
   discoverActions(query: ActionDiscoveryQuery): ActionDiscoveryResult {
-    const { query: searchQuery, category, permissions, pageId, tags, limit = 10 } = query;
-    
-    const candidateActions: Array<{ actionId: string; action: ActionDefinition; pageId: string }> = [];
-
-    // Collect candidate actions
-    this.actionIndex.forEach(({ pageId: actionPageId, action }, actionId) => {
-      // Filter by page if specified
-      if (pageId && actionPageId !== pageId) {
-        return;
-      }
-
-      // Filter by category if specified
-      if (category && action.category !== category) {
-        return;
-      }
-
-      // Filter by permissions if specified
-      if (permissions && !permissions.some(perm => action.permissions.includes(perm))) {
-        return;
-      }
-
-      // Filter by tags if specified
-      if (tags && action.metadata?.tags) {
-        const hasMatchingTag = tags.some(tag => action.metadata!.tags.includes(tag));
-        if (!hasMatchingTag) {
-          return;
-        }
-      }
-
-      candidateActions.push({ actionId, action, pageId: actionPageId });
-    });
-
-    // Score actions based on search query
-    const scoredActions = candidateActions.map(({ actionId, action, pageId }) => {
-      const score = this.calculateActionScore(action, searchQuery);
-      return { actionId, action, pageId, score };
-    });
-
-    // Sort by score and limit results
-    scoredActions.sort((a, b) => b.score - a.score);
-    const topActions = scoredActions.slice(0, limit);
-
-    // Generate suggestions and related queries
-    const suggestions = this.generateActionSuggestions(topActions.map(a => a.action));
-    const relatedQueries = this.generateRelatedQueries(searchQuery, topActions.map(a => a.action));
-
-    return {
-      actions: topActions.map(a => a.action),
-      confidence: topActions.length > 0 ? topActions[0].score : 0,
-      suggestions,
-      relatedQueries
-    };
+    return this.actionDiscoveryService.discoverActions(this.actionIndex, query);
   }
 
   /**
    * Add event listener
    */
   addEventListener(listener: ActionEventListener): void {
-    this.eventListeners.push(listener);
+    this.actionEventEmitter.addEventListener(listener);
   }
 
   /**
    * Remove event listener
    */
   removeEventListener(listener: ActionEventListener): void {
-    const index = this.eventListeners.indexOf(listener);
-    if (index > -1) {
-      this.eventListeners.splice(index, 1);
-    }
+    this.actionEventEmitter.removeEventListener(listener);
   }
 
   /**
@@ -448,225 +410,10 @@ export class ControllerRegistry {
   }
 
   /**
-   * Validate action definition
+   * Check if user can execute a specific action
    */
-  private validateAction(action: ActionDefinition): void {
-    if (!action.id || !action.name || !action.description) {
-      throw new Error('Action must have id, name, and description');
-    }
-
-    if (!action.execute || typeof action.execute !== 'function') {
-      throw new Error('Action must have a valid execute function');
-    }
-
-    if (!['navigation', 'data', 'ui', 'external'].includes(action.category)) {
-      throw new Error('Action category must be one of: navigation, data, ui, external');
-    }
-  }
-
-  /**
-   * Validate action parameters
-   */
-  private validateActionParameters(action: ActionDefinition, params: Record<string, unknown>): ValidationResult {
-    const errors: Array<{ parameter: string; message: string; value: unknown }> = [];
-
-    // Check required parameters
-    action.parameters.forEach(param => {
-      const value = params[param.name];
-
-      if (param.required && (value === undefined || value === null)) {
-        errors.push({
-          parameter: param.name,
-          message: `Required parameter '${param.name}' is missing`,
-          value
-        });
-        return;
-      }
-
-      if (value !== undefined && value !== null) {
-        // Type validation
-        if (!this.validateParameterType(value, param.type)) {
-          errors.push({
-            parameter: param.name,
-            message: `Parameter '${param.name}' must be of type ${param.type}`,
-            value
-          });
-        }
-
-        // Custom validation rules
-        if (param.validation) {
-          param.validation.forEach(rule => {
-            const validationError = this.validateParameterRule(value, rule, param.name);
-            if (validationError) {
-              errors.push(validationError);
-            }
-          });
-        }
-      }
-    });
-
-    return {
-      valid: errors.length === 0,
-      errors
-    };
-  }
-
-  /**
-   * Validate parameter type
-   */
-  private validateParameterType(value: unknown, expectedType: string): boolean {
-    switch (expectedType) {
-      case 'string':
-        return typeof value === 'string';
-      case 'number':
-        return typeof value === 'number' && !isNaN(value);
-      case 'boolean':
-        return typeof value === 'boolean';
-      case 'object':
-        return typeof value === 'object' && value !== null && !Array.isArray(value);
-      case 'array':
-        return Array.isArray(value);
-      default:
-        return true;
-    }
-  }
-
-  /**
-   * Validate parameter against a rule
-   */
-  private validateParameterRule(
-    value: unknown,
-    rule: ValidationRule,
-    paramName: string
-  ): { parameter: string; message: string; value: unknown } | null {
-    switch (rule.type) {
-      case 'format':
-        if (typeof value === 'string' && rule.pattern) {
-          const regex = new RegExp(rule.pattern);
-          if (!regex.test(value)) {
-            return {
-              parameter: paramName,
-              message: rule.message || `Parameter '${paramName}' does not match required format`,
-              value
-            };
-          }
-        }
-        break;
-
-      case 'enum':
-        if (rule.values && !rule.values.includes(value as string | number)) {
-          return {
-            parameter: paramName,
-            message: rule.message || `Parameter '${paramName}' must be one of: ${rule.values.join(', ')}`,
-            value
-          };
-        }
-        break;
-
-      case 'range':
-        if (typeof value === 'number') {
-          if (rule.min !== undefined && value < rule.min) {
-            return {
-              parameter: paramName,
-              message: rule.message || `Parameter '${paramName}' must be at least ${rule.min}`,
-              value
-            };
-          }
-          if (rule.max !== undefined && value > rule.max) {
-            return {
-              parameter: paramName,
-              message: rule.message || `Parameter '${paramName}' must be at most ${rule.max}`,
-              value
-            };
-          }
-        }
-        break;
-
-      case 'custom':
-        if (rule.customValidator && typeof rule.customValidator === 'function') {
-          const result = rule.customValidator(value);
-          if (result !== true) {
-            return {
-              parameter: paramName,
-              message: typeof result === 'string' ? result : (rule.message || `Parameter '${paramName}' failed custom validation`),
-              value
-            };
-          }
-        }
-        break;
-    }
-
-    return null;
-  }
-
-  /**
-   * Calculate action score for search query
-   */
-  private calculateActionScore(action: ActionDefinition, query: string): number {
-    const queryLower = query.toLowerCase();
-    let score = 0;
-
-    // Name match (highest weight)
-    if (action.name.toLowerCase().includes(queryLower)) {
-      score += 10;
-    }
-
-    // Description match
-    if (action.description.toLowerCase().includes(queryLower)) {
-      score += 5;
-    }
-
-    // Tag match
-    if (action.metadata?.tags) {
-      action.metadata.tags.forEach(tag => {
-        if (tag.toLowerCase().includes(queryLower)) {
-          score += 3;
-        }
-      });
-    }
-
-    // Category match
-    if (action.category.toLowerCase().includes(queryLower)) {
-      score += 2;
-    }
-
-    // ID match
-    if (action.id.toLowerCase().includes(queryLower)) {
-      score += 1;
-    }
-
-    return score;
-  }
-
-  /**
-   * Generate action suggestions
-   */
-  private generateActionSuggestions(actions: ActionDefinition[]): string[] {
-    const suggestions: string[] = [];
-    
-    actions.forEach(action => {
-      if (action.metadata?.examples) {
-        action.metadata.examples.forEach(example => {
-          suggestions.push(example.description);
-        });
-      }
-    });
-
-    return suggestions.slice(0, 5); // Limit to 5 suggestions
-  }
-
-  /**
-   * Generate related queries
-   */
-  private generateRelatedQueries(originalQuery: string, actions: ActionDefinition[]): string[] {
-    const relatedQueries: string[] = [];
-    const categories = new Set(actions.map(a => a.category));
-    
-    categories.forEach(category => {
-      relatedQueries.push(`${category} actions`);
-    });
-
-    return relatedQueries.slice(0, 3); // Limit to 3 related queries
+  canExecuteAction(actionId: string, userContext: UserContext): boolean {
+    return this.permissionManager.canExecuteAction(actionId, userContext);
   }
 
   /**
@@ -677,18 +424,9 @@ export class ControllerRegistry {
   }
 
   /**
-   * Emit event to all listeners
+   * Check if action requires approval
    */
-  private emitEvent(event: ActionEvent): void {
-    this.eventListeners.forEach(listener => {
-      try {
-        listener(event);
-      } catch (error) {
-        console.error('Error in action event listener:', error);
-      }
-    });
+  requiresApproval(actionId: string, userContext: UserContext): boolean {
+    return this.permissionManager.requiresApproval(actionId, userContext);
   }
 }
-
-// Export singleton instance
-export const controllerRegistry = new ControllerRegistry();

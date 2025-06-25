@@ -12,6 +12,7 @@ const ChainConfig = require('./ChainConfig');
 const ContractDeployment = require('./ContractDeployment');
 const CMSTrigger = require('./CMSTrigger');
 const workflowSchema = require('./workflowSchema');
+const MCPServer = require('./MCPServer');
 
 module.exports = {
   ...visualTesting,
@@ -26,4 +27,5 @@ module.exports = {
   ...ContractDeployment,
   ...CMSTrigger,
   ...workflowSchema,
+  ...MCPServer,
 };

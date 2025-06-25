@@ -19,14 +19,34 @@ import {
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
-import { Link, WebhookIcon, Database, Lock } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Link, WebhookIcon, Database, Lock, Zap, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { usePageController } from "@/hooks/usePageController";
+import { usePermission } from "@/hooks/usePermission";
 
 const Integrations = () => {
+  // Use standardized page controller
+  const pageController = usePageController({
+    pageId: 'integrations',
+    pageName: 'Integrations',
+    description: 'Manage third-party integrations, webhooks, and OAuth applications',
+    category: 'system-management',
+    permissions: ['integrations:read', 'integrations:write', 'webhooks:manage', 'oauth:manage'],
+    tags: ['integrations', 'webhooks', 'oauth', 'third-party']
+  });
+
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("services");
   const [webhookUrl, setWebhookUrl] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Permission checks
+  const { hasPermission } = usePermission();
+  const canRead = hasPermission('integrations:read');
+  const canWrite = hasPermission('integrations:write');
+  const canManageWebhooks = hasPermission('webhooks:manage');
+  const canManageOAuth = hasPermission('oauth:manage');
 
   const thirdPartyServices = [
     {
@@ -154,11 +174,27 @@ const Integrations = () => {
 
   return (
     <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Integrations</h1>
-          <p className="text-muted-foreground mt-2">
-            Manage your third-party integrations, webhooks, and OAuth applications
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-3">
+              <Settings className="h-8 w-8" />
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight">Integrations</h1>
+                <p className="text-muted-foreground mt-1">
+                  Manage your third-party integrations, webhooks, and OAuth applications
+                </p>
+              </div>
+            </div>
+          </div>
+          
+          {pageController.isRegistered && (
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-xs">
+                <Zap className="h-3 w-3 mr-1" />
+                {pageController.getAvailableActions().length} AI actions
+              </Badge>
+            </div>
+          )}
         </div>
 
         <Tabs defaultValue="services" value={activeTab} onValueChange={setActiveTab}>

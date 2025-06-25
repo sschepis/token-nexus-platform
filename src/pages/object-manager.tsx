@@ -43,6 +43,15 @@ const ObjectManagerPage: React.FC = () => {
     tags: ['objects', 'records', 'schema', 'data-management']
   });
 
+  // Debug: Check if controller is registered
+  useEffect(() => {
+    console.log('[DEBUG ObjectManager] pageController:', pageController);
+    console.log('[DEBUG ObjectManager] isRegistered:', pageController.isRegistered);
+    if (pageController.pageController) {
+      console.log('[DEBUG ObjectManager] Available actions:', pageController.pageController.actions.keys());
+    }
+  }, [pageController]);
+
   // Register the ObjectManagerPageController actions (only once)
   useEffect(() => {
     if (pageController.isRegistered && !actionsRegisteredRef.current) {
@@ -89,7 +98,21 @@ const ObjectManagerPage: React.FC = () => {
         }
       } catch (error) {
         console.error('[DEBUG ObjectManager] Error fetching objects:', error);
-        const errorMsg = 'Failed to fetch objects';
+        let errorMsg = 'Failed to fetch objects';
+        
+        // Handle specific error cases
+        if (error instanceof Error) {
+          if (error.message.includes('Master Key') || error.message.includes('master key')) {
+            errorMsg = 'Cannot use the Master Key, it has not been provided. This indicates a server configuration issue.';
+          } else if (error.message.includes('Parse server connection failed')) {
+            errorMsg = 'Cannot connect to Parse server. Please ensure the server is running.';
+          } else if (error.message.includes('Invalid function')) {
+            errorMsg = 'Required cloud functions are not available. Please check server configuration.';
+          } else {
+            errorMsg = error.message;
+          }
+        }
+        
         setError(errorMsg);
         toast({
           title: "Error loading objects",

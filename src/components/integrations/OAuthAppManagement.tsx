@@ -32,9 +32,9 @@ import {
   fetchOAuthApps,
   createOAuthApp,
   updateOAuthApp,
-  regenerateOAuthSecret,
   deleteOAuthApp,
-  clearErrors,
+  regenerateOAuthSecret,
+  clearAllErrors,
 } from "@/store/slices/integrationSlice";
 import {
   AlertDialog,
@@ -78,14 +78,13 @@ export const OAuthAppManagement: React.FC = () => {
   const { toast } = useToast();
   const dispatch = useAppDispatch();
 
-  const {
-    oauthApps,
-    isLoadingOAuthApps,
-    oauthError,
-    isCreating,
-    isUpdating,
-    isDeleting,
-  } = useAppSelector((state) => state.integration);
+  const oauthAppsState = useAppSelector((state) => state.integration.oauthApps);
+  const oauthApps = oauthAppsState?.items || [];
+  const isLoadingOAuthApps = oauthAppsState?.isLoading || false;
+  const oauthError = oauthAppsState?.error || null;
+  const isCreating = oauthAppsState?.isCreating || false;
+  const isUpdating = oauthAppsState?.isUpdating || false;
+  const isDeleting = oauthAppsState?.isDeleting || false;
 
   // Local state for forms
   const [newOAuthAppName, setNewOAuthAppName] = useState("");
@@ -116,7 +115,7 @@ export const OAuthAppManagement: React.FC = () => {
         description: oauthError,
         variant: "destructive",
       });
-      dispatch(clearErrors());
+      dispatch(clearAllErrors());
     }
   }, [oauthError, toast, dispatch]);
 
@@ -162,11 +161,13 @@ export const OAuthAppManagement: React.FC = () => {
     if (!editOAuthAppId) return;
 
     await dispatch(updateOAuthApp({
-      oauthAppId: editOAuthAppId,
-      name: editOAuthAppName,
-      description: editOAuthAppDescription,
-      redirectUris: editOAuthAppRedirectUris.split(',').map(uri => uri.trim()),
-      scopes: editOAuthAppScopes,
+      id: editOAuthAppId,
+      params: {
+        name: editOAuthAppName,
+        description: editOAuthAppDescription,
+        redirectUris: editOAuthAppRedirectUris.split(',').map(uri => uri.trim()),
+        scopes: editOAuthAppScopes,
+      }
     }));
     toast({
       title: "OAuth Application Updated",

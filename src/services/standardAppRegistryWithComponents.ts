@@ -9,6 +9,7 @@ import { appRegistry } from './appRegistry';
 import { standardAppManifests, getAppManifestById } from '../app-manifests';
 import { identityManagementComponents } from '../components/standard-apps/identity-management';
 import React from 'react';
+import { appMarketplaceApi } from './api/appMarketplace'; // Import the marketplace API
 
 /**
  * Enhanced Standard App Registry with Component Support
@@ -84,8 +85,8 @@ export class EnhancedStandardAppRegistry {
     // Validate manifest
     this.validateManifest(manifest);
 
-    // Create mock installation for the standard app
-    const installation = this.createMockInstallation(manifest);
+    // Fetch or create the actual installation for the standard app
+    const installation = await this.fetchOrCreateInstallation(manifest);
     
     // Get component map for this app
     const components = this.componentMaps.get(manifest.id) || new Map();
@@ -145,9 +146,20 @@ export class EnhancedStandardAppRegistry {
       throw new Error(`Standard app not registered: ${appId}`);
     }
 
-    // For now, just activate the app in the registry
-    // In a full implementation, this would create installation records in Parse
-    appRegistry.updateAppStatus(appId, true);
+    // Install the app via the marketplace API
+    const installedApp = await appMarketplaceApi.installApp({
+      appDefinitionId: appId,
+      versionId: manifest.version, // Assuming version ID is the manifest version string
+      appSpecificConfig: configuration || {}
+    });
+
+    // Register with the main app registry using the actual installation data
+    const components = this.componentMaps.get(appId) || new Map();
+    appRegistry.registerApp(manifest, installedApp.data, components); // installedApp.data contains the OrgAppInstallation
+
+    // Track registration
+    this.registeredApps.add(appId);
+
     console.log(`✅ Installed standard app: ${manifest.name} for user ${userId}`);
   }
 
@@ -159,9 +171,18 @@ export class EnhancedStandardAppRegistry {
     userId: string, 
     organizationId?: string
   ): Promise<void> {
-    // For now, just deactivate the app in the registry
-    // In a full implementation, this would remove installation records from Parse
-    appRegistry.updateAppStatus(appId, false);
+    // Uninstall the app via the marketplace API
+    await appMarketplaceApi.uninstallApp({
+      appDefinitionId: appId,
+      orgAppInstallationId: 'PLACEHOLDER_INSTALLATION_ID' // TODO: Get actual installation ID
+    });
+    
+    // Unregister with the main app registry
+    appRegistry.unregisterApp(appId);
+    
+    // Untrack registration
+    this.registeredApps.delete(appId);
+
     console.log(`❌ Uninstalled standard app: ${appId} for user ${userId}`);
   }
 
@@ -212,46 +233,49 @@ export class EnhancedStandardAppRegistry {
     organizationId?: string
   ): Promise<void> {
     const coreApps = this.getStandardAppsByCategory('core');
-    
-    for (const app of coreApps) {
+    await Promise.all(coreApps.map(async (app) => {
       try {
         await this.installStandardApp(app.id, userId, organizationId);
         console.log(`✅ Installed core app: ${app.name}`);
       } catch (error) {
         console.error(`❌ Failed to install core app ${app.name}:`, error);
       }
-    }
+    }));
   }
 
   /**
-   * Create a mock installation for a standard app
+   * Helper to fetch or create an installation record for a manifest.
+   * In a real system, this would manage actual installations based on app marketplace data.
    */
-  private createMockInstallation(manifest: AppManifest): OrgAppInstallation {
-    return {
-      objectId: `${manifest.id}-installation`,
-      organization: { objectId: 'default-org', __type: 'Pointer', className: 'Organization' },
-      appDefinition: {
-        id: manifest.id,
-        objectId: manifest.id,
-        name: manifest.name,
-        description: manifest.description,
-        publisherName: manifest.publisher,
-        category: 'finance',
-        status: 'published'
-      },
-      installedVersion: {
-        id: `${manifest.id}-${manifest.version}`,
-        objectId: `${manifest.id}-${manifest.version}`,
-        versionString: manifest.version,
-        status: 'published',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      },
-      installationDate: new Date().toISOString(),
-      status: 'active',
-      appSpecificConfig: manifest.configuration?.defaultValues || {},
-      installedBy: { objectId: 'system', __type: 'Pointer', className: '_User' }
-    };
+  private async fetchOrCreateInstallation(manifest: AppManifest): Promise<OrgAppInstallation> {
+    // Try to fetch existing installation
+    try {
+      const installations = await appMarketplaceApi.fetchOrgAppInstallations({
+        // organizationId: 'current_org_id' // TODO: Pass actual organization ID
+      });
+      const existingInstallation = installations.data.find(inst => inst.appDefinition.id === manifest.id);
+
+      if (existingInstallation) {
+        console.log(`Found existing installation for ${manifest.id}`);
+        return existingInstallation;
+      }
+    } catch (error) {
+      console.warn(`Failed to fetch existing installations for ${manifest.id}, might create a new one:`, error);
+    }
+
+    // If no existing, simulate installation via marketplace API
+    console.log(`Creating new installation for ${manifest.id} via appMarketplaceApi.installApp`);
+    const newInstallationResponse = await appMarketplaceApi.installApp({
+      appDefinitionId: manifest.id,
+      versionId: manifest.version, // Assuming manifest.version is equivalent to versionId
+      appSpecificConfig: manifest.configuration?.defaultValues || {}
+    });
+
+    if (newInstallationResponse.success && newInstallationResponse.data) {
+      return newInstallationResponse.data;
+    } else {
+      throw new Error(`Failed to create installation for ${manifest.id}: ${newInstallationResponse.error}`);
+    }
   }
 
   /**

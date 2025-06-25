@@ -447,7 +447,7 @@ async function handleCredentialRevokedEvent(data, transactionHash, network) {
         details: {
           transactionHash,
           network,
-          reason
+          reason,
         }
       });
     }

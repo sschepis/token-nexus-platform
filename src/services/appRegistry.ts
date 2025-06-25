@@ -1,8 +1,11 @@
 import { RegisteredApp, AppManifest, AppRoute, AppNavigation, AppComponentProps } from '../types/app-framework';
 import { OrgAppInstallation } from '../types/app-marketplace';
-import { todoAppManifest } from '../components/app-framework/examples/todo-app-manifest';
-import { TodoAppDashboard, TodoAppSettings } from '../components/app-framework/examples/TodoApp';
+// No longer needed: import { todoAppManifest } from '../components/app-framework/examples/todo-app-manifest';
+// No longer needed: import { TodoAppDashboard, TodoAppSettings } from '../components/app-framework/examples/TodoApp';
 import React from 'react';
+import { callCloudFunctionForArray } from '../utils/apiUtils'; // For fetching installed apps
+import { AppMarketplaceFilters, OrgAppInstallationFilters } from './api/appMarketplace'; // Assuming these types are needed
+
 
 export class AppRegistryService {
   private static instance: AppRegistryService;
@@ -83,50 +86,6 @@ export class AppRegistryService {
     }
   }
 
-  /**
-   * Initialize built-in apps for demonstration
-   */
-  initializeBuiltInApps(): void {
-    // Create a mock installation for the Todo app
-    const todoInstallation: OrgAppInstallation = {
-      objectId: 'todo-installation-1',
-      organization: { objectId: 'org-1', __type: 'Pointer', className: 'Organization' },
-      appDefinition: {
-        id: todoAppManifest.id,
-        objectId: todoAppManifest.id,
-        name: todoAppManifest.name,
-        description: todoAppManifest.description,
-        publisherName: todoAppManifest.publisher,
-        category: 'productivity',
-        status: 'published'
-      },
-      installedVersion: {
-        id: 'todo-v1.0.0',
-        objectId: 'todo-v1.0.0',
-        versionString: todoAppManifest.version,
-        status: 'published',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      },
-      installationDate: new Date().toISOString(),
-      status: 'active',
-      appSpecificConfig: {
-        autoArchive: false,
-        maxTodos: 100,
-        reminderEnabled: false,
-        categories: ['Work', 'Personal', 'Shopping']
-      },
-      installedBy: { objectId: 'user-1', __type: 'Pointer', className: '_User' }
-    };
-
-    // Create component map for Todo app
-    const todoComponents = new Map<string, React.ComponentType<AppComponentProps>>();
-    todoComponents.set('TodoAppDashboard', TodoAppDashboard);
-    todoComponents.set('TodoAppSettings', TodoAppSettings);
-
-    // Register the Todo app
-    this.registerApp(todoAppManifest, todoInstallation, todoComponents);
-  }
 
   /**
    * Get all routes from registered apps
@@ -196,15 +155,48 @@ export class AppRegistryService {
    */
   async loadAppsForOrganization(orgId: string): Promise<void> {
     try {
-      // In a real implementation, this would fetch from Parse Cloud Function
-      // const installedApps = await Parse.Cloud.run('getInstalledAppsForOrg', { orgId });
+      // Fetch installed apps for the organization from the Parse backend
+      const installedAppsResponse = await callCloudFunctionForArray<OrgAppInstallation>(
+        'fetchOrgAppInstallations',
+        { organizationId: orgId } as OrgAppInstallationFilters,
+        { errorMessage: 'Failed to fetch installed apps for organization' }
+      );
+
+      const installedApps = installedAppsResponse.data || []; // Access the data array
+
+      // Register each fetched app
+      installedApps.forEach(installation => {
+        // Here, you would dynamically load manifest and components based on installation.appDefinition.id and installation.installedVersion
+        // For demonstration, let's assume a generic manifest and no components are loaded for now.
+        // This is a placeholder for actual dynamic app loading logic.
+        const manifest: AppManifest = {
+          id: installation.appDefinition.id,
+          name: installation.appDefinition.name,
+          description: installation.appDefinition.description || 'No description provided', // Added missing description
+          version: installation.installedVersion.versionString,
+          publisher: installation.appDefinition.publisherName || 'Unknown',
+          framework: { // Provide required framework properties
+            version: '1.0.0',
+            compatibility: ['1.0.0'] // Assuming a default compatibility
+          },
+          adminUI: { // Provide required adminUI properties
+            enabled: false,
+            routes: [],
+            navigation: [],
+            permissions: []
+          },
+          userUI: { // Provide required userUI properties
+            enabled: false,
+            routes: []
+          }
+        };
+        this.registerApp(manifest, installation, new Map()); // No components loaded dynamically yet
+      });
       
-      // For now, just initialize built-in apps
-      this.initializeBuiltInApps();
-      
-      console.log(`Loaded apps for organization: ${orgId}`);
+      console.log(`Successfully loaded and registered ${installedApps.length} apps for organization: ${orgId}`);
     } catch (error) {
       console.error('Failed to load apps for organization:', error);
+      throw error; // Re-throw to propagate the error if necessary
     }
   }
 

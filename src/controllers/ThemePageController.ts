@@ -1,251 +1,606 @@
-import { PageController } from './types/pageController';
-import { ActionDefinition } from './types/actionDefinitions';
-import { ActionContext, PageContext } from './types/actionContexts';
-import { ActionResult } from './types/actionResults';
-import { themeService } from '../services/themeService'; // Import the new theme service
-import Parse from 'parse'; // Keep Parse import as it's still used for queries in some actions
+import { BasePageController, ActionConfig } from './base/BasePageController';
+import { ActionContext } from './types/ActionTypes';
+import { store } from '../store/store';
+import {
+  loadOrganizationTheme,
+  saveOrganizationTheme,
+  resetOrganizationTheme,
+  validateTheme,
+  loadThemeTemplates,
+  applyThemeTemplate,
+  getAvailableThemes,
+  createCustomTheme,
+  updateThemeCustomization,
+  deleteCustomTheme,
+  applyTheme,
+  setCurrentTheme,
+  updateCurrentTheme,
+  setPreviewTheme,
+  clearPreview
+} from '../store/slices/themeSlice';
 
-export class ThemePageController implements PageController {
-  pageId = 'theme';
-  pageName = 'Theme';
-  description = 'Manage application themes, styling, and visual customization';
-  actions = new Map<string, ActionDefinition>();
-  context: PageContext = {
-    pageId: 'theme',
-    pageName: 'Theme',
-    state: {},
-    props: {},
-    metadata: {
-      category: 'customization',
-      tags: ['theme', 'styling', 'appearance', 'customization', 'branding'],
-      permissions: ['theme:read', 'theme:write', 'theme:manage']
-    }
-  };
-  metadata = {
-    category: 'customization',
-    tags: ['theme', 'styling', 'appearance', 'customization', 'branding'],
-    permissions: ['theme:read', 'theme:write', 'theme:manage'],
-    version: '1.0.0'
-  };
-  isActive = true;
-  registeredAt = new Date();
-
+/**
+ * Theme Page Controller
+ * 
+ * Manages theme-related operations following PAGES.md conventions.
+ * Provides standardized actions for theme management, customization,
+ * and organization-wide theme application.
+ */
+export class ThemePageController extends BasePageController {
   constructor() {
-    this.initializeActions();
+    try {
+      super({
+        pageId: 'theme',
+        pageName: 'Theme Management',
+        description: 'Customize your organization\'s visual appearance and branding with comprehensive theme management tools',
+        category: 'customization',
+        tags: ['theme', 'styling', 'appearance', 'customization', 'branding', 'ui'],
+        permissions: ['theme:read', 'theme:write', 'theme:manage', 'system:admin'],
+        version: '2.0.0'
+      });
+      console.log('[ThemePageController] Constructor completed successfully');
+      console.log('[ThemePageController] Actions registered:', Array.from(this.actions.keys()));
+    } catch (error) {
+      console.error('[ThemePageController] Constructor failed:', error);
+      throw error;
+    }
   }
 
-  private initializeActions(): void {
-    /**
-     * Get Current Theme Action
-     * Get the currently active theme configuration for the organization.
-     */
-    this.actions.set('getCurrentTheme', {
-      id: 'getCurrentTheme',
-      name: 'Get Current Theme',
-      description: 'Get the currently active theme configuration',
-      category: 'data',
-      permissions: ['theme:read'],
-      parameters: [],
-      execute: async (params: Record<string, unknown>, context: ActionContext): Promise<ActionResult> => {
-        try {
-          const orgId = context.user.organizationId || context.organization?.id;
-          if (!orgId) {
-            return { success: false, error: 'Organization ID is required to get current theme' };
-          }
-          const { theme, isDefault } = await themeService.getCurrentTheme(orgId);
-          return { success: true, data: { theme, isDefault }, message: 'Current theme retrieved successfully' };
-        } catch (error) {
-          return { success: false, error: (error as Error).message || 'Failed to get current theme' };
-        }
-      }
-    });
+  protected initializeActions(): void {
+    try {
+      console.log('[ThemePageController] Starting action initialization...');
+      this.registerGetCurrentThemeAction();
+      console.log('[ThemePageController] ✓ getCurrentTheme action registered');
+      this.registerGetAvailableThemesAction();
+      console.log('[ThemePageController] ✓ getAvailableThemes action registered');
+      this.registerApplyThemeAction();
+      console.log('[ThemePageController] ✓ applyTheme action registered');
+      this.registerCreateCustomThemeAction();
+      console.log('[ThemePageController] ✓ createCustomTheme action registered');
+      this.registerUpdateThemeCustomizationAction();
+      console.log('[ThemePageController] ✓ updateThemeCustomization action registered');
+      this.registerDeleteCustomThemeAction();
+      console.log('[ThemePageController] ✓ deleteCustomTheme action registered');
+      this.registerResetToDefaultThemeAction();
+      console.log('[ThemePageController] ✓ resetToDefaultTheme action registered');
+      this.registerRefreshThemesAction();
+      console.log('[ThemePageController] ✓ refreshThemes action registered');
+      this.registerPreviewThemeAction();
+      console.log('[ThemePageController] ✓ previewTheme action registered');
+      console.log('[ThemePageController] All actions initialized successfully. Total actions:', this.actions.size);
+    } catch (error) {
+      console.error('[ThemePageController] Action initialization failed:', error);
+      throw error;
+    }
+  }
 
-    /**
-     * Get Available Themes Action
-     * Get all available theme templates and custom themes for the organization.
-     */
-    this.actions.set('getAvailableThemes', {
-      id: 'getAvailableThemes',
-      name: 'Get Available Themes',
-      description: 'Get all available theme templates and custom themes',
-      category: 'data',
-      permissions: ['theme:read'],
-      parameters: [
-        { name: 'includeCustom', type: 'boolean', required: false, description: 'Include custom organization themes' },
-        { name: 'category', type: 'string', required: false, description: 'Filter by theme category' }
-      ],
-      execute: async (params: Record<string, unknown>, context: ActionContext): Promise<ActionResult> => {
+  /**
+   * Get Current Theme Action
+   * Retrieves the currently active theme configuration for the organization
+   */
+  private registerGetCurrentThemeAction(): void {
+    this.registerAction(
+      {
+        id: 'getCurrentTheme',
+        name: 'Get Current Theme',
+        description: 'Retrieve the currently active theme configuration for the organization',
+        category: 'data',
+        permissions: ['theme:read'],
+        parameters: [],
+        metadata: {
+          tags: ['theme', 'current', 'active'],
+          examples: [{
+            params: {},
+            description: 'Get the current active theme'
+          }]
+        }
+      },
+      async (params: Record<string, unknown>, context: ActionContext) => {
+        const orgId = context.organization?.id;
+        if (!orgId) {
+          throw new Error('Organization context required to get current theme');
+        }
+
         try {
-          const { includeCustom = true, category } = params;
-          const orgId = context.user.organizationId || context.organization?.id;
-          if (!orgId) {
-            return { success: false, error: 'Organization ID is required to get available themes' };
+          const result = await store.dispatch(loadOrganizationTheme(orgId));
+          
+          if (loadOrganizationTheme.fulfilled.match(result)) {
+            return {
+              success: true,
+              data: result.payload
+            };
+          } else {
+            // Return minimal default theme to prevent infinite loops
+            const defaultTheme = {
+              id: 'default',
+              name: 'Default Theme',
+              version: '1.0.0',
+              organizationId: orgId,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              colors: { primary: '#007bff' },
+              typography: { fontFamily: 'system-ui' },
+              spacing: { md: '1rem' },
+              borderRadius: { md: '0.375rem' },
+              shadows: { md: '0 4px 6px rgba(0,0,0,0.1)' },
+              components: {},
+              branding: { companyName: '' },
+              layout: { containerMaxWidth: '1200px' },
+              animations: { duration: { normal: '300ms' } },
+              isDefault: true
+            } as unknown as any;
+            
+            return {
+              success: true,
+              data: defaultTheme,
+              isDefault: true,
+              warning: 'Using default theme due to loading error'
+            };
           }
-          const themes = await themeService.getAvailableThemes(orgId, includeCustom as boolean, category as string);
-          // Recalculate counts based on returned themes, as service might filter
-          const builtInCount = themes.filter(t => (t as any).isBuiltIn).length;
-          const customCount = themes.length - builtInCount;
+        } catch (error) {
+          // Return minimal default theme on any error to prevent cascading failures
+          const defaultTheme = {
+            id: 'default',
+            name: 'Default Theme',
+            version: '1.0.0',
+            organizationId: orgId,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            colors: { primary: '#007bff' },
+            typography: { fontFamily: 'system-ui' },
+            spacing: { md: '1rem' },
+            borderRadius: { md: '0.375rem' },
+            shadows: { md: '0 4px 6px rgba(0,0,0,0.1)' },
+            components: {},
+            branding: { companyName: '' },
+            layout: { containerMaxWidth: '1200px' },
+            animations: { duration: { normal: '300ms' } },
+            isDefault: true
+          } as unknown as any;
+          
           return {
             success: true,
-            data: { themes, totalCount: themes.length, builtInCount, customCount },
-            message: `Found ${themes.length} available themes`
+            data: defaultTheme,
+            isDefault: true,
+            error: error instanceof Error ? error.message : 'Unknown error'
           };
-        } catch (error) {
-          return { success: false, error: (error as Error).message || 'Failed to get available themes' };
         }
       }
-    });
+    );
+  }
 
-    /**
-     * Apply Theme Action
-     * Apply a selected theme (built-in or custom) to the organization.
-     */
-    this.actions.set('applyTheme', {
-      id: 'applyTheme',
-      name: 'Apply Theme',
-      description: 'Apply a theme to the organization',
-      category: 'data',
-      permissions: ['theme:write'],
-      parameters: [
-        { name: 'themeId', type: 'string', required: false, description: 'Theme template ID (for custom themes)' },
-        { name: 'themeName', type: 'string', required: false, description: 'Built-in theme name' },
-        { name: 'customizations', type: 'object', required: false, description: 'Theme customizations to apply' }
-      ],
-      execute: async (params: Record<string, unknown>, context: ActionContext): Promise<ActionResult> => {
-        try {
-          const { themeId, themeName, customizations } = params;
-          const orgId = context.user.organizationId || context.organization?.id;
-          const userId = context.user.userId;
+  /**
+   * Get Available Themes Action
+   * Retrieves all available theme templates and custom themes for the organization
+   */
+  private registerGetAvailableThemesAction(): void {
+    this.registerAction(
+      {
+        id: 'getAvailableThemes',
+        name: 'Get Available Themes',
+        description: 'Retrieve all available theme templates and custom themes',
+        category: 'data',
+        permissions: ['theme:read'],
+        parameters: [
+          { name: 'includeCustom', type: 'boolean', required: false, description: 'Include custom organization themes' },
+          { name: 'category', type: 'string', required: false, description: 'Filter themes by category' }
+        ],
+        metadata: {
+          tags: ['theme', 'templates', 'available'],
+          examples: [{
+            params: { includeCustom: true },
+            description: 'Get all themes including custom ones'
+          }]
+        }
+      },
+      async (params: Record<string, unknown>, context: ActionContext) => {
+        const orgId = context.organization?.id;
+        if (!orgId) {
+          throw new Error('Organization context required to get available themes');
+        }
 
-          if (!orgId || !userId) {
-            return { success: false, error: 'Organization ID and User ID are required to apply theme' };
+        const result = await store.dispatch(getAvailableThemes({
+          orgId,
+          includeCustom: params.includeCustom as boolean,
+          category: params.category as string
+        }));
+        
+        if (getAvailableThemes.fulfilled.match(result)) {
+          return {
+            success: true,
+            data: result.payload
+          };
+        } else {
+          throw new Error(result.payload as string || 'Failed to load available themes');
+        }
+      }
+    );
+  }
+
+  /**
+   * Apply Theme Action
+   * Applies a selected theme (built-in or custom) to the organization
+   */
+  private registerApplyThemeAction(): void {
+    this.registerAction(
+      {
+        id: 'applyTheme',
+        name: 'Apply Theme',
+        description: 'Apply a theme to the organization',
+        category: 'data',
+        permissions: ['theme:write'],
+        parameters: [
+          { name: 'themeId', type: 'string', required: false, description: 'Theme template ID for custom themes' },
+          { name: 'themeName', type: 'string', required: false, description: 'Built-in theme name' },
+          { name: 'customizations', type: 'object', required: false, description: 'Additional theme customizations' }
+        ],
+        metadata: {
+          tags: ['theme', 'apply', 'activate'],
+          examples: [{
+            params: { themeName: 'dark' },
+            description: 'Apply the built-in dark theme'
+          }]
+        }
+      },
+      async (params: Record<string, unknown>, context: ActionContext) => {
+        const orgId = context.organization?.id;
+        const userId = context.user.userId;
+        
+        if (!orgId || !userId) {
+          throw new Error('Organization and user context required to apply theme');
+        }
+
+        const result = await store.dispatch(applyTheme({
+          orgId,
+          userId,
+          themeId: params.themeId as string,
+          themeName: params.themeName as string,
+          customizations: params.customizations as Record<string, unknown>
+        }));
+        
+        if (applyTheme.fulfilled.match(result)) {
+          return {
+            success: true,
+            data: result.payload
+          };
+        } else {
+          throw new Error(result.payload as string || 'Failed to apply theme');
+        }
+      }
+    );
+  }
+
+  /**
+   * Create Custom Theme Action
+   * Creates a new custom theme template for the organization
+   */
+  private registerCreateCustomThemeAction(): void {
+    this.registerAction(
+      {
+        id: 'createCustomTheme',
+        name: 'Create Custom Theme',
+        description: 'Create a new custom theme template',
+        category: 'data',
+        permissions: ['theme:manage'],
+        parameters: [
+          { name: 'name', type: 'string', required: true, description: 'Theme name' },
+          { name: 'description', type: 'string', required: false, description: 'Theme description' },
+          { name: 'baseTheme', type: 'string', required: false, description: 'Base theme to extend from' },
+          { name: 'colors', type: 'object', required: true, description: 'Color palette configuration' },
+          { name: 'typography', type: 'object', required: false, description: 'Typography configuration' },
+          { name: 'spacing', type: 'object', required: false, description: 'Spacing configuration' },
+          { name: 'components', type: 'object', required: false, description: 'Component styling configuration' },
+          { name: 'category', type: 'string', required: false, description: 'Theme category' }
+        ],
+        metadata: {
+          tags: ['theme', 'create', 'custom'],
+          examples: [{
+            params: { 
+              name: 'Corporate Blue',
+              colors: { primary: '#0066cc', secondary: '#f0f8ff' }
+            },
+            description: 'Create a custom corporate theme'
+          }]
+        }
+      },
+      async (params: Record<string, unknown>, context: ActionContext) => {
+        const orgId = context.organization?.id;
+        const userId = context.user.userId;
+        
+        if (!orgId || !userId) {
+          throw new Error('Organization and user context required to create custom theme');
+        }
+
+        const result = await store.dispatch(createCustomTheme({
+          orgId,
+          userId,
+          themeData: params as any
+        }));
+        
+        if (createCustomTheme.fulfilled.match(result)) {
+          return {
+            success: true,
+            data: result.payload
+          };
+        } else {
+          throw new Error(result.payload as string || 'Failed to create custom theme');
+        }
+      }
+    );
+  }
+
+  /**
+   * Update Theme Customization Action
+   * Updates specific customizations of the currently active theme
+   */
+  private registerUpdateThemeCustomizationAction(): void {
+    this.registerAction(
+      {
+        id: 'updateThemeCustomization',
+        name: 'Update Theme Customization',
+        description: 'Update specific theme customizations without changing the base theme',
+        category: 'data',
+        permissions: ['theme:write'],
+        parameters: [
+          { name: 'customizations', type: 'object', required: true, description: 'Theme customizations to apply' },
+          { name: 'merge', type: 'boolean', required: false, description: 'Whether to merge with existing customizations' }
+        ],
+        metadata: {
+          tags: ['theme', 'update', 'customize'],
+          examples: [{
+            params: { 
+              customizations: { colors: { primary: '#ff6600' } },
+              merge: true
+            },
+            description: 'Update primary color while keeping other customizations'
+          }]
+        }
+      },
+      async (params: Record<string, unknown>, context: ActionContext) => {
+        const orgId = context.organization?.id;
+        const userId = context.user.userId;
+        
+        if (!orgId || !userId) {
+          throw new Error('Organization and user context required to update theme customization');
+        }
+
+        const result = await store.dispatch(updateThemeCustomization({
+          orgId,
+          userId,
+          customizations: params.customizations as Record<string, unknown>,
+          merge: params.merge as boolean
+        }));
+        
+        if (updateThemeCustomization.fulfilled.match(result)) {
+          return {
+            success: true,
+            data: result.payload
+          };
+        } else {
+          throw new Error(result.payload as string || 'Failed to update theme customization');
+        }
+      }
+    );
+  }
+
+  /**
+   * Delete Custom Theme Action
+   * Deletes a custom theme template
+   */
+  private registerDeleteCustomThemeAction(): void {
+    this.registerAction(
+      {
+        id: 'deleteCustomTheme',
+        name: 'Delete Custom Theme',
+        description: 'Delete a custom theme template',
+        category: 'data',
+        permissions: ['theme:manage'],
+        parameters: [
+          { name: 'themeTemplateId', type: 'string', required: true, description: 'ID of the theme template to delete' }
+        ],
+        metadata: {
+          tags: ['theme', 'delete', 'custom'],
+          examples: [{
+            params: { themeTemplateId: 'theme123' },
+            description: 'Delete a custom theme template'
+          }]
+        }
+      },
+      async (params: Record<string, unknown>, context: ActionContext) => {
+        const themeTemplateId = params.themeTemplateId as string;
+        
+        if (!themeTemplateId) {
+          throw new Error('Theme template ID is required to delete custom theme');
+        }
+
+        const result = await store.dispatch(deleteCustomTheme({ themeTemplateId }));
+        
+        if (deleteCustomTheme.fulfilled.match(result)) {
+          return {
+            success: true,
+            data: result.payload
+          };
+        } else {
+          throw new Error(result.payload as string || 'Failed to delete custom theme');
+        }
+      }
+    );
+  }
+
+  /**
+   * Reset to Default Theme Action
+   * Resets the organization's theme to the system default
+   */
+  private registerResetToDefaultThemeAction(): void {
+    this.registerAction(
+      {
+        id: 'resetToDefaultTheme',
+        name: 'Reset to Default Theme',
+        description: 'Reset the organization\'s theme to the system default',
+        category: 'data',
+        permissions: ['theme:write'],
+        parameters: [],
+        metadata: {
+          tags: ['theme', 'reset', 'default'],
+          examples: [{
+            params: {},
+            description: 'Reset to the default system theme'
+          }]
+        }
+      },
+      async (params: Record<string, unknown>, context: ActionContext) => {
+        const orgId = context.organization?.id;
+        const userId = context.user.userId;
+        
+        if (!orgId || !userId) {
+          throw new Error('Organization and user context required to reset theme');
+        }
+
+        const result = await store.dispatch(resetOrganizationTheme());
+        
+        if (resetOrganizationTheme.fulfilled.match(result)) {
+          return {
+            success: true,
+            data: result.payload
+          };
+        } else {
+          throw new Error(result.payload as string || 'Failed to reset to default theme');
+        }
+      }
+    );
+  }
+
+  /**
+   * Refresh Themes Action
+   * Refreshes theme data from the server
+   */
+  private registerRefreshThemesAction(): void {
+    this.registerAction(
+      {
+        id: 'refreshThemes',
+        name: 'Refresh Themes',
+        description: 'Refresh theme data from the server',
+        category: 'data',
+        permissions: ['theme:read'],
+        parameters: [
+          { name: 'organizationId', type: 'string', required: false, description: 'Organization ID to refresh themes for' }
+        ],
+        metadata: {
+          tags: ['theme', 'refresh', 'reload'],
+          examples: [{
+            params: {},
+            description: 'Refresh all theme data'
+          }]
+        }
+      },
+      async (params: Record<string, unknown>, context: ActionContext) => {
+        const orgId = (params.organizationId as string) || context.organization?.id;
+        
+        if (!orgId) {
+          throw new Error('Organization context required to refresh themes');
+        }
+
+        // Refresh both current theme and available themes
+        const [currentResult, availableResult] = await Promise.all([
+          store.dispatch(loadOrganizationTheme(orgId)),
+          store.dispatch(getAvailableThemes({ orgId, includeCustom: true }))
+        ]);
+        
+        if (loadOrganizationTheme.fulfilled.match(currentResult) &&
+            getAvailableThemes.fulfilled.match(availableResult)) {
+          return {
+            success: true,
+            data: {
+              currentTheme: currentResult.payload,
+              availableThemes: availableResult.payload
+            }
+          };
+        } else {
+          throw new Error('Failed to refresh theme data');
+        }
+      }
+    );
+  }
+
+  /**
+   * Preview Theme Action
+   * Previews a theme without applying it permanently
+   */
+  private registerPreviewThemeAction(): void {
+    this.registerAction(
+      {
+        id: 'previewTheme',
+        name: 'Preview Theme',
+        description: 'Preview a theme without applying it permanently',
+        category: 'ui',
+        permissions: ['theme:read'],
+        parameters: [
+          { name: 'themeId', type: 'string', required: false, description: 'Theme template ID for custom themes' },
+          { name: 'themeName', type: 'string', required: false, description: 'Built-in theme name' },
+          { name: 'customizations', type: 'object', required: false, description: 'Theme customizations to preview' }
+        ],
+        metadata: {
+          tags: ['theme', 'preview', 'temporary'],
+          examples: [{
+            params: { themeName: 'dark' },
+            description: 'Preview the dark theme'
+          }]
+        }
+      },
+      async (params: Record<string, unknown>, context: ActionContext) => {
+        // Create a preview theme object
+        let previewTheme = null;
+        
+        if (params.themeName) {
+          // For built-in themes, load from available themes
+          const orgId = context.organization?.id;
+          if (orgId) {
+            const templatesResult = await store.dispatch(getAvailableThemes({ orgId, includeCustom: false }));
+            if (getAvailableThemes.fulfilled.match(templatesResult)) {
+              const template = templatesResult.payload.find((t: any) => t.name === params.themeName);
+              if (template) {
+                previewTheme = template;
+              }
+            }
           }
-          const themeConfig = await themeService.applyTheme(orgId, userId, themeId as string, themeName as string, customizations as Record<string, unknown>);
-          return { success: true, data: { themeConfiguration: themeConfig }, message: `Theme "${themeConfig.name}" applied successfully` };
-        } catch (error) {
-          return { success: false, error: (error as Error).message || 'Failed to apply theme' };
-        }
-      }
-    });
-
-    /**
-     * Create Custom Theme Action
-     * Create a new custom theme template for an organization.
-     */
-    this.actions.set('createCustomTheme', {
-      id: 'createCustomTheme',
-      name: 'Create Custom Theme',
-      description: 'Create a new custom theme template',
-      category: 'data',
-      permissions: ['theme:write'],
-      parameters: [
-        { name: 'name', type: 'string', required: true, description: 'Theme name' },
-        { name: 'description', type: 'string', required: false, description: 'Theme description' },
-        { name: 'baseTheme', type: 'string', required: false, description: 'Base theme to extend from' },
-        { name: 'colors', type: 'object', required: true, description: 'Color palette configuration' },
-        { name: 'typography', type: 'object', required: false, description: 'Typography configuration' },
-        { name: 'spacing', type: 'object', required: false, description: 'Spacing configuration' },
-        { name: 'components', type: 'object', required: false, description: 'Component styling configuration' },
-        { name: 'category', type: 'string', required: false, description: 'Theme category' }
-      ],
-      execute: async (params: Record<string, unknown>, context: ActionContext): Promise<ActionResult> => {
-        try {
-          const orgId = context.user.organizationId || context.organization?.id;
-          const userId = context.user.userId;
-          if (!orgId || !userId) {
-            return { success: false, error: 'Organization ID and User ID are required to create custom theme' };
+        } else if (params.themeId) {
+          // For custom themes, load from available themes
+          const orgId = context.organization?.id;
+          if (orgId) {
+            const templatesResult = await store.dispatch(getAvailableThemes({ orgId, includeCustom: true }));
+            if (getAvailableThemes.fulfilled.match(templatesResult)) {
+              const template = templatesResult.payload.find((t: any) => t.id === params.themeId);
+              if (template) {
+                previewTheme = template;
+              }
+            }
           }
-          const theme = await themeService.createCustomTheme(orgId, userId, params as any); // params directly maps to service method structure
-          return { success: true, data: { theme }, message: `Custom theme "${theme.name}" created successfully` };
-        } catch (error) {
-          return { success: false, error: (error as Error).message || 'Failed to create custom theme' };
         }
-      }
-    });
-
-    /**
-     * Update Theme Customization Action
-     * Update specific theme customizations of the currently active theme for the organization.
-     */
-    this.actions.set('updateThemeCustomization', {
-      id: 'updateThemeCustomization',
-      name: 'Update Theme Customization',
-      description: 'Update specific theme customizations without changing the base theme',
-      category: 'data',
-      permissions: ['theme:write'],
-      parameters: [
-        { name: 'customizations', type: 'object', required: true, description: 'Theme customizations to update' },
-        { name: 'merge', type: 'boolean', required: false, description: 'Merge with existing customizations' }
-      ],
-      execute: async (params: Record<string, unknown>, context: ActionContext): Promise<ActionResult> => {
-        try {
-          const { customizations, merge = true } = params;
-          const orgId = context.user.organizationId || context.organization?.id;
-          const userId = context.user.userId;
-
-          if (!orgId || !userId) {
-            return { success: false, error: 'Organization ID and User ID are required to update theme customization' };
+        
+        // Apply any customizations
+        if (params.customizations && previewTheme) {
+          previewTheme = {
+            ...previewTheme,
+            ...(params.customizations as Record<string, unknown>)
+          };
+        }
+        
+        // Set preview theme in Redux
+        if (previewTheme) {
+          store.dispatch(setPreviewTheme(previewTheme as any));
+        }
+        
+        return {
+          success: true,
+          data: {
+            previewActive: !!previewTheme,
+            themeId: params.themeId,
+            themeName: params.themeName,
+            customizations: params.customizations
           }
-          const updatedTheme = await themeService.updateThemeCustomization(orgId, userId, customizations as Record<string, unknown>, merge as boolean);
-          return { success: true, data: { theme: updatedTheme }, message: 'Theme customizations updated successfully' };
-        } catch (error) {
-          return { success: false, error: (error as Error).message || 'Failed to update theme customization' };
-        }
+        };
       }
-    });
-
-    /**
-     * Delete Custom Theme Action
-     * Deletes an existing custom theme template.
-     */
-    this.actions.set('deleteCustomTheme', {
-      id: 'deleteCustomTheme',
-      name: 'Delete Custom Theme',
-      description: 'Delete a custom theme template',
-      category: 'data',
-      permissions: ['theme:write'],
-      parameters: [
-        { name: 'themeTemplateId', type: 'string', required: true, description: 'ID of the theme template to delete' }
-      ],
-      execute: async (params: Record<string, unknown>, context: ActionContext): Promise<ActionResult> => {
-        try {
-          const { themeTemplateId } = params;
-          if (!themeTemplateId) {
-            return { success: false, error: 'Theme template ID is required to delete custom theme' };
-          }
-          await themeService.deleteCustomTheme(themeTemplateId as string);
-          return { success: true, message: 'Custom theme deleted successfully' };
-        } catch (error) {
-          return { success: false, error: (error as Error).message || 'Failed to delete custom theme' };
-        }
-      }
-    });
-
-    /**
-     * Reset to Default Theme Action
-     * Resets the organization's theme configuration to the system default.
-     */
-    this.actions.set('resetToDefaultTheme', {
-      id: 'resetToDefaultTheme',
-      name: 'Reset to Default Theme',
-      description: 'Resets the current theme to the system default configuration',
-      category: 'data',
-      permissions: ['theme:write'],
-      parameters: [],
-      execute: async (params: Record<string, unknown>, context: ActionContext): Promise<ActionResult> => {
-        try {
-          const orgId = context.user.organizationId || context.organization?.id;
-          const userId = context.user.userId;
-          if (!orgId || !userId) {
-            return { success: false, error: 'Organization ID and User ID are required to reset theme' };
-          }
-          const defaultTheme = await themeService.resetToDefaultTheme(orgId, userId);
-          return { success: true, data: { theme: defaultTheme }, message: 'Theme reset to default successfully' };
-        } catch (error) {
-          return { success: false, error: (error as Error).message || 'Failed to reset theme to default' };
-        }
-      }
-    });
+    );
   }
 }
 

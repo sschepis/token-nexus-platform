@@ -271,6 +271,14 @@ export const fetchApiKeyUsage = createAsyncThunk(
   }
 );
 
+export const regenerateOAuthSecret = createAsyncThunk(
+  'integration/regenerateOAuthSecret',
+  async (oauthAppId: string) => {
+    const response = await oauthAppsApi.regenerateOAuthSecret(oauthAppId);
+    return response.data;
+  }
+);
+
 // Create a combined slice for the integration module
 const integrationSlice = createSlice({
   name: 'integrationModule',

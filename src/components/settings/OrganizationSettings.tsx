@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/form";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import Parse from 'parse';
+import { settingsApi } from '@/services/api/settings';
 import { Loader2 } from "lucide-react";
 
 // Define the organization interface
@@ -96,21 +96,19 @@ const OrganizationSettings = () => {
       
       setLoading(true);
       try {
-        const result = await Parse.Cloud.run('getOrganizationProfile', {
-          organizationId: currentOrg.id
-        });
+        const response = await settingsApi.getOrganizationProfile(currentOrg.id);
         
-        if (result.success) {
-          setOrganization(result.organization);
+        if (response.success && response.data) {
+          setOrganization(response.data);
           // Reset form with fetched data
           form.reset({
-            name: result.organization.name || "",
-            description: result.organization.description || "",
-            logo: result.organization.logo || "",
-            website: result.organization.website || "",
-            contactEmail: result.organization.contactEmail || "",
-            contactPhone: result.organization.contactPhone || "",
-            address: result.organization.address || {
+            name: response.data.name || "",
+            description: response.data.description || "",
+            logo: response.data.logo || "",
+            website: response.data.website || "",
+            contactEmail: response.data.contactEmail || "",
+            contactPhone: response.data.contactPhone || "",
+            address: response.data.address || {
               street: "",
               city: "",
               state: "",
@@ -118,6 +116,8 @@ const OrganizationSettings = () => {
               postalCode: "",
             },
           });
+        } else {
+          throw new Error(response.error || 'Failed to fetch organization profile');
         }
       } catch (error) {
         console.error('Error fetching organization profile:', error);
@@ -139,24 +139,23 @@ const OrganizationSettings = () => {
     setLoading(true);
     try {
       // Update profile
-      const profileResult = await Parse.Cloud.run('updateOrganizationProfile', {
-        organizationId: currentOrg.id,
-        updates: {
-          name: data.name,
-          description: data.description,
-          logo: data.logo,
-          website: data.website,
-          contactEmail: data.contactEmail,
-          contactPhone: data.contactPhone,
-          address: data.address,
-        }
+      const response = await settingsApi.updateOrganizationProfile(currentOrg.id, {
+        name: data.name,
+        description: data.description,
+        logo: data.logo,
+        website: data.website,
+        contactEmail: data.contactEmail,
+        contactPhone: data.contactPhone,
+        address: data.address,
       });
       
-      if (profileResult.success) {
+      if (response.success) {
         toast.success('Organization profile updated successfully');
         
         // Update settings (if any specific settings need to be saved)
         // For now, we'll just handle the profile update
+      } else {
+        throw new Error(response.error || 'Failed to update organization profile');
       }
     } catch (error) {
       console.error('Error updating organization:', error);

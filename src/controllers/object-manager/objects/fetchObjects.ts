@@ -1,5 +1,5 @@
 import { ActionDefinition, ActionContext, ActionResult } from '../../types/ActionTypes';
-import { objectManagerService } from '@/services/objectManagerService';
+import { objectManagerApi } from '@/services/api';
 
 export const fetchObjectsAction: ActionDefinition = {
   id: 'fetchObjects',
@@ -31,12 +31,19 @@ export const fetchObjectsAction: ActionDefinition = {
         };
       }
 
-      const objects = await objectManagerService.fetchObjects(orgId, {
+      const response = await objectManagerApi.fetchObjects({
+        orgId,
         includeInactive: includeInactive as boolean,
         objectType: objectType as string,
         searchTerm: searchTerm as string,
         includeRecordCount: includeRecordCount as boolean
       });
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to fetch objects');
+      }
+
+      const objects = response.data;
 
       return {
         success: true,

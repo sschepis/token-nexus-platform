@@ -1,7 +1,7 @@
 // src/components/ai-assistant/EnhancedAIChatInterface.tsx
 import React, { useState, useCallback, FormEvent, useRef, useEffect, useMemo } from 'react';
-import Parse from 'parse';
 import { AssistantQueryResponse } from '../../ai-assistant/types';
+import { aiAssistantApi } from '@/services/api/aiAssistant';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -105,11 +105,21 @@ const EnhancedAIChatInterface: React.FC = () => {
       );
 
       // Send query to AI assistant with action context
-      const response: AssistantQueryResponse = await Parse.Cloud.run('aiAssistantQuery', {
+      const apiResponse = await aiAssistantApi.aiAssistantQuery({
         query: inputValue,
-        conversationId: 'default', // Could be made dynamic
-        messages: [] // Pass any existing conversation messages if needed
+        context: {
+          conversationId: 'default', // Could be made dynamic
+          messages: [], // Pass any existing conversation messages if needed
+          availableActions: relevantActions.map(a => ({ id: a.id, name: a.name, description: a.description }))
+        },
+        organizationId: orgId
       });
+
+      if (!apiResponse.success) {
+        throw new Error(apiResponse.error || 'Failed to get AI response');
+      }
+
+      const response: AssistantQueryResponse = apiResponse.data;
 
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),

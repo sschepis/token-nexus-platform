@@ -3,7 +3,7 @@ import { ActionDefinition } from './types/actionDefinitions';
 import { PageContext, ActionContext } from './types/actionContexts'; // PageContext and ActionContext are in actionContexts.ts
 import { ActionResult } from './types/actionResults'; // ActionResult is in actionResults.ts
 import { CustomObject, CustomField, ObjectRecord } from '@/types/object-manager';
-import { objectManagerService } from '@/services/objectManagerService'; // Import the new service
+import { objectManagerApi } from '@/services/api';
 
 export class ObjectManagerPageController implements PageController {
   pageId = 'object-manager';
@@ -50,9 +50,10 @@ export class ObjectManagerPageController implements PageController {
       ],
       execute: async (params: Record<string, unknown>, context: ActionContext): Promise<ActionResult> => {
         try {
-          const { includeInactive = false, objectType, searchTerm, includeRecordCount = true } = params;
+          const { includeInactive = false, objectType, searchTerm, includeRecordCount = true, orgId: paramOrgId } = params;
 
-          const orgId = context.user.organizationId || context.organization?.id;
+          // Use orgId from params first, then fall back to context
+          const orgId = paramOrgId || context.user.organizationId || context.organization?.id;
           if (!orgId) {
             return {
               success: false,
@@ -66,12 +67,19 @@ export class ObjectManagerPageController implements PageController {
             };
           }
 
-          const objects = await objectManagerService.fetchObjects(orgId, {
+          const response = await objectManagerApi.fetchObjects({
+            orgId: orgId as string,
             includeInactive: includeInactive as boolean,
             objectType: objectType as string,
             searchTerm: searchTerm as string,
             includeRecordCount: includeRecordCount as boolean
           });
+
+          if (!response.success) {
+            throw new Error(response.error || 'Failed to fetch objects');
+          }
+
+          const objects = response.data || [];
 
           return {
             success: true,
@@ -143,12 +151,19 @@ export class ObjectManagerPageController implements PageController {
             };
           }
 
-          const newObject = await objectManagerService.createObject(orgId, {
+          const response = await objectManagerApi.createObject({
+            orgId,
             apiName: apiName as string,
             label: label as string,
             description: description as string,
             fields: fields as CustomField[]
           });
+
+          if (!response.success) {
+            throw new Error(response.error || 'Failed to create object');
+          }
+
+          const newObject = response.data;
 
           return {
             success: true,
@@ -229,13 +244,21 @@ export class ObjectManagerPageController implements PageController {
             };
           }
 
-          const { records, total } = await objectManagerService.fetchRecords(orgId, objectApiName as string, {
+          const response = await objectManagerApi.fetchRecords({
+            orgId,
+            objectApiName: objectApiName as string,
             limit: limit as number,
             skip: skip as number,
             filters: filters as Record<string, any>,
             sortBy: sortBy as string,
-            sortOrder: sortOrder as 'asc' | 'desc'
+            sortOrder: sortOrder as string
           });
+
+          if (!response.success) {
+            throw new Error(response.error || 'Failed to fetch records');
+          }
+
+          const { records, total } = response.data || { records: [], total: 0 };
 
           return {
             success: true,
@@ -325,15 +348,22 @@ export class ObjectManagerPageController implements PageController {
             };
           }
 
-          const savedRecord = await objectManagerService.createRecord(orgId, objectApiName as string, recordData as Record<string, any>);
+          const response = await objectManagerApi.createRecord({
+            orgId,
+            objectApiName: objectApiName as string,
+            recordData: recordData as Record<string, any>
+          });
+
+          if (!response.success) {
+            throw new Error(response.error || 'Failed to create record');
+          }
+
+          const savedRecord = response.data;
 
           return {
             success: true,
             data: {
-              record: {
-                id: savedRecord.id,
-                ...savedRecord.toJSON()
-              }
+              record: savedRecord
             },
             message: `Record created successfully in ${objectApiName}`,
             metadata: {
@@ -403,7 +433,18 @@ export class ObjectManagerPageController implements PageController {
             };
           }
 
-          const updatedRecord = await objectManagerService.updateRecord(orgId, objectApiName as string, recordId as string, recordData as Record<string, any>);
+          const response = await objectManagerApi.updateRecord({
+            orgId,
+            objectApiName: objectApiName as string,
+            recordId: recordId as string,
+            updates: recordData as Record<string, any>
+          });
+
+          if (!response.success) {
+            throw new Error(response.error || 'Failed to update record');
+          }
+
+          const updatedRecord = response.data;
 
           return {
             success: true,
@@ -475,7 +516,15 @@ export class ObjectManagerPageController implements PageController {
             };
           }
 
-          await objectManagerService.deleteRecord(orgId, objectApiName as string, recordId as string);
+          const response = await objectManagerApi.deleteRecord({
+            orgId,
+            objectApiName: objectApiName as string,
+            recordId: recordId as string
+          });
+
+          if (!response.success) {
+            throw new Error(response.error || 'Failed to delete record');
+          }
 
           return {
             success: true,
@@ -543,7 +592,14 @@ export class ObjectManagerPageController implements PageController {
             ...(fieldType === 'Pointer' && (options as any).targetClass ? { targetClass: (options as any).targetClass } : {})
           };
 
-          await objectManagerService.addFieldToObject(objectApiName as string, newField);
+          const response = await objectManagerApi.addFieldToObject({
+            objectApiName: objectApiName as string,
+            field: newField
+          });
+
+          if (!response.success) {
+            throw new Error(response.error || 'Failed to add field to object');
+          }
 
           return {
             success: true,
@@ -556,6 +612,7 @@ export class ObjectManagerPageController implements PageController {
             }
           };
         } catch (error) {
+          const { fieldApiName, objectApiName } = params;
           return {
             success: false,
             error: error instanceof Error ? error.message : `Failed to add field ${fieldApiName} to object ${objectApiName}`,
@@ -603,7 +660,15 @@ export class ObjectManagerPageController implements PageController {
             };
           }
 
-          await objectManagerService.updateFieldInObject(objectApiName as string, fieldApiName as string, updates as Partial<CustomField>);
+          const response = await objectManagerApi.updateFieldInObject({
+            objectApiName: objectApiName as string,
+            fieldApiName: fieldApiName as string,
+            updates: updates as Partial<CustomField>
+          });
+
+          if (!response.success) {
+            throw new Error(response.error || 'Failed to update field in object');
+          }
 
           return {
             success: true,
@@ -662,7 +727,14 @@ export class ObjectManagerPageController implements PageController {
             };
           }
 
-          await objectManagerService.deleteFieldFromObject(objectApiName as string, fieldApiName as string);
+          const response = await objectManagerApi.deleteFieldFromObject({
+            objectApiName: objectApiName as string,
+            fieldApiName: fieldApiName as string
+          });
+
+          if (!response.success) {
+            throw new Error(response.error || 'Failed to delete field from object');
+          }
 
           return {
             success: true,
@@ -718,7 +790,14 @@ export class ObjectManagerPageController implements PageController {
           }
 
           // objectManagerService.deleteObject expects objectApiName and confirmDelete
-          await objectManagerService.deleteObject(objectId as string, confirmDelete as boolean);
+          const response = await objectManagerApi.deleteObject({
+            objectApiName: objectId as string,
+            confirmDelete: confirmDelete as boolean
+          });
+
+          if (!response.success) {
+            throw new Error(response.error || 'Failed to delete object');
+          }
 
           return {
             success: true,
@@ -789,12 +868,19 @@ export class ObjectManagerPageController implements PageController {
             };
           }
 
-          const filteredObjects = await objectManagerService.fetchObjects(orgId, {
+          const response = await objectManagerApi.fetchObjects({
+            orgId,
             searchTerm: searchTerm as string,
             includeInactive: false,
             objectType: undefined,
             includeRecordCount: true,
           });
+
+          if (!response.success) {
+            throw new Error(response.error || 'Failed to search objects');
+          }
+
+          const filteredObjects = response.data || [];
 
           return {
             success: true,

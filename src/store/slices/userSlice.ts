@@ -119,7 +119,7 @@ const userThunks = {
     name: 'user/fetchOrgUsers',
     cloudFunction: 'getOrgUsers',
     transformParams: (params) => ({ orgId: params.orgId }),
-    transformResponse: (response: any) => response.data || response,
+    transformResponse: (response: any) => response.users || response.data || response,
     errorMessage: 'Failed to fetch organization users'
   }),
 

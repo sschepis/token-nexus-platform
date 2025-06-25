@@ -27,8 +27,8 @@ import {
   Search
 } from 'lucide-react';
 import { useAppSelector } from '../../store/hooks';
-import Parse from 'parse';
 import { toast } from 'sonner';
+import { communicationApiWithMocks } from '../../services/api/communication';
 
 interface CommunicationChannel {
   id: string;
@@ -129,25 +129,27 @@ export const AppCommunicationHub: React.FC = () => {
   }, [currentOrg]);
 
   const loadCommunicationData = async () => {
+    if (!currentOrg?.id) return;
+    
     try {
       setLoading(true);
       
       const [channelsResult, messagesResult, subscriptionsResult, syncRulesResult] = await Promise.all([
-        Parse.Cloud.run('getCommunicationChannels', { organizationId: currentOrg?.id }),
-        Parse.Cloud.run('getAppMessages', { 
-          organizationId: currentOrg?.id,
+        communicationApiWithMocks.getCommunicationChannels({ organizationId: currentOrg.id }),
+        communicationApiWithMocks.getAppMessages({
+          organizationId: currentOrg.id,
           channelId: selectedChannel,
           filter: messageFilter,
           limit: 100
         }),
-        Parse.Cloud.run('getEventSubscriptions', { organizationId: currentOrg?.id }),
-        Parse.Cloud.run('getDataSyncRules', { organizationId: currentOrg?.id })
+        communicationApiWithMocks.getEventSubscriptions({ organizationId: currentOrg.id }),
+        communicationApiWithMocks.getDataSyncRules({ organizationId: currentOrg.id })
       ]);
 
-      setChannels(channelsResult.channels || []);
-      setMessages(messagesResult.messages || []);
-      setSubscriptions(subscriptionsResult.subscriptions || []);
-      setSyncRules(syncRulesResult.rules || []);
+      setChannels(channelsResult.success ? channelsResult.data : []);
+      setMessages(messagesResult.success ? messagesResult.data : []);
+      setSubscriptions(subscriptionsResult.success ? subscriptionsResult.data : []);
+      setSyncRules(syncRulesResult.success ? syncRulesResult.data : []);
     } catch (error) {
       console.error('Failed to load communication data:', error);
       toast.error('Failed to load communication data');
@@ -157,21 +159,27 @@ export const AppCommunicationHub: React.FC = () => {
   };
 
   const createChannel = async () => {
+    if (!currentOrg?.id) return;
+    
     try {
-      await Parse.Cloud.run('createCommunicationChannel', {
-        organizationId: currentOrg?.id,
+      const response = await communicationApiWithMocks.createCommunicationChannel({
+        organizationId: currentOrg.id,
         ...newChannel
       });
       
-      toast.success('Communication channel created successfully');
-      setNewChannel({
-        name: '',
-        description: '',
-        type: 'direct',
-        participants: [],
-        isPublic: false
-      });
-      await loadCommunicationData();
+      if (response.success) {
+        toast.success('Communication channel created successfully');
+        setNewChannel({
+          name: '',
+          description: '',
+          type: 'direct',
+          participants: [],
+          isPublic: false
+        });
+        await loadCommunicationData();
+      } else {
+        toast.error(response.error || 'Failed to create communication channel');
+      }
     } catch (error) {
       console.error('Failed to create channel:', error);
       toast.error('Failed to create communication channel');
@@ -179,35 +187,41 @@ export const AppCommunicationHub: React.FC = () => {
   };
 
   const sendMessage = async () => {
+    if (!currentOrg?.id) return;
+    
     try {
       if (!newMessage.content.trim()) {
         toast.error('Please enter message content');
         return;
       }
 
-      await Parse.Cloud.run('sendAppMessage', {
-        organizationId: currentOrg?.id,
+      const response = await communicationApiWithMocks.sendAppMessage({
+        organizationId: currentOrg.id,
         ...newMessage,
-        content: newMessage.messageType === 'data' 
-          ? JSON.parse(newMessage.content) 
+        content: newMessage.messageType === 'data'
+          ? JSON.parse(newMessage.content)
           : newMessage.content,
-        expiresAt: newMessage.expiresIn > 0 
+        expiresAt: newMessage.expiresIn > 0
           ? new Date(Date.now() + newMessage.expiresIn * 60 * 60 * 1000).toISOString()
           : undefined
       });
       
-      toast.success('Message sent successfully');
-      setNewMessage({
-        channelId: '',
-        toAppId: '',
-        messageType: 'text',
-        subject: '',
-        content: '',
-        priority: 'normal',
-        responseRequired: false,
-        expiresIn: 24
-      });
-      await loadCommunicationData();
+      if (response.success) {
+        toast.success('Message sent successfully');
+        setNewMessage({
+          channelId: '',
+          toAppId: '',
+          messageType: 'text',
+          subject: '',
+          content: '',
+          priority: 'normal',
+          responseRequired: false,
+          expiresIn: 24
+        });
+        await loadCommunicationData();
+      } else {
+        toast.error(response.error || 'Failed to send message');
+      }
     } catch (error) {
       console.error('Failed to send message:', error);
       toast.error('Failed to send message');
@@ -215,14 +229,23 @@ export const AppCommunicationHub: React.FC = () => {
   };
 
   const createEventSubscription = async (subscriptionData: Partial<EventSubscription>) => {
+    if (!currentOrg?.id) return;
+    
     try {
-      await Parse.Cloud.run('createEventSubscription', {
-        organizationId: currentOrg?.id,
-        ...subscriptionData
+      const response = await communicationApiWithMocks.createEventSubscription({
+        organizationId: currentOrg.id,
+        appId: subscriptionData.appId || '',
+        eventType: subscriptionData.eventType || '',
+        eventPattern: subscriptionData.eventPattern,
+        callbackUrl: subscriptionData.callbackUrl
       });
       
-      toast.success('Event subscription created successfully');
-      await loadCommunicationData();
+      if (response.success) {
+        toast.success('Event subscription created successfully');
+        await loadCommunicationData();
+      } else {
+        toast.error(response.error || 'Failed to create event subscription');
+      }
     } catch (error) {
       console.error('Failed to create subscription:', error);
       toast.error('Failed to create event subscription');
@@ -230,14 +253,25 @@ export const AppCommunicationHub: React.FC = () => {
   };
 
   const createSyncRule = async (ruleData: Partial<DataSyncRule>) => {
+    if (!currentOrg?.id) return;
+    
     try {
-      await Parse.Cloud.run('createDataSyncRule', {
-        organizationId: currentOrg?.id,
-        ...ruleData
+      const response = await communicationApiWithMocks.createDataSyncRule({
+        organizationId: currentOrg.id,
+        name: ruleData.name || '',
+        sourceAppId: ruleData.sourceAppId || '',
+        targetAppId: ruleData.targetAppId || '',
+        dataType: ruleData.dataType || '',
+        syncDirection: ruleData.syncDirection || 'one_way',
+        syncFrequency: ruleData.syncFrequency || 'manual'
       });
       
-      toast.success('Data sync rule created successfully');
-      await loadCommunicationData();
+      if (response.success) {
+        toast.success('Data sync rule created successfully');
+        await loadCommunicationData();
+      } else {
+        toast.error(response.error || 'Failed to create data sync rule');
+      }
     } catch (error) {
       console.error('Failed to create sync rule:', error);
       toast.error('Failed to create data sync rule');
@@ -246,9 +280,14 @@ export const AppCommunicationHub: React.FC = () => {
 
   const triggerSync = async (ruleId: string) => {
     try {
-      await Parse.Cloud.run('triggerDataSync', { ruleId });
-      toast.success('Data sync triggered successfully');
-      await loadCommunicationData();
+      const response = await communicationApiWithMocks.triggerDataSync({ ruleId });
+      
+      if (response.success) {
+        toast.success('Data sync triggered successfully');
+        await loadCommunicationData();
+      } else {
+        toast.error(response.error || 'Failed to trigger data sync');
+      }
     } catch (error) {
       console.error('Failed to trigger sync:', error);
       toast.error('Failed to trigger data sync');
@@ -257,8 +296,11 @@ export const AppCommunicationHub: React.FC = () => {
 
   const markMessageAsRead = async (messageId: string) => {
     try {
-      await Parse.Cloud.run('markMessageAsRead', { messageId });
-      await loadCommunicationData();
+      const response = await communicationApiWithMocks.markMessageAsRead({ messageId });
+      
+      if (response.success) {
+        await loadCommunicationData();
+      }
     } catch (error) {
       console.error('Failed to mark message as read:', error);
     }

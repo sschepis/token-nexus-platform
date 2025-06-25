@@ -190,7 +190,7 @@ Parse.Cloud.define('getDashboardMetrics', async (request) => {
   request = await withOrganizationContext(request);
   
   const { user } = request;
-  const { organizationId } = request.params; // Now guaranteed to exist
+  const { organizationId } = request;
 
   if (!user) {
     throw new Error('User must be authenticated');

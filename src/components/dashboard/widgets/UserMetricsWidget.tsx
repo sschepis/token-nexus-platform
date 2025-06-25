@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Users, ArrowUpRight, ArrowDownRight, Loader2 } from 'lucide-react';
 import { useAppSelector } from '@/store/hooks';
-import Parse from 'parse';
+import { dashboardApi } from '@/services/api';
 
 interface UserMetricsWidgetProps {
   id: string;
@@ -35,15 +35,15 @@ export const UserMetricsWidget: React.FC<UserMetricsWidgetProps> = ({ id, config
     setError(null);
     
     try {
-      const result = await Parse.Cloud.run('getDashboardMetrics', {
+      const response = await dashboardApi.getDashboardMetrics({
         organizationId: currentOrg.id
       });
 
-      if (result.success && result.metrics) {
+      if (response.success && response.data && response.data.metrics) {
         setUserStats({
-          total: result.metrics.users.total,
-          active: result.metrics.users.active,
-          growth: result.metrics.users.growth
+          total: response.data.metrics.users.total,
+          active: response.data.metrics.users.active,
+          growth: response.data.metrics.users.growth
         });
       }
     } catch (error) {

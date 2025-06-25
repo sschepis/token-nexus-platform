@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/select";
 import { Loader2, TrendingUp, Users, Package } from 'lucide-react';
 import { useAppSelector } from '@/store/hooks';
-import Parse from 'parse';
+import { dashboardApi } from '@/services/api';
 
 interface ChartWidgetProps {
   id: string;
@@ -73,15 +73,15 @@ export const ChartWidget: React.FC<ChartWidgetProps> = ({ id, config = {} }) => 
     setError(null);
     
     try {
-      const result = await Parse.Cloud.run('getDashboardChartData', {
+      const response = await dashboardApi.getDashboardChartData({
         organizationId: currentOrg.id,
         chartType,
         period
       });
 
-      if (result.success && result.data) {
+      if (response.success && response.data) {
         // Format data for display
-        const formattedData = result.data.map((point: ChartDataPoint) => ({
+        const formattedData = response.data.map((point: ChartDataPoint) => ({
           ...point,
           label: formatDateLabel(point.date, period)
         }));

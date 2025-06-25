@@ -9,7 +9,7 @@ import { isParseReady } from '@/utils/parseUtils';
  */
 export const useOrganizationContext = () => {
   const dispatch = useAppDispatch();
-  const { isAuthenticated, orgId } = useAppSelector((state) => state.auth);
+  const { isAuthenticated, orgId, user } = useAppSelector((state) => state.auth); // Include user
   const { currentOrg, userOrgs, isLoading, error } = useAppSelector((state) => state.org);
   const [parseReady, setParseReady] = useState(false);
   const fetchAttempts = useRef(0);
@@ -31,47 +31,45 @@ export const useOrganizationContext = () => {
   }, []);
 
   useEffect(() => {
-    // Only fetch organization data if Parse is ready, user is authenticated and we don't have org data
-    // Also check if there's no error to prevent infinite retries on failed requests
-    // Add retry limits and timing to prevent infinite loops
+    // Only fetch organization data if Parse is ready, user is authenticated, user ID is available,
+    // and we don't already have org data or aren't currently loading.
+    // Add retry limits and timing to prevent infinite loops.
+
+    if (!isAuthenticated || !user?.id || userOrgs.length > 0 || isLoading) {
+      return; // Do not fetch if not authenticated, no user ID, already have data, or already loading
+    }
+
     const now = Date.now();
     const timeSinceLastFetch = now - lastFetchTime.current;
     const shouldFetch = parseReady &&
-                       isAuthenticated &&
-                       userOrgs.length === 0 &&
-                       !isLoading &&
-                       !error &&
                        fetchAttempts.current < 3 && // Max 3 attempts
                        timeSinceLastFetch > 5000; // Wait at least 5 seconds between attempts
     
     if (shouldFetch) {
-      console.log(`[OrganizationContext] Fetching user organizations after authentication (attempt ${fetchAttempts.current + 1}/3)`);
+      console.log(`[OrganizationContext] Fetching user organizations after authentication for user ID: ${user.id} (attempt ${fetchAttempts.current + 1}/3)`);
       fetchAttempts.current += 1;
       lastFetchTime.current = now;
       dispatch(fetchUserOrganizations());
     }
-  }, [parseReady, isAuthenticated, userOrgs.length, isLoading, error, dispatch]);
+  }, [parseReady, isAuthenticated, user?.id, userOrgs.length, isLoading, dispatch]); // Added user?.id to dependencies
 
   // Reset fetch attempts when user changes or when we get successful data
   useEffect(() => {
-    if (userOrgs.length > 0 || currentOrg || !isAuthenticated) {
+    if (userOrgs.length > 0 || currentOrg || !isAuthenticated || !user?.id) { // Reset on logout or successful fetch
       fetchAttempts.current = 0;
       lastFetchTime.current = 0;
     }
-  }, [userOrgs.length, currentOrg, isAuthenticated]);
+  }, [userOrgs.length, currentOrg, isAuthenticated, user?.id]); // Added user?.id to dependencies
 
   useEffect(() => {
     // Fetch detailed organization info if Parse is ready, we have an orgId but no current org details
-    // Also check if there's no error to prevent infinite retries on failed requests
-    // Re-enable this but with similar retry logic
+    if (!isAuthenticated || !orgId || currentOrg || isLoading) {
+      return; // Do not fetch if not authenticated, no orgId, already has currentOrg, or already loading
+    }
+    
     const now = Date.now();
     const timeSinceLastFetch = now - lastFetchTime.current;
     const shouldFetchOrgDetails = parseReady &&
-                                 isAuthenticated &&
-                                 orgId &&
-                                 !currentOrg &&
-                                 !isLoading &&
-                                 !error &&
                                  fetchAttempts.current < 3 && // Max 3 attempts
                                  timeSinceLastFetch > 5000; // Wait at least 5 seconds between attempts
     
@@ -81,7 +79,7 @@ export const useOrganizationContext = () => {
       lastFetchTime.current = now;
       dispatch(fetchCurrentOrgDetails(orgId));
     }
-  }, [parseReady, isAuthenticated, orgId, currentOrg, isLoading, error, dispatch]);
+  }, [parseReady, isAuthenticated, orgId, currentOrg, isLoading, dispatch, user?.id]); // Added user?.id to dependencies
 
   return {
     currentOrg,

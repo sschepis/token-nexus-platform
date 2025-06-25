@@ -9,14 +9,15 @@ import { store } from './store'; // Import the actual store instance
 import { RootState } from './store'; // Import RootState for typing
 
 // Define the available widget types
-export type WidgetType = 
-  | 'tokenStats' 
-  | 'recentTokens' 
-  | 'userMetrics' 
+export type WidgetType =
+  | 'tokenStats'
+  | 'recentTokens'
+  | 'userMetrics'
   | 'activityFeed'
   | 'quickActions'
   | 'chartWidget'
-  | 'installedApps'; // Added new widget type
+  | 'installedApps'
+  | 'metric'; // Added legacy metric widget type for backward compatibility
 
 export interface Widget {
   id: string;
@@ -47,7 +48,8 @@ const defaultWidgetTitles: Record<WidgetType, string> = {
   activityFeed: 'Activity Feed',
   quickActions: 'Quick Actions',
   chartWidget: 'Chart',
-  installedApps: 'My Applications', // Added title for the new widget
+  installedApps: 'My Applications',
+  metric: 'Metrics', // Added title for legacy metric widget
 };
 
 // Initial layouts for each widget type
@@ -67,8 +69,10 @@ const getInitialLayout = (id: string, type: WidgetType): Layout => {
       return { ...baseLayout, w: 3, h: 4 };
     case 'chartWidget':
       return { ...baseLayout, w: 6, h: 6 };
-    case 'installedApps': // Added layout for the new widget
+    case 'installedApps':
       return { ...baseLayout, w: 4, h: 4 };
+    case 'metric': // Added layout for legacy metric widget
+      return { ...baseLayout, w: 3, h: 4 };
     default:
       return { ...baseLayout, w: 3, h: 3 };
   }

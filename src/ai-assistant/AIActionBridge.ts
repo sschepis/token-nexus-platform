@@ -11,7 +11,9 @@ import {
   NavigationContext
 } from '../controllers/types/ActionTypes';
 import { ToolDefinition, UserContext as AIUserContext } from './types';
-import { ControllerRegistry, controllerRegistry } from '../controllers/ControllerRegistry';
+import { ControllerRegistry } from '../controllers/ControllerRegistry';
+import { controllerRegistry } from '../controllers/registerControllers';
+import { MCPIntegrationService } from './MCPIntegrationService';
 
 /**
  * Bridge between the Controller Registry and AI Assistant
@@ -19,18 +21,28 @@ import { ControllerRegistry, controllerRegistry } from '../controllers/Controlle
  */
 export class AIActionBridge {
   private registry: ControllerRegistry;
+  private mcpService: MCPIntegrationService;
 
   constructor(registry: ControllerRegistry = controllerRegistry) {
     this.registry = registry;
+    this.mcpService = new MCPIntegrationService();
   }
 
   /**
-   * Generate AI tool definitions from all registered actions
+   * Set the organization context for MCP integration
    */
-  generateToolDefinitions(): ToolDefinition[] {
-    const toolDefinitions: ToolDefinition[] = [];
-    const pageControllers = this.registry.getPageControllers();
+  setOrganizationContext(organizationId: string): void {
+    this.mcpService.setOrganizationId(organizationId);
+  }
 
+  /**
+   * Generate AI tool definitions from all registered actions and MCP servers
+   */
+  async generateToolDefinitions(): Promise<ToolDefinition[]> {
+    const toolDefinitions: ToolDefinition[] = [];
+    
+    // Add page controller actions
+    const pageControllers = this.registry.getPageControllers();
     pageControllers.forEach((pageController, pageId) => {
       pageController.actions.forEach((action, actionId) => {
         const fullActionId = `${pageId}.${actionId}`;
@@ -39,13 +51,21 @@ export class AIActionBridge {
       });
     });
 
+    // Add MCP tools
+    try {
+      const mcpTools = await this.mcpService.generateMCPToolDefinitions();
+      toolDefinitions.push(...mcpTools);
+    } catch (error) {
+      console.error('Error loading MCP tools:', error);
+    }
+
     return toolDefinitions;
   }
 
   /**
    * Generate AI tool definitions for a specific page
    */
-  generateToolDefinitionsForPage(pageId: string): ToolDefinition[] {
+  async generateToolDefinitionsForPage(pageId: string): Promise<ToolDefinition[]> {
     const pageActions = this.registry.getPageActions(pageId);
     if (!pageActions) {
       return [];
@@ -57,6 +77,16 @@ export class AIActionBridge {
       const toolDefinition = this.convertActionToTool(fullActionId, action, pageId);
       toolDefinitions.push(toolDefinition);
     });
+
+    // If this is the MCP servers page, also include MCP tools
+    if (pageId === 'mcp-servers') {
+      try {
+        const mcpTools = await this.mcpService.generateMCPToolDefinitions();
+        toolDefinitions.push(...mcpTools);
+      } catch (error) {
+        console.error('Error loading MCP tools for page:', error);
+      }
+    }
 
     return toolDefinitions;
   }
@@ -417,8 +447,8 @@ export const aiActionBridge = new AIActionBridge();
 /**
  * Helper function to create AI tool definitions from current registry state
  */
-export const generateAIToolDefinitions = (): ToolDefinition[] => {
-  return aiActionBridge.generateToolDefinitions();
+export const generateAIToolDefinitions = async (): Promise<ToolDefinition[]> => {
+  return await aiActionBridge.generateToolDefinitions();
 };
 
 /**

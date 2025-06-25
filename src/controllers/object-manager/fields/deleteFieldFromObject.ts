@@ -1,5 +1,5 @@
 import { ActionDefinition, ActionContext, ActionResult } from '../../types/ActionTypes';
-import { objectManagerService } from '@/services/objectManagerService';
+import { objectManagerApi } from '@/services/api';
 
 export const deleteFieldFromObjectAction: ActionDefinition = {
   id: 'deleteFieldFromObject',
@@ -32,7 +32,14 @@ export const deleteFieldFromObjectAction: ActionDefinition = {
         };
       }
 
-      await objectManagerService.deleteFieldFromObject(objectApiName as string, fieldApiName as string);
+      const response = await objectManagerApi.deleteFieldFromObject({
+        objectApiName: objectApiName as string,
+        fieldApiName: fieldApiName as string
+      });
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to delete field from object');
+      }
 
       return {
         success: true,

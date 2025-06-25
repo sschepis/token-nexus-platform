@@ -248,6 +248,70 @@ Parse.Cloud.define('getUserStats', async (request) => {
   }
 });
 
+/**
+ * Get all users (admin function)
+ * This provides admin access to all users across organizations
+ */
+Parse.Cloud.define('getAllUsers', async (request) => {
+  const { user, params } = request;
+  
+  if (!user) {
+    throw new Error('User must be authenticated');
+  }
+
+  try {
+    // Check if user is system admin
+    if (!user.get('isSystemAdmin') && !user.get('isAdmin')) {
+      throw new Error('Insufficient permissions - admin access required');
+    }
+
+    const { limit = 50, skip = 0, organizationId } = params;
+    
+    // Query all users
+    const query = new Parse.Query(Parse.User);
+    
+    // If organizationId is provided, filter by organization
+    if (organizationId) {
+      query.equalTo('organizationId', organizationId);
+    }
+    
+    query.limit(Math.min(limit, 100)); // Cap at 100 for performance
+    query.skip(skip);
+    query.ascending('username');
+    query.include('organizationId'); // Include organization details if available
+
+    const users = await query.find({ useMasterKey: true });
+    const totalCount = await query.count({ useMasterKey: true });
+
+    const userData = users.map(u => ({
+      id: u.id,
+      username: u.get('username'),
+      email: u.get('email'),
+      firstName: u.get('firstName'),
+      lastName: u.get('lastName'),
+      roles: u.get('roles') || [],
+      isActive: u.get('isActive'),
+      isSystemAdmin: u.get('isSystemAdmin') || false,
+      lastLogin: u.get('lastLogin'),
+      createdAt: u.get('createdAt'),
+      organizationId: u.get('organizationId'),
+      emailVerified: u.get('emailVerified')
+    }));
+
+    logger.info(`getAllUsers: Retrieved ${users.length} users (admin request by ${user.id})`);
+
+    return {
+      success: true,
+      users: userData,
+      total: totalCount,
+      hasMore: (skip + users.length) < totalCount
+    };
+  } catch (error) {
+    logger.error('Error in getAllUsers:', error);
+    throw new Error(`Failed to get all users: ${error.message}`);
+  }
+});
+
 module.exports = {
   // Cloud functions are automatically registered when this file is required
 };

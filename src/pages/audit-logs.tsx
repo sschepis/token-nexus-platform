@@ -1,73 +1,50 @@
-import React, { useEffect, useState, useMemo } from "react";
-import { cn } from "@/lib/utils";
-import { useAppSelector, useAppDispatch } from "@/store/hooks";
-import {
-  fetchAuditLogs,
-  AuditEvent,
-  AuditEventType,
-  AuditSeverity,
-  setEventTypeFilter,
-  setSeverityFilter,
-  setDateRangeFilter,
-  resetFilters,
-  clearErrors, // clearAuditErrors
-  deleteAuditLog,
-  exportAuditLogs,
-} from "@/store/slices/auditSlice";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CalendarIcon, Filter, DownloadIcon, Activity, Shield, Coins, UserCog, Loader2, Trash2, RefreshCw, AlertCircle } from "lucide-react";
+import React, { useState, useEffect, useMemo } from 'react';
 import { format } from "date-fns";
+import { CalendarIcon, Activity, Shield, Coins, UserCog, AlertCircle, RefreshCw, Filter, DownloadIcon, Loader2, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { usePermission } from "@/hooks/usePermission";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { Textarea } from "@/components/ui/textarea";
 import { usePageController } from "@/hooks/usePageController";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+
+type AuditEventType = "user_activity" | "security" | "token_usage" | "admin_action";
+type AuditSeverity = "low" | "medium" | "high" | "critical";
 
 const AuditLogsPage = () => {
   const { toast } = useToast();
   const { hasPermission } = usePermission();
-  const dispatch = useAppDispatch();
-  const { events, isLoading, totalCount, hasMore, filters } = useAppSelector((state) => state.audit);
-  const auditError = null;
-  const { user } = useAppSelector((state) => state.auth);
 
   // Permission checks
   const canRead = hasPermission('audit:read');
   const canWrite = hasPermission('audit:write');
   const canDelete = hasPermission('audit:delete');
 
-  const [activeTab, setActiveTab] = useState<AuditEventType | "all">(filters.eventType && filters.eventType.length > 0 ? filters.eventType[0] : "all");
+  const [activeTab, setActiveTab] = useState<AuditEventType | "all">("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
-    from: filters.dateRange.start ? new Date(filters.dateRange.start) : undefined,
-    to: filters.dateRange.end ? new Date(filters.dateRange.end) : undefined,
+    from: undefined,
+    to: undefined,
   });
-  const [selectedSeverity, setSelectedSeverity] = useState<AuditSeverity | "all">(filters.severity && filters.severity.length > 0 ? filters.severity[0] : "all");
+  const [selectedSeverity, setSelectedSeverity] = useState<AuditSeverity | "all">("all");
 
   const [confirmDeleteLogId, setConfirmDeleteLogId] = useState<string | null>(null);
   const [deleteReason, setDeleteReason] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-  const [controllerEvents, setControllerEvents] = useState<any[]>([]);
-  const [isControllerLoading, setIsControllerLoading] = useState(false);
+  const [events, setEvents] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [totalCount, setTotalCount] = useState(0);
 
   // Initialize page controller
   const pageController = usePageController({
@@ -83,7 +60,7 @@ const AuditLogsPage = () => {
   const loadAuditLogs = async () => {
     if (!pageController.isRegistered || !canRead) return;
     
-    setIsControllerLoading(true);
+    setIsLoading(true);
     setError(null);
     
     try {
@@ -105,12 +82,9 @@ const AuditLogsPage = () => {
       const result = await pageController.executeAction('fetchAuditLogs', params);
       
       if (result.success && result.data) {
-        const logsData = result.data as { events: any[] };
-        setControllerEvents(logsData.events || []);
-        toast({
-          title: "Audit logs loaded",
-          description: "Audit logs loaded successfully",
-        });
+        const logsData = result.data as { events: any[], total?: number };
+        setEvents(logsData.events || []);
+        setTotalCount(logsData.total || logsData.events?.length || 0);
       } else {
         setError(result.error || 'Failed to load audit logs');
         toast({
@@ -128,7 +102,7 @@ const AuditLogsPage = () => {
         variant: "destructive",
       });
     } finally {
-      setIsControllerLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -138,72 +112,33 @@ const AuditLogsPage = () => {
     }
   }, [pageController.isRegistered, canRead, activeTab, selectedSeverity, dateRange]);
 
-  // Fetch audit logs based on filters (keep Redux for backward compatibility)
-  useEffect(() => {
-    if (!canRead) return;
-    
-    dispatch(clearErrors());
+  const handleRefreshLogs = () => {
+    loadAuditLogs();
+  };
 
-    const params: {
-      startDate?: string;
-      endDate?: string;
-      actions?: string[];
-      severity?: AuditSeverity[];
-    } = {};
-
-    if (activeTab !== "all") {
-      params.actions = [activeTab];
-    }
-    if (selectedSeverity !== "all") {
-      params.severity = [selectedSeverity];
-    }
-    if (dateRange.from) {
-      params.startDate = dateRange.from.toISOString();
-    }
-    if (dateRange.to) {
-      params.endDate = dateRange.to.toISOString();
-    }
-
-    dispatch(fetchAuditLogs(params));
-  }, [dispatch, canRead, activeTab, selectedSeverity, dateRange]);
-
-  // Handle errors from Redux slice
-  useEffect(() => {
-    if (auditError) {
-      toast({
-        title: "Audit Log Error",
-        description: auditError,
-        variant: "destructive",
-      });
-      dispatch(clearErrors());
-    }
-  }, [auditError, toast, dispatch]);
-  
   const handleTabChange = (value: string) => {
     setActiveTab(value as AuditEventType | "all");
-    dispatch(setEventTypeFilter(value === "all" ? null : [value as AuditEventType]));
-  };
-  
-  const handleSeverityChange = (value: string) => {
-    setSelectedSeverity(value === "all" ? "all" : (value as AuditSeverity));
-    dispatch(setSeverityFilter(value === "all" ? null : [value as AuditSeverity]));
   };
 
-  const handleDateRangeSelect = (range: { from?: Date; to?: Date } | undefined) => {
-    setDateRange({ from: range?.from || undefined, to: range?.to || undefined });
-    dispatch(setDateRangeFilter({ 
-      start: range?.from?.toISOString() || null, 
-      end: range?.to?.toISOString() || null 
-    }));
+  const handleSeverityChange = (value: string) => {
+    setSelectedSeverity(value as AuditSeverity | "all");
+  };
+
+  const handleDateRangeSelect = (range: any) => {
+    if (range) {
+      setDateRange({
+        from: range.from,
+        to: range.to
+      });
+    }
   };
 
   const handleResetFilters = () => {
-    dispatch(resetFilters());
     setActiveTab("all");
     setSelectedSeverity("all");
     setDateRange({ from: undefined, to: undefined });
     setSearchTerm("");
-     dispatch(fetchAuditLogs({})); // Re-fetch all logs after reset
+    loadAuditLogs(); // Re-fetch all logs after reset
   };
   
   const getSeverityColor = (severity: AuditSeverity) => {
@@ -226,18 +161,15 @@ const AuditLogsPage = () => {
     }
   };
 
-  // Use controller events if available, fallback to Redux events
-  const allEvents = controllerEvents.length > 0 ? controllerEvents : events;
-  
   const filteredEvents = useMemo(() => {
     const lowercasedSearchTerm = searchTerm.toLowerCase();
-    return allEvents.filter(event =>
+    return events.filter(event =>
       event.description.toLowerCase().includes(lowercasedSearchTerm) ||
       event.userEmail?.toLowerCase().includes(lowercasedSearchTerm) ||
       event.userId.toLowerCase().includes(lowercasedSearchTerm) ||
       event.ipAddress?.toLowerCase().includes(lowercasedSearchTerm)
     );
-  }, [allEvents, searchTerm]);
+  }, [events, searchTerm]);
 
   const handleDeleteConfirmation = (logId: string) => {
     if (!canDelete) {
@@ -303,28 +235,12 @@ const AuditLogsPage = () => {
         });
       }
     }
-
-    // Also keep Redux call for backward compatibility
-    try {
-      await dispatch(deleteAuditLog(confirmDeleteLogId)).unwrap();
-      toast({
-        title: "Audit Log Deleted",
-        description: "The audit log has been successfully deleted.",
-      });
-      setConfirmDeleteLogId(null);
-    } catch (error) {
-       // Error handled by useEffect
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  const handleRefreshLogs = async () => {
-    await loadAuditLogs();
+    
+    setIsDeleting(false);
   };
 
   const handleExportLogs = async (format: string) => {
-    if (!canRead) {
+    if (!canRead || !pageController.isRegistered) {
       toast({
         title: "Permission denied",
         description: "You don't have permission to export audit logs",
@@ -335,48 +251,53 @@ const AuditLogsPage = () => {
 
     setIsExporting(true);
     try {
-      const params: {
-        format: 'csv' | 'json' | 'pdf';
-        filters?: {
-          startDate?: string;
-          endDate?: string;
-          actions?: string[];
-          userIds?: string[];
-          resourceType?: string;
-        };
-      } = { format: format as 'csv' | 'json' | 'pdf' };
-
+      const params: any = { format };
+      
+      if (selectedSeverity !== "all") {
+        params.severity = [selectedSeverity];
+      }
       if (activeTab !== "all") {
-        params.filters = { ...params.filters, actions: [activeTab] };
+        params.eventTypes = [activeTab];
       }
       if (dateRange.from) {
-        params.filters = { ...params.filters, startDate: dateRange.from.toISOString() };
+        params.startDate = dateRange.from.toISOString();
       }
       if (dateRange.to) {
-        params.filters = { ...params.filters, endDate: dateRange.to.toISOString() };
+        params.endDate = dateRange.to.toISOString();
       }
-      // Add other filters if available in UI
 
-      const result = await dispatch(exportAuditLogs(params)).unwrap();
+      const result = await pageController.executeAction('exportAuditLogs', params);
       
-      const filename = result.metadata.filename || `audit_logs.${format}`;
-      const blob = new Blob([result.data], { type: result.metadata.contentType });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
+      if (result.success && result.data) {
+        const exportData = result.data as { filename: string; data: string; contentType: string };
+        const blob = new Blob([exportData.data], { type: exportData.contentType });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = exportData.filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
 
-      toast({
-        title: "Export Successful",
-        description: `Audit logs exported as ${format.toUpperCase()}`,
-      });
-
+        toast({
+          title: "Export Successful",
+          description: `Audit logs exported as ${format.toUpperCase()}`,
+        });
+      } else {
+        toast({
+          title: "Export Failed",
+          description: result.error || 'Failed to export audit logs',
+          variant: "destructive",
+        });
+      }
     } catch (error) {
-      // Error handled by useEffect
+      console.error('Error exporting audit logs:', error);
+      toast({
+        title: "Export Failed",
+        description: 'Failed to export audit logs',
+        variant: "destructive",
+      });
     } finally {
       setIsExporting(false);
     }
@@ -385,7 +306,7 @@ const AuditLogsPage = () => {
   // Show permission error if user can't read audit logs
   if (!canRead) {
     return (
-      <div className="space-y-6">
+      <div className="container mx-auto space-y-6">
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Audit Logs</h1>
@@ -406,7 +327,7 @@ const AuditLogsPage = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="container mx-auto space-y-6">
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Audit Logs</h1>
@@ -414,14 +335,14 @@ const AuditLogsPage = () => {
               Track all activities and actions in your organization
             </p>
           </div>
-          <div className="flex space-x-2">
+          <div className="flex items-center space-x-2">
             <Button
               variant="outline"
               size="sm"
               onClick={handleRefreshLogs}
-              disabled={isControllerLoading}
+              disabled={isLoading}
             >
-              {isControllerLoading ? (
+              {isLoading ? (
                 <Loader2 className="h-4 w-4 mr-1 animate-spin" />
               ) : (
                 <RefreshCw className="h-4 w-4 mr-1" />
@@ -567,12 +488,12 @@ const AuditLogsPage = () => {
                         filteredEvents.map((event) => (
                           <TableRow key={event.id}>
                             <TableCell className="font-mono">
-                              {format(new Date(event.createdAt), "yyyy-MM-dd HH:mm")} {/* Use createdAt */}
+                              {format(new Date(event.createdAt), "yyyy-MM-dd HH:mm")}
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-1">
                                 {getEventTypeIcon(event.eventType)}
-                                <span className="capitalize">{event.eventType.replace(/_/g, ' ')}</span> {/* Replaced all underscores */}
+                                <span className="capitalize">{event.eventType.replace(/_/g, ' ')}</span>
                               </div>
                             </TableCell>
                             <TableCell>{event.description}</TableCell>
@@ -603,7 +524,6 @@ const AuditLogsPage = () => {
             <div className="flex items-center justify-between text-sm text-muted-foreground">
               <div>Showing {filteredEvents.length} of {totalCount} events</div>
               {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-              {hasMore && <Button variant="link" size="sm">Load More</Button>} {/* TODO: Implement Load More */}
             </div>
           </CardContent>
         </Card>

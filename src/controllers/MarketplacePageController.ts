@@ -21,13 +21,13 @@ export class MarketplacePageController implements PageController {
     metadata: {
       category: 'marketplace',
       tags: ['marketplace', 'apps', 'plugins', 'extensions', 'store'],
-      permissions: ['marketplace:read', 'marketplace:install', 'apps:manage']
+      permissions: ['marketplace:read', 'marketplace:write', 'marketplace:install', 'apps:manage', 'system:admin']
     }
   };
   metadata = {
     category: 'marketplace',
     tags: ['marketplace', 'apps', 'plugins', 'extensions', 'store'],
-    permissions: ['marketplace:read', 'marketplace:install', 'apps:manage'],
+    permissions: ['marketplace:read', 'marketplace:write', 'marketplace:install', 'apps:manage', 'system:admin'],
     version: '1.0.0'
   };
   isActive = true;

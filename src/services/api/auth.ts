@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Parse from 'parse';
-import { apiService, mockResponse } from './base'; // Import apiService and mockResponse
+import { apiService } from './base'; // Import apiService
 import { callCloudFunction } from '../../utils/apiUtils';
 
 /**
@@ -56,40 +56,53 @@ const authApi = {
    */
   login: async (credentials: { email: string; password: string }): Promise<{ user: any; token: string; orgId: string; permissions: string[]; isAdmin?: boolean }> => {
     try {
-      // First ensure Parse is initialized
       await ensureParseInitialized();
-      
-      // Clear any existing Parse session to avoid "Invalid session token" errors
+
+      // Ensure no previous session interferes. Parse.User.logOut() will clear
+      // local storage and Parse.User.current().
+      // Errors during logout are typically ignorable if no user is logged in.
       try {
-        await Parse.User.logOut();
-      } catch (logoutError) {
-        // Ignore logout errors - there might not be a session to clear
-        console.debug('[Auth API] No existing session to clear:', logoutError);
+        if (Parse.User.current()) {
+          await Parse.User.logOut();
+        }
+      } catch (e) {
+        console.debug('[Auth API] No active Parse session or error during logout:', e);
       }
       
-      // Ensure Parse Installation is properly set up before making cloud function calls
-      await ensureParseInstallation();
+      // Use Parse's native logIn method
+      const user = await Parse.User.logIn(credentials.email, credentials.password);
       
-      // Call the custom Parse Cloud function using our utility
-      const result = await callCloudFunction<{ user: any; token: string; orgId: string; permissions: string[]; isAdmin?: boolean }>(
-        'customUserLogin',
-        {
-          username: credentials.email, // Parse uses 'username' for email by default
-          password: credentials.password
+      // After Parse.User.logIn, the Parse SDK should automatically set the current user
+      // and store the session token in local storage.
+
+      const sessionToken = user.getSessionToken();
+      if (!sessionToken) {
+        throw new Error('No session token received after successful Parse.User.logIn.');
+      }
+
+      // Extract user information, organization ID, and permissions
+      const orgId = user.get('organization')?.id || null;
+      const isAdmin = user.get('isAdmin') || false;
+      const permissions = user.get('permissions') || [];
+
+      return {
+        user: {
+          id: user.id,
+          email: user.get('email'),
+          firstName: user.get('firstName'),
+          lastName: user.get('lastName'),
+          avatarUrl: user.get('avatarUrl'),
+          isAdmin: isAdmin, // Use the isAdmin value already extracted
         },
-        {
-          errorMessage: 'Login failed via cloud function'
-        }
-      );
-      
-      // The cloud function should return data in the format expected by loginSuccess action
-      // including the isAdmin flag.
-      // Example expected structure from cloud function:
-      // { user: { id, email, firstName, lastName, avatarUrl }, token, orgId, permissions, isAdmin }
-      return result.data!;
+        token: sessionToken,
+        orgId: orgId,
+        permissions: permissions, // Use the permissions value already extracted
+        isAdmin: isAdmin, // This isAdmin is picked up by loginSuccess payload's isAdmin property for AuthState.user.isAdmin
+      };
     } catch (error: any) {
-      console.debug('[Auth API] Error calling customUserLogin cloud function:', error);
-      throw new Error(error.message || 'Login failed via cloud function');
+      console.error('[Auth API] Login failed:', error);
+      // Re-throw the original error to be handled by the calling component (login.tsx)
+      throw error;
     }
   },
 
@@ -128,32 +141,5 @@ const authApi = {
   },
 };
 
-const mockAuthApis = {
-  login: (credentials: any) => {
-    return mockResponse({
-      user: {
-        id: 'user-123',
-        email: credentials.email,
-        firstName: 'John',
-        lastName: 'Doe',
-        avatarUrl: '/avatars/john-doe.png',
-      },
-      token: 'mock-auth-token',
-      orgId: 'org-1',
-      permissions: ['admin'],
-      isAdmin: true,
-    });
-  },
-
-  getUserOrgs: () => {
-    return mockResponse({
-      orgs: [
-        { id: 'org-1', name: 'Acme Corp', logo: 'https://cdn-icons-png.flaticon.com/512/1085/1085375.png' },
-        { id: 'org-2', name: 'Globex Inc', logo: 'https://cdn-icons-png.flaticon.com/512/2165/2165780.png' },
-      ],
-    });
-  },
-};
-
 // Merge Auth APIs into the global apiService
-Object.assign(apiService, process.env.NEXT_PUBLIC_USE_MOCK_API === 'true' ? mockAuthApis : authApi);
+Object.assign(apiService, authApi);

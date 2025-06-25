@@ -310,28 +310,27 @@ export class DashboardPageController implements PageController {
 
   private async getRecordCount(orgId: string): Promise<number> {
     try {
-      // This is a simplified count - in a real implementation you'd sum across all objects
-      const schemas = await Parse.Schema.all();
+      // Use known object types instead of schema introspection to avoid master key requirement
+      const knownObjectTypes = ['User', 'Organization', 'Role', 'Session']; // Add your custom objects here
       let totalRecords = 0;
       
-      for (const schema of schemas.slice(0, 5)) { // Limit to first 5 to avoid timeout
-        if (!schema.className.startsWith('_')) {
-          try {
-            const query = new Parse.Query(schema.className);
-            // Add organization context if the schema supports it
-            if (schema.fields && ('organizationId' in schema.fields || 'organization' in schema.fields)) {
-              if ('organizationId' in schema.fields) {
-                query.equalTo('organizationId', orgId);
-              } else if ('organization' in schema.fields) {
-                query.equalTo('organization', orgId);
-              }
+      for (const className of knownObjectTypes) {
+        try {
+          const query = new Parse.Query(className);
+          // Add organization context for organization-scoped objects
+          if (className !== 'Organization' && className !== 'Role' && className !== 'Session') {
+            // Try to add organization filter - will be ignored if field doesn't exist
+            try {
+              query.equalTo('organizationId', orgId);
+            } catch {
+              // Ignore if organizationId field doesn't exist
             }
-            const count = await query.count();
-            totalRecords += count;
-          } catch (error) {
-            // Skip if error counting this schema
-            console.warn(`[DEBUG DashboardPageController] Failed to count records for ${schema.className}:`, error);
           }
+          const count = await query.count();
+          totalRecords += count;
+        } catch (error) {
+          // Skip if error counting this object type (likely due to permissions)
+          console.debug(`[DEBUG DashboardPageController] Skipping count for ${className} (no access):`, error instanceof Error ? error.message : String(error));
         }
       }
       

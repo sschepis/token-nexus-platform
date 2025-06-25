@@ -1,7 +1,6 @@
-module.exports = Parse => {
-  // Cloud functions for managing custom objects and their schemas
+// Cloud functions for managing custom objects and their schemas
 
-  Parse.Cloud.define('getAvailableObjects', async (request) => {
+Parse.Cloud.define('getAvailableObjects', async (request) => {
     const { organizationId } = request.params;
 
     if (!request.user && !request.master) {
@@ -41,6 +40,66 @@ module.exports = Parse => {
       return { success: true, objects: customObjects };
     } catch (error) {
       console.error('Error in getAvailableObjects:', error);
+      throw new Parse.Error(Parse.Error.INTERNAL_SERVER_ERROR, `Failed to fetch custom objects: ${error.message}`);
+    }
+  });
+
+  Parse.Cloud.define('getCustomObjects', async (request) => {
+    const { orgId, includeRecordCount } = request.params;
+
+    if (!request.user && !request.master) {
+      throw new Parse.Error(Parse.Error.SCRIPT_FAILED, 'Not Authorized: Authentication required or master key.');
+    }
+
+    try {
+      const schemas = await Parse.Schema.all();
+      const customObjects = [];
+
+      for (const schema of schemas) {
+        if (!schema.className.startsWith('_')) {
+          const fields = [];
+          for (const fieldName in schema.fields) {
+            const field = schema.fields[fieldName];
+            fields.push({
+              id: `${schema.className}-${fieldName}`,
+              apiName: fieldName,
+              label: fieldName,
+              type: field.type,
+              required: field.required || false,
+            });
+          }
+
+          const objectData = {
+            id: schema.className,
+            apiName: schema.className,
+            label: schema.className,
+            description: `Schema for ${schema.className}`,
+            fields: fields,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+
+          // Add record count if requested
+          if (includeRecordCount) {
+            try {
+              const query = new Parse.Query(schema.className);
+              if (orgId && schema.fields.organization && schema.fields.organization.type === 'Pointer' && schema.fields.organization.targetClass === 'Organization') {
+                const orgPointer = Parse.Object.extend('Organization').createWithoutData(orgId);
+                query.equalTo('organization', orgPointer);
+              }
+              objectData.recordCount = await query.count({ useMasterKey: true });
+            } catch (countError) {
+              objectData.recordCount = 0;
+            }
+          }
+
+          customObjects.push(objectData);
+        }
+      }
+
+      return { success: true, objects: customObjects };
+    } catch (error) {
+      console.error('Error in getCustomObjects:', error);
       throw new Parse.Error(Parse.Error.INTERNAL_SERVER_ERROR, `Failed to fetch custom objects: ${error.message}`);
     }
   });
@@ -90,5 +149,4 @@ module.exports = Parse => {
     }
   });
 
-  // Note: any other helper functions or exports would go here
-};
+// Note: any other helper functions or exports would go here

@@ -25,7 +25,7 @@ import {
   Settings
 } from 'lucide-react';
 import { useAppSelector } from '../../store/hooks';
-import Parse from 'parse';
+import { appFrameworkApi } from '@/services/api/appFramework';
 import { toast } from 'sonner';
 
 interface ExecutionEnvironment {
@@ -112,26 +112,26 @@ export const AppCodeExecutor: React.FC = () => {
     try {
       setLoading(true);
       
-      const [environmentsResult, executionsResult, statsResult] = await Promise.all([
-        Parse.Cloud.run('getExecutionEnvironments', { organizationId: currentOrg?.id }),
-        Parse.Cloud.run('getCodeExecutions', { 
-          organizationId: currentOrg?.id,
+      const [environmentsResponse, executionsResponse, statsResponse] = await Promise.all([
+        appFrameworkApi.getExecutionEnvironments(currentOrg?.id || ''),
+        appFrameworkApi.getCodeExecutions({
+          organizationId: currentOrg?.id || '',
           limit: 50,
-          orderBy: '-createdAt'
+          skip: 0
         }),
-        Parse.Cloud.run('getExecutionStats', { organizationId: currentOrg?.id })
+        appFrameworkApi.getExecutionStats(currentOrg?.id || '')
       ]);
 
-      setEnvironments(environmentsResult.environments || []);
-      setExecutions(executionsResult.executions || []);
-      setStats(statsResult.stats || null);
+      setEnvironments(environmentsResponse.success ? environmentsResponse.data : []);
+      setExecutions(executionsResponse.success ? executionsResponse.data : []);
+      setStats(statsResponse.success ? statsResponse.data : null);
       
       // Set default environment
-      if (environmentsResult.environments?.length > 0 && !selectedEnvironment) {
-        setSelectedEnvironment(environmentsResult.environments[0].id);
-        setExecutionForm(prev => ({ 
-          ...prev, 
-          environmentId: environmentsResult.environments[0].id 
+      if (environmentsResponse.success && environmentsResponse.data?.length > 0 && !selectedEnvironment) {
+        setSelectedEnvironment(environmentsResponse.data[0].id);
+        setExecutionForm(prev => ({
+          ...prev,
+          environmentId: environmentsResponse.data[0].id
         }));
       }
     } catch (error) {
@@ -144,10 +144,16 @@ export const AppCodeExecutor: React.FC = () => {
 
   const createEnvironment = async (envData: Partial<ExecutionEnvironment>) => {
     try {
-      await Parse.Cloud.run('createExecutionEnvironment', {
-        organizationId: currentOrg?.id,
-        ...envData
+      const response = await appFrameworkApi.createExecutionEnvironment({
+        organizationId: currentOrg?.id || '',
+        name: envData.name || '',
+        type: (envData as any).type || '',
+        configuration: (envData as any).configuration || {}
       });
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to create execution environment');
+      }
       
       toast.success('Execution environment created successfully');
       await loadExecutorData();
@@ -177,11 +183,17 @@ export const AppCodeExecutor: React.FC = () => {
       });
       setExecutionLogs([]);
 
-      const result = await Parse.Cloud.run('executeCustomCode', {
-        organizationId: currentOrg?.id,
-        ...executionForm,
-        input: JSON.parse(executionForm.input || '{}')
+      const response = await appFrameworkApi.executeCustomCode({
+        organizationId: currentOrg?.id || '',
+        environmentId: executionForm.environmentId,
+        code: executionForm.code
       });
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to execute code');
+      }
+
+      const result = response.data;
 
       setRunningExecution(result.execution);
       setExecutionLogs(result.execution.logs || []);
@@ -202,7 +214,11 @@ export const AppCodeExecutor: React.FC = () => {
 
   const stopExecution = async (executionId: string) => {
     try {
-      await Parse.Cloud.run('stopCodeExecution', { executionId });
+      const response = await appFrameworkApi.stopCodeExecution(executionId);
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to stop execution');
+      }
       toast.success('Execution stopped');
       setRunningExecution(null);
       await loadExecutorData();

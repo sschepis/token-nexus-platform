@@ -17,7 +17,7 @@ import {
   Building
 } from 'lucide-react';
 import { useAppSelector } from '@/store/hooks';
-import Parse from 'parse';
+import { dashboardApi } from '@/services/api';
 
 interface ActivityFeedWidgetProps {
   id: string;
@@ -55,13 +55,13 @@ export const ActivityFeedWidget: React.FC<ActivityFeedWidgetProps> = ({ id, conf
     setError(null);
     
     try {
-      const result = await Parse.Cloud.run('getDashboardActivity', {
+      const response = await dashboardApi.getDashboardActivity({
         organizationId: currentOrg.id,
         limit: 20
       });
 
-      if (result.success && result.activities) {
-        setActivities(result.activities);
+      if (response.success && response.data) {
+        setActivities(response.data);
       }
     } catch (error) {
       console.error('Error fetching activities:', error);

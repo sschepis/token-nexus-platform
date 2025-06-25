@@ -1,5 +1,5 @@
 import { ActionDefinition, ActionContext, ActionResult } from '../../types/ActionTypes';
-import { objectManagerService } from '@/services/objectManagerService';
+import { objectManagerApi } from '@/services/api';
 
 export const createRecordAction: ActionDefinition = {
   id: 'createRecord',
@@ -57,7 +57,17 @@ export const createRecordAction: ActionDefinition = {
         };
       }
 
-      const savedRecord = await objectManagerService.createRecord(orgId, objectApiName as string, recordData as Record<string, any>);
+      const response = await objectManagerApi.createRecord({
+        orgId,
+        objectApiName: objectApiName as string,
+        recordData: recordData as Record<string, any>
+      });
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to create record');
+      }
+
+      const savedRecord = response.data;
 
       return {
         success: true,

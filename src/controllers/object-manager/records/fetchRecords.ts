@@ -1,5 +1,5 @@
 import { ActionDefinition, ActionContext, ActionResult } from '../../types/ActionTypes';
-import { objectManagerService } from '@/services/objectManagerService';
+import { objectManagerApi } from '@/services/api';
 
 export const fetchRecordsAction: ActionDefinition = {
   id: 'fetchRecords',
@@ -53,13 +53,21 @@ export const fetchRecordsAction: ActionDefinition = {
         };
       }
 
-      const { records, total } = await objectManagerService.fetchRecords(orgId, objectApiName as string, {
+      const response = await objectManagerApi.fetchRecords({
+        orgId,
+        objectApiName: objectApiName as string,
         limit: limit as number,
         skip: skip as number,
         filters: filters as Record<string, any>,
         sortBy: sortBy as string,
-        sortOrder: sortOrder as 'asc' | 'desc'
+        sortOrder: sortOrder as string
       });
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to fetch records');
+      }
+
+      const { records, total } = response.data || { records: [], total: 0 };
 
       return {
         success: true,

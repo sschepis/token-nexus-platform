@@ -1,5 +1,5 @@
 import { ActionDefinition, ActionContext, ActionResult } from '../../types/ActionTypes';
-import { objectManagerService } from '@/services/objectManagerService';
+import { objectManagerApi } from '@/services/api';
 
 export const updateRecordAction: ActionDefinition = {
   id: 'updateRecord',
@@ -45,11 +45,27 @@ export const updateRecordAction: ActionDefinition = {
         };
       }
 
-      const updatedRecord = await objectManagerService.updateRecord(orgId, objectApiName as string, recordId as string, recordData as Record<string, any>);
+      const response = await objectManagerApi.updateRecord({
+        orgId,
+        objectApiName: objectApiName as string,
+        recordId: recordId as string,
+        updates: recordData as Record<string, any>
+      });
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to update record');
+      }
+
+      const updatedRecord = response.data;
 
       return {
         success: true,
-        data: { record: updatedRecord },
+        data: { 
+          record: {
+            id: updatedRecord.id,
+            ...updatedRecord.toJSON()
+          }
+        },
         message: `Record ${recordId} updated successfully in ${objectApiName}`,
         metadata: {
           executionTime: 0,

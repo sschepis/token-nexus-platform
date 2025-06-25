@@ -1,6 +1,6 @@
 import { ActionDefinition, ActionContext, ActionResult } from '../../types/ActionTypes';
 import { CustomField } from '@/types/object-manager';
-import { objectManagerService } from '@/services/objectManagerService';
+import { objectManagerApi } from '@/services/api';
 
 export const createObjectAction: ActionDefinition = {
   id: 'createObject',
@@ -45,12 +45,19 @@ export const createObjectAction: ActionDefinition = {
         };
       }
 
-      const newObject = await objectManagerService.createObject(orgId, {
+      const response = await objectManagerApi.createObject({
+        orgId,
         apiName: apiName as string,
         label: label as string,
         description: description as string,
         fields: fields as CustomField[]
       });
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to create object');
+      }
+
+      const newObject = response.data;
 
       return {
         success: true,

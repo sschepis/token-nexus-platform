@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import Parse from 'parse';
+import { usersApi } from '@/services/api/users';
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchOrgUsers, removeUserFromOrganization, OrgUser } from "@/store/slices/userSlice";
 import { KycStatus, UserRole } from "@/store/slices/userSlice";
@@ -264,12 +264,16 @@ const Users = () => {
   // Debug function to check user setup
   const handleDebugUserSetup = async () => {
     try {
-      const result = await Parse.Cloud.run('debugUserOrgSetup', { orgId: effectiveOrgId });
-      console.log('Debug User Setup:', result);
-      toast({
-        title: "Debug Info",
-        description: "Debug info logged to console. Check browser console for details.",
-      });
+      const response = await usersApi.debugUserOrgSetup(effectiveOrgId);
+      if (response.success) {
+        console.log('Debug User Setup:', response.data);
+        toast({
+          title: "Debug Info",
+          description: "Debug info logged to console. Check browser console for details.",
+        });
+      } else {
+        throw new Error(response.error || 'Debug failed');
+      }
     } catch (error) {
       console.error('Debug error:', error);
       setControllerError('Debug failed: ' + (error as Error).message);

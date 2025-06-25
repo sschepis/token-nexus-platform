@@ -62,7 +62,7 @@ import {
   SidebarMenuSubItem,
   SidebarMenuSubButton
 } from "@/components/ui/sidebar";
-import { PlatformState } from "@/services/appInitService";
+import { PlatformStatus } from "@/services/appInitService";
 import { hasSmartContract } from '@/parse/parseService'; // Import the new function
 
 export function AppSidebar() {
@@ -70,7 +70,7 @@ export function AppSidebar() {
   const router = useRouter(); // Using Next.js router
   const dispatch = useDispatch();
   const [mounted, setMounted] = useState(false);
-  const [platformState, setPlatformState] = useState<PlatformState | null>(null);
+  const [platformState, setPlatformState] = useState<PlatformStatus | null>(null);
   const [hasIdentityFactory, setHasIdentityFactory] = useState(false); // New state for IdentityFactory
   const [hasImportedContracts, setHasImportedContracts] = useState(false); // New state for imported contracts
 
@@ -83,7 +83,7 @@ export function AppSidebar() {
     if (storedStatus) {
       try {
         const status = JSON.parse(storedStatus);
-        setPlatformState(status.status);
+        setPlatformState(status);
       } catch (e) {
         console.error('Error parsing platform status:', e);
       }
@@ -128,8 +128,8 @@ export function AppSidebar() {
   const hasSystemAdminAccess = mounted && (user?.isAdmin === true || (Array.isArray(permissions) && permissions.includes("system:admin")));
 
   // Check if platform is in initial setup state
-  const isInitialSetup = platformState === 'CORE_ARTIFACTS_IMPORTED' || platformState === 'PARENT_ORG_CREATING';
-  const isPlatformOperational = platformState === 'OPERATIONAL' || platformState === 'PARENT_ORG_CREATED';
+  const isInitialSetup = platformState?.status === 'CORE_ARTIFACTS_IMPORTED' || platformState?.status === 'PARENT_ORG_CREATING';
+  const isPlatformOperational = platformState?.status === 'OPERATIONAL' || platformState?.status === 'PARENT_ORG_CREATED';
 
   const handleLogout = () => {
     dispatch(logout());
@@ -185,6 +185,11 @@ export function AppSidebar() {
       name: "Integrations",
       path: "/integrations",
       icon: <LinkIcon className="h-5 w-5" /> // Fixed: Changed from LayoutDashboard to LinkIcon
+    },
+    {
+      name: "MCP Servers",
+      path: "/mcp-servers",
+      icon: <Server className="h-5 w-5" />
     },
     {
       name: "Marketplace",

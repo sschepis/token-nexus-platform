@@ -1,5 +1,5 @@
 import { ActionDefinition, ActionContext, ActionResult } from '../../types/ActionTypes';
-import { Route } from '../../../types/routes.d';
+import { Route } from '../../../types/routes';
 import { appRegistry } from '../../../services/appRegistry';
 import { v4 as uuidv4 } from 'uuid';
 

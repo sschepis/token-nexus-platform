@@ -2,7 +2,7 @@ import { ActionDefinition } from '../types/actionDefinitions';
 import { ActionContext } from '../types/actionContexts';
 import { ActionResult } from '../types/actionResults';
 import { CustomObject, ObjectRecord } from '@/types/object-manager';
-import { objectManagerService } from '@/services/objectManagerService';
+import { objectManagerApi } from '@/services/api';
 import { ObjectManagerPageController } from '../ObjectManagerPageController';
 
 /**
@@ -41,12 +41,19 @@ export function registerObjectReadActions(controller: ObjectManagerPageControlle
           };
         }
 
-        const objects = await objectManagerService.fetchObjects(orgId, {
+        const response = await objectManagerApi.fetchObjects({
+          orgId,
           includeInactive: includeInactive as boolean,
           objectType: objectType as string,
           searchTerm: searchTerm as string,
           includeRecordCount: includeRecordCount as boolean
         });
+
+        if (!response.success) {
+          throw new Error(response.error || 'Failed to fetch objects');
+        }
+
+        const objects = response.data;
 
         return {
           success: true,
@@ -127,13 +134,21 @@ export function registerObjectReadActions(controller: ObjectManagerPageControlle
           };
         }
 
-        const { records, total } = await objectManagerService.fetchRecords(orgId, objectApiName as string, {
+        const response = await objectManagerApi.fetchRecords({
+          orgId,
+          objectApiName: objectApiName as string,
           limit: limit as number,
           skip: skip as number,
           filters: filters as Record<string, any>,
           sortBy: sortBy as string,
-          sortOrder: sortOrder as 'asc' | 'desc'
+          sortOrder: sortOrder as string
         });
+
+        if (!response.success) {
+          throw new Error(response.error || 'Failed to fetch records');
+        }
+
+        const { records, total } = response.data;
 
         return {
           success: true,
@@ -209,18 +224,25 @@ export function registerObjectReadActions(controller: ObjectManagerPageControlle
           };
         }
 
-        // The fetchObjects function in objectManagerService takes includeInactive, objectType, searchTerm, includeRecordCount
+        // The fetchObjects function in objectManagerApi takes includeInactive, objectType, searchTerm, includeRecordCount
         // It does not directly take searchFields or filters.
         // We will call fetchObjects with the searchTerm, and then filter the results if needed.
-        const allObjects = await objectManagerService.fetchObjects(orgId, {
+        const response = await objectManagerApi.fetchObjects({
+          orgId,
           searchTerm: searchTerm as string,
           includeInactive: false, // Assuming searching active objects by default
           objectType: undefined, // Assuming searching all object types by default
           includeRecordCount: true, // Including record count if available
         });
 
+        if (!response.success) {
+          throw new Error(response.error || 'Failed to search objects');
+        }
+
+        const allObjects = response.data;
+
         const filteredObjects = allObjects.filter(obj => {
-          // Implement client-side filtering based on searchFields and filters if objectManagerService.fetchObjects doesn't support it directly
+          // Implement client-side filtering based on searchFields and filters if objectManagerApi.fetchObjects doesn't support it directly
           // For now, only searchTerm is passed to the service. We will refine this later if needed.
           const objName = obj.label || obj.apiName;
           return objName.toLowerCase().includes((searchTerm as string).toLowerCase());

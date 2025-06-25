@@ -5,7 +5,7 @@ export const deleteRouteAction: ActionDefinition = {
   name: 'Delete Route',
   description: 'Delete a route from the application',
   category: 'data',
-  permissions: ['routes:delete'],
+  permissions: ['routes:manage'],
   parameters: [
     {
       name: 'routeId',

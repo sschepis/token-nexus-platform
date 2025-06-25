@@ -18,6 +18,15 @@ async function initialize() {
     await ServiceManager.initialize(config);
     console.log('Services initialized successfully');
 
+    // Auto-initialize reports and integrations schemas
+    try {
+      console.log('Auto-initializing reports and integrations schemas...');
+      await Parse.Cloud.run('autoInitializeReportsIntegrationsSchemas', {}, { useMasterKey: true });
+      console.log('Reports and integrations schemas auto-initialized successfully');
+    } catch (error) {
+      console.warn('Failed to auto-initialize reports and integrations schemas:', error.message);
+    }
+
     // Basic initialization successful
     return {
       status: 'success',

@@ -1,6 +1,5 @@
 
 import React, { useState } from "react";
-// import AppLayout from "@/components/layout/AppLayout"; // Removed AppLayout import
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Card,
@@ -17,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   AreaChart,
   Area,
@@ -38,10 +38,27 @@ import {
   ChartContainer,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { Download } from "lucide-react";
+import { Download, BarChart3, Zap } from "lucide-react";
+import { usePageController } from "@/hooks/usePageController";
+import { usePermission } from "@/hooks/usePermission";
 
 const Reports = () => {
+  // Use standardized page controller
+  const pageController = usePageController({
+    pageId: 'reports',
+    pageName: 'Reports & Analytics',
+    description: 'Track platform usage, monitor performance metrics, and visualize data',
+    category: 'analytics',
+    permissions: ['reports:read', 'reports:export', 'analytics:view'],
+    tags: ['reports', 'analytics', 'metrics', 'dashboard']
+  });
+
   const [timeRange, setTimeRange] = useState("30d");
+
+  // Permission checks
+  const { hasPermission } = usePermission();
+  const canRead = hasPermission('reports:read');
+  const canExport = hasPermission('reports:export');
 
   // Mock data
   const tokenActivityData = [
@@ -90,16 +107,28 @@ const Reports = () => {
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
   return (
-    // <AppLayout> // Removed AppLayout wrapper; _app.tsx handles it.
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Reports & Analytics</h1>
-            <p className="text-muted-foreground mt-2">
-              Track platform usage, monitor performance metrics, and visualize data
-            </p>
+            <div className="flex items-center gap-3">
+              <BarChart3 className="h-8 w-8" />
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight">Reports & Analytics</h1>
+                <p className="text-muted-foreground mt-1">
+                  Track platform usage, monitor performance metrics, and visualize data
+                </p>
+              </div>
+            </div>
           </div>
           <div className="flex items-center space-x-2">
+            {pageController.isRegistered && (
+              <div className="flex items-center gap-2 mr-2">
+                <Badge variant="outline" className="text-xs">
+                  <Zap className="h-3 w-3 mr-1" />
+                  {pageController.getAvailableActions().length} AI actions
+                </Badge>
+              </div>
+            )}
             <Select
               value={timeRange}
               onValueChange={(value) => setTimeRange(value)}

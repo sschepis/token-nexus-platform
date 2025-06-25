@@ -13,7 +13,8 @@ import {
   PageContext,
   ActionEvent
 } from '../controllers/types/ActionTypes';
-import { ControllerRegistry, controllerRegistry } from '../controllers/ControllerRegistry';
+import { ControllerRegistry } from '../controllers/ControllerRegistry';
+import { controllerRegistry } from '../controllers/registerControllers'; // Import the singleton instance
 import { useAppSelector } from '../store/hooks';
 
 /**
@@ -173,6 +174,7 @@ export const PageControllerProvider: React.FC<PageControllerProviderProps> = ({
       userId: user?.id || 'anonymous',
       username: user?.email,
       email: user?.email,
+      isAdmin: user?.isAdmin || false, // Pass isAdmin flag
       roles: [], // Roles will be derived from permissions
       permissions: permissions || ['dashboard:read', 'dashboard:write'], // Use permissions from auth state
       organizationId: orgId,
@@ -231,6 +233,7 @@ export const PageControllerProvider: React.FC<PageControllerProviderProps> = ({
       userId: user.id,
       username: user.email, // Use email as username fallback
       email: user.email,
+      isAdmin: user?.isAdmin || false, // Pass isAdmin flag
       roles: [], // Roles will be derived from permissions
       permissions: permissions || [], // Use permissions from auth state
       organizationId: orgId || user?.organizationId,
@@ -246,7 +249,7 @@ export const PageControllerProvider: React.FC<PageControllerProviderProps> = ({
       const availableActions: ActionDefinition[] = [];
       pageActions.forEach((action, actionKey) => {
         const fullActionId = `${pageId}.${actionKey}`;
-        if (registry.getPermissionManager().canExecuteAction(fullActionId, userContext)) {
+        if (registry['permissionManager'].canExecuteAction(fullActionId, userContext)) {
           availableActions.push(action);
         }
       });
@@ -292,6 +295,7 @@ export const PageControllerProvider: React.FC<PageControllerProviderProps> = ({
       userId: user?.id || 'anonymous',
       username: user?.email,
       email: user?.email,
+      isAdmin: user?.isAdmin || false, // Pass isAdmin flag
       roles: [], // Roles will be derived from permissions
       permissions: permissions || [], // Use permissions from auth state
       organizationId: orgId || user?.organizationId,
@@ -452,10 +456,6 @@ function generateBreadcrumbs(currentPath: string): Array<{ label: string; path: 
 /**
  * Hook to get the permission manager from the registry
  */
-export const usePermissionManager = () => {
-  const { registry } = usePageControllerContext();
-  return registry.getPermissionManager();
-};
 
 /**
  * Hook to get registry statistics

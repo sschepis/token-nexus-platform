@@ -1,11 +1,15 @@
 // src/controllers/registerControllers.ts
 
-import { controllerRegistry } from './ControllerRegistry';
+import { ControllerRegistry } from './ControllerRegistry';
+// Export a singleton instance of ControllerRegistry
+export const controllerRegistry = new ControllerRegistry();
+
+// Track initialization state to prevent duplicate registrations
+let isInitialized = false;
 
 // Import all page controllers
 import { objectManagerPageController } from './ObjectManagerPageController';
 import { dashboardPageController } from './DashboardPageController';
-import { routesPageController } from './RoutesPageController';
 import { cloudFunctionsPageController } from './CloudFunctionsPageController';
 import { pageBuilderPageController } from './PageBuilderPageController';
 import { reportsPageController } from './ReportsPageController';
@@ -18,19 +22,22 @@ import { aiAssistantPageController } from './AIAssistantPageController';
 import { settingsPageController } from './SettingsPageController';
 import { themePageController } from './ThemePageController';
 import { workflowPageController } from './WorkflowPageController';
-import { usersPageController } from './UsersPageController'; // New import for the refactored controller
+import { usersPageController } from './UsersPageController';
+import { routesPageController } from './RoutesPageController';
+import { orgLifecyclePageController } from './OrgLifecyclePageController';
+import { mcpServersPageController } from './MCPServersPageController';
 
 /**
  * Register all page controllers with the controller registry
  */
 export function registerAllControllers(): void {
-  console.log('Registering all page controllers...');
+  console.log('[Controller Registration] Starting controller registration...');
 
   const controllers = [
-    { name: 'usersPageController', controller: () => usersPageController }, // Directly use the instance
+    { name: 'usersPageController', controller: () => usersPageController },
+    { name: 'routesPageController', controller: () => routesPageController },
     { name: 'objectManagerPageController', controller: () => objectManagerPageController },
     { name: 'dashboardPageController', controller: () => dashboardPageController },
-    { name: 'routesPageController', controller: () => routesPageController },
     { name: 'cloudFunctionsPageController', controller: () => cloudFunctionsPageController },
     { name: 'pageBuilderPageController', controller: () => pageBuilderPageController },
     { name: 'reportsPageController', controller: () => reportsPageController },
@@ -42,7 +49,9 @@ export function registerAllControllers(): void {
     { name: 'aiAssistantPageController', controller: () => aiAssistantPageController },
     { name: 'settingsPageController', controller: () => settingsPageController },
     { name: 'themePageController', controller: () => themePageController },
-    { name: 'workflowPageController', controller: () => workflowPageController }
+    { name: 'workflowPageController', controller: () => workflowPageController },
+    { name: 'orgLifecyclePageController', controller: () => orgLifecyclePageController },
+    { name: 'mcpServersPageController', controller: () => mcpServersPageController }
   ];
 
   let registeredCount = 0;
@@ -77,7 +86,7 @@ export function registerAllControllers(): void {
     }
   }
 
-  console.log(`Controller registration complete: ${registeredCount}/${controllers.length} successful`);
+  console.log(`[Controller Registration] Complete: ${registeredCount}/${controllers.length} successful`);
   
   if (failedControllers.length > 0) {
     console.warn('Failed controllers:', failedControllers);
@@ -103,8 +112,24 @@ export function getControllerRegistry() {
  * Initialize controllers - call this during app startup
  */
 export function initializeControllers(): void {
+  if (isInitialized) {
+    console.warn('[Controller Registration] Controllers already initialized, skipping...');
+    return;
+  }
+  
   registerAllControllers();
   
-  // Add any additional initialization logic here
-  console.log('Controllers initialized successfully');
+  // Explicitly initialize routesPageController if needed, after registration
+  routesPageController.initialize();
+  
+  isInitialized = true;
+  console.log('[Controller Initialization] Controllers initialized successfully');
+}
+
+/**
+ * Reset initialization state (useful for testing or hot reload)
+ */
+export function resetControllerInitialization(): void {
+  isInitialized = false;
+  console.log('[Controller Registration] Initialization state reset');
 }

@@ -2,7 +2,7 @@ import { ActionDefinition } from '../types/actionDefinitions';
 import { ActionContext } from '../types/actionContexts';
 import { ActionResult } from '../types/actionResults';
 import { CustomField, CustomObject } from '@/types/object-manager';
-import { objectManagerService } from '@/services/objectManagerService';
+import { objectManagerApi } from '@/services/api';
 import { ObjectManagerPageController } from '../ObjectManagerPageController';
 
 /**
@@ -55,7 +55,18 @@ export function registerObjectUpdateActions(controller: ObjectManagerPageControl
           };
         }
 
-        const updatedRecord = await objectManagerService.updateRecord(orgId, objectApiName as string, recordId as string, recordData as Record<string, any>);
+        const response = await objectManagerApi.updateRecord({
+          orgId,
+          objectApiName: objectApiName as string,
+          recordId: recordId as string,
+          updates: recordData as Record<string, any>
+        });
+
+        if (!response.success) {
+          throw new Error(response.error || 'Failed to update record');
+        }
+
+        const updatedRecord = response.data;
 
         return {
           success: true,
@@ -92,7 +103,7 @@ export function registerObjectUpdateActions(controller: ObjectManagerPageControl
     permissions: ['objects:write'],
     parameters: [
       { name: 'objectApiName', type: 'string', required: true, description: 'API name of the object to add field to' },
-      { name: 'field', type: 'object', required: true, description: 'Field definition (apiName, label, type, etc.)', properties: { apiName: { type: 'string' }, label: { type: 'string' }, type: { type: 'string' } } }
+      { name: 'field', type: 'object', required: true, description: 'Field definition (apiName, label, type, etc.)' }
     ],
     execute: async (params: Record<string, unknown>, context: ActionContext): Promise<ActionResult> => {
       let objectApiName: string | undefined;
@@ -129,7 +140,16 @@ export function registerObjectUpdateActions(controller: ObjectManagerPageControl
           };
         }
 
-        const updatedObject = await objectManagerService.addFieldToObject(objectApiName, field as CustomField);
+        const response = await objectManagerApi.addFieldToObject({
+          objectApiName: objectApiName as string,
+          field: field as CustomField
+        });
+
+        if (!response.success) {
+          throw new Error(response.error || 'Failed to add field to object');
+        }
+
+        const updatedObject = response.data;
 
         return {
           success: true,
@@ -204,7 +224,17 @@ export function registerObjectUpdateActions(controller: ObjectManagerPageControl
           };
         }
 
-        const updatedObject = await objectManagerService.updateFieldInObject(objectApiName, fieldApiName, updates as Partial<CustomField>);
+        const response = await objectManagerApi.updateFieldInObject({
+          objectApiName: objectApiName as string,
+          fieldApiName: fieldApiName as string,
+          updates: updates as Partial<CustomField>
+        });
+
+        if (!response.success) {
+          throw new Error(response.error || 'Failed to update field in object');
+        }
+
+        const updatedObject = response.data;
 
         return {
           success: true,

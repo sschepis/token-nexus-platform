@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { AlertCircle, Bot, Settings, Shield, Database, Zap } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/components/ui/use-toast';
-import Parse from 'parse';
+import { aiAssistantApi } from '@/services/api/aiAssistant';
 
 interface AIAssistantSettings {
   // Provider Settings
@@ -85,9 +85,9 @@ export default function AIAssistantSettings() {
   const loadSettings = async () => {
     try {
       setLoading(true);
-      const result = await Parse.Cloud.run('getAIAssistantSettings');
-      if (result) {
-        setSettings({ ...defaultSettings, ...result });
+      const response = await aiAssistantApi.getAIAssistantSettings();
+      if (response.success && response.data) {
+        setSettings({ ...defaultSettings, ...response.data });
       }
     } catch (error) {
       console.error('Failed to load AI assistant settings:', error);
@@ -104,12 +104,16 @@ export default function AIAssistantSettings() {
   const saveSettings = async () => {
     try {
       setSaving(true);
-      await Parse.Cloud.run('updateAIAssistantSettings', { settings });
-      setHasChanges(false);
-      toast({
-        title: 'Success',
-        description: 'AI assistant settings saved successfully.'
-      });
+      const response = await aiAssistantApi.updateAIAssistantSettings(settings);
+      if (response.success) {
+        setHasChanges(false);
+        toast({
+          title: 'Success',
+          description: 'AI assistant settings saved successfully.'
+        });
+      } else {
+        throw new Error(response.error || 'Failed to save settings');
+      }
     } catch (error) {
       console.error('Failed to save AI assistant settings:', error);
       toast({

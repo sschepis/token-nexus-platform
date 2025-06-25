@@ -33,7 +33,7 @@ export interface UsePageControllerReturn {
   updatePageState: (state: Record<string, unknown>) => void;
   updatePageProps: (props: Record<string, unknown>) => void;
   pageController: PageController | null;
-  isRegistered: boolean;
+  isRegistered: boolean; // Derived directly from pageController !== null
 }
 
 /**
@@ -52,7 +52,6 @@ export const usePageController = (options: UsePageControllerOptions): UsePageCon
     registry
   } = usePageControllerContext();
 
-  const [isRegistered, setIsRegistered] = useState(false);
   const [pageState, setPageState] = useState<Record<string, unknown>>({});
   const [pageProps, setPageProps] = useState<Record<string, unknown>>({});
   const registeredActionsRef = useRef<Set<string>>(new Set());
@@ -66,119 +65,52 @@ export const usePageController = (options: UsePageControllerOptions): UsePageCon
     tags = []
   } = options;
 
-  /**
-   * Initialize page controller
-   */
+  // Use a ref to store the latest registered controller instance (not used for direct state management)
+  const registeredControllerRef = useRef<PageController | null>(null);
+
+  // Memoized pageController - it will update as the registry updates
+  const pageController = useMemo(() => {
+    const controller = registry.getPageController(pageId);
+    registeredControllerRef.current = controller; // Keep ref updated
+    return controller || null;
+  }, [registry, pageId]);
+
+  const isRegistered = !!pageController; // Derived state
+
+  // Effect to update page context when state or props change
   useEffect(() => {
-    const existingController = registry.getPageController(pageId);
-    let controllerToUse: PageController | null = existingController;
-    let createdByThisHook = false;
-
-    if (existingController) {
-      // Use the pre-registered controller
-      setIsRegistered(true);
-      // Update its context if pageState or pageProps are part of this hook's responsibility
-      // This is handled by the separate useEffect at line 140
-    } else {
-      // No controller exists, create and register a new one
-      const pageContext: PageContext = {
-        pageId,
-        pageName,
-        state: pageState, // Initial state
-        props: pageProps,   // Initial props
-        metadata: {
-          category,
-          tags,
-          permissions
-        }
-      };
-
-      const newPageControllerInstance: PageController = {
-        pageId,
-        pageName,
-        description,
-        actions: new Map(), // New actions map for this instance
-        context: pageContext,
-        metadata: {
-          category,
-          tags,
-          permissions,
-          version: '1.0.0'
-        },
-        isActive: true,
-        registeredAt: new Date()
-      };
-
-      try {
-        registerPageController(newPageControllerInstance); // context.registerPageController
-        setIsRegistered(true);
-        controllerToUse = newPageControllerInstance;
-        createdByThisHook = true;
-      } catch (error) {
-        console.error(`Failed to register new page controller for ${pageId}:`, error);
-        setIsRegistered(false);
-        return; // Don't proceed to cleanup if registration failed
-      }
-    }
-
-    // Cleanup on unmount
-    return () => {
-      // Unregister actions registered by this specific hook instance
-      registeredActionsRef.current.forEach(actionId => {
-        try {
-          // contextUnregisterAction operates on the controller in the registry.
-          // If controllerToUse is the one in registry, this is fine.
-          contextUnregisterAction(pageId, actionId);
-        } catch (error) {
-          console.error(`Failed to unregister action ${actionId} for page ${pageId}:`, error);
-        }
-      });
-
-      if (createdByThisHook && controllerToUse) {
-        // Only unregister the page controller if this hook instance created it
-        try {
-          unregisterPageController(pageId); // context.unregisterPageController
-        } catch (error) {
-          console.error(`Failed to unregister page controller for ${pageId} (created by hook):`, error);
-        }
-      }
-      // setIsRegistered(false); // Component is unmounting, so state doesn't matter much
-      };
-    }, [
-      pageId,
-      pageName,
-      description,
-      category,
-      JSON.stringify(options.permissions),
-      JSON.stringify(options.tags),
-      registry,
-      registerPageController,
-      unregisterPageController,
-      contextUnregisterAction
-      // Removed pageState and pageProps from this dependency array.
-      // Their initial values will be used if a new controller is created.
-      // Subsequent updates are handled by the useEffect at line 140.
-    ]);
-  
-    /**
-   * Update page context when state or props change
-   */
-  useEffect(() => {
-    if (isRegistered) {
+    // Only update page context if the page controller is actually registered
+    if (pageController) {
       const updatedContext: Partial<PageContext> = {
         state: pageState,
         props: pageProps
       };
       updatePageContext(pageId, updatedContext);
     }
-  }, [pageState, pageProps, isRegistered, pageId, updatePageContext]);
+  }, [pageState, pageProps, pageController, pageId, updatePageContext]); // Removed isRegistered as dependency
+
+  // Cleanup effect: Only unregister actions added by this particular hook instance.
+  useEffect(() => {
+    return () => {
+      registeredActionsRef.current.forEach(actionId => {
+        try {
+          if (registeredActionsRef.current.has(actionId)) { // Prevent unregistering actions not added by THIS hook
+            contextUnregisterAction(pageId, actionId);
+          }
+        } catch (error) {
+          console.error(`Failed to unregister action ${actionId} for page ${pageId} during cleanup:`, error);
+        }
+      });
+    };
+  }, [pageId, contextUnregisterAction]);
+
 
   /**
    * Register an action
    */
   const registerAction = useCallback((action: ActionDefinition) => {
-    if (!isRegistered) {
-      console.warn(`Cannot register action ${action.id}: page controller not registered`);
+    if (!pageController) { // Check directly against the memoized controller
+      console.warn(`Cannot register action ${action.id}: page controller not yet registered.`);
       return;
     }
 
@@ -255,12 +187,6 @@ export const usePageController = (options: UsePageControllerOptions): UsePageCon
     }));
   }, []);
 
-  /**
-   * Get current page controller - memoized to prevent unnecessary re-renders
-   */
-  const pageController = useMemo(() => {
-    return registry.getPageController(pageId) || null;
-  }, [registry, pageId, isRegistered]); // Include isRegistered to update when registration changes
 
   return {
     registerAction,

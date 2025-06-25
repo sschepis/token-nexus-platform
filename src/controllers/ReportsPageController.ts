@@ -1,574 +1,408 @@
+import { BasePageController } from './base/BasePageController';
 import {
-  PageController,
   ActionDefinition,
   ActionContext,
-  ActionResult,
-  PageContext
+  ActionResult
 } from './types/ActionTypes';
-import Parse from 'parse';
-import { ParseQueryBuilder } from '../utils/parseUtils';
+import { callCloudFunction } from '@/utils/apiUtils';
 
-export class ReportsPageController implements PageController {
-  pageId = 'reports';
-  pageName = 'Reports';
-  description = 'Generate and manage custom reports and analytics';
-  actions = new Map<string, ActionDefinition>();
-  context: PageContext = {
-    pageId: 'reports',
-    pageName: 'Reports',
-    state: {},
-    props: {},
-    metadata: {
-      category: 'analytics',
-      tags: ['reports', 'analytics', 'data', 'visualization'],
-      permissions: ['reports:read', 'reports:write', 'analytics:read']
-    }
-  };
-  metadata = {
-    category: 'analytics',
-    tags: ['reports', 'analytics', 'data', 'visualization'],
-    permissions: ['reports:read', 'reports:write', 'analytics:read'],
-    version: '1.0.0'
-  };
-  isActive = true;
-  registeredAt = new Date();
-
+/**
+ * Reports Page Controller - Manages reports and analytics functionality
+ * Follows the standardized controller pattern from PAGES.md
+ */
+export class ReportsPageController extends BasePageController {
   constructor() {
-    this.initializeActions();
+    super({
+      pageId: 'reports',
+      pageName: 'Reports & Analytics',
+      description: 'Generate and manage custom reports and analytics with AI assistant integration',
+      category: 'analytics',
+      tags: ['reports', 'analytics', 'data', 'visualization', 'metrics'],
+      permissions: ['reports:read', 'reports:write', 'analytics:read', 'analytics:write', 'system:admin'],
+      version: '1.0.0'
+    });
   }
 
-  private initializeActions(): void {
-    // Fetch Reports Action
-    this.actions.set('fetchReports', {
-      id: 'fetchReports',
-      name: 'Fetch Reports',
-      description: 'Get all available reports with filtering options',
-      category: 'data',
-      permissions: ['reports:read'],
-      parameters: [
-        { name: 'category', type: 'string', required: false, description: 'Filter by report category' },
-        { name: 'searchTerm', type: 'string', required: false, description: 'Search term for report names' },
-        { name: 'includeInactive', type: 'boolean', required: false, description: 'Include inactive reports' },
-        { name: 'createdBy', type: 'string', required: false, description: 'Filter by report creator' }
-      ],
-      execute: async (params: Record<string, unknown>, context: ActionContext): Promise<ActionResult> => {
-        try {
-          const { category, searchTerm, includeInactive = false, createdBy } = params;
-          const orgId = context.user.organizationId || context.organization?.id;
+  protected initializeActions(): void {
+    this.registerFetchReportsAction();
+    this.registerFetchMetricsAction();
+    this.registerGenerateReportAction();
+    this.registerCreateReportAction();
+    this.registerRunReportAction();
+    this.registerUpdateReportAction();
+    this.registerDeleteReportAction();
+    this.registerGetReportCategoriesAction();
+  }
 
-          if (!orgId) {
-            return {
-              success: false,
-              error: 'Organization ID is required to fetch reports',
-              metadata: {
-                executionTime: 0,
-                timestamp: new Date(),
-                actionId: 'fetchReports',
-                userId: context.user.userId
-              }
-            };
-          }
-
-          const query = new Parse.Query('Report');
-          query.equalTo('organizationId', orgId);
-
-          if (!includeInactive) {
-            query.equalTo('isActive', true);
-          }
-
-          if (category) {
-            query.equalTo('category', category);
-          }
-
-          if (searchTerm) {
-            query.contains('name', searchTerm.toString());
-          }
-
-          if (createdBy) {
-            query.equalTo('createdBy', createdBy);
-          }
-
-          query.descending('updatedAt');
-          const reports = await query.find();
-          const reportData = reports.map(report => report.toJSON());
-
-          return {
-            success: true,
-            data: { reports: reportData },
-            message: `Found ${reportData.length} reports`,
-            metadata: {
-              executionTime: 0,
-              timestamp: new Date(),
-              actionId: 'fetchReports',
-              userId: context.user.userId
-            }
-          };
-        } catch (error) {
-          return {
-            success: false,
-            error: error instanceof Error ? error.message : 'Failed to fetch reports',
-            metadata: {
-              executionTime: 0,
-              timestamp: new Date(),
-              actionId: 'fetchReports',
-              userId: context.user.userId
-            }
-          };
+  private registerFetchReportsAction(): void {
+    this.registerAction(
+      {
+        id: 'fetchReports',
+        name: 'Fetch Reports',
+        description: 'Get all available reports with filtering options',
+        category: 'data',
+        permissions: ['reports:read'],
+        parameters: [
+          { name: 'category', type: 'string', required: false, description: 'Filter by report category' },
+          { name: 'searchTerm', type: 'string', required: false, description: 'Search term for report names' },
+          { name: 'includeInactive', type: 'boolean', required: false, description: 'Include inactive reports' },
+          { name: 'createdBy', type: 'string', required: false, description: 'Filter by report creator' }
+        ]
+      },
+      async (params, context) => {
+        const orgValidation = this.validateOrganizationContext(context);
+        if (!orgValidation.success) {
+          throw new Error(orgValidation.error);
         }
-      }
-    });
 
-    // Create Report Action
-    this.actions.set('createReport', {
-      id: 'createReport',
-      name: 'Create Report',
-      description: 'Create a new custom report with data sources and visualizations',
-      category: 'data',
-      permissions: ['reports:write'],
-      parameters: [
-        { name: 'name', type: 'string', required: true, description: 'Report name' },
-        { name: 'description', type: 'string', required: false, description: 'Report description' },
-        { name: 'category', type: 'string', required: true, description: 'Report category' },
-        { name: 'dataSource', type: 'object', required: true, description: 'Data source configuration' },
-        { name: 'visualization', type: 'object', required: true, description: 'Visualization configuration' },
-        { name: 'filters', type: 'array', required: false, description: 'Default filters' },
-        { name: 'schedule', type: 'object', required: false, description: 'Report schedule configuration' },
-        { name: 'isPublic', type: 'boolean', required: false, description: 'Make report public' }
-      ],
-      execute: async (params: Record<string, unknown>, context: ActionContext): Promise<ActionResult> => {
+        const { category, searchTerm, includeInactive = false, createdBy } = params;
+        const orgId = this.getOrganizationId(context);
+
         try {
-          const { 
-            name, 
-            description, 
-            category, 
-            dataSource, 
-            visualization, 
-            filters = [], 
-            schedule,
-            isPublic = false 
-          } = params;
-          const orgId = context.user.organizationId || context.organization?.id;
-
-          if (!orgId) {
-            return {
-              success: false,
-              error: 'Organization ID is required to create report',
-              metadata: {
-                executionTime: 0,
-                timestamp: new Date(),
-                actionId: 'createReport',
-                userId: context.user.userId
-              }
-            };
-          }
-
-          const Report = Parse.Object.extend('Report');
-          const report = new Report();
-
-          report.set('name', name);
-          report.set('description', description || '');
-          report.set('category', category);
-          report.set('dataSource', dataSource);
-          report.set('visualization', visualization);
-          report.set('filters', filters);
-          report.set('schedule', schedule || null);
-          report.set('isPublic', isPublic);
-          report.set('organizationId', orgId);
-          report.set('createdBy', context.user.userId);
-          report.set('isActive', true);
-          report.set('runCount', 0);
-          report.set('lastRun', null);
-
-          const savedReport = await report.save();
-
-          return {
-            success: true,
-            data: { report: savedReport.toJSON() },
-            message: `Report "${name}" created successfully`,
-            metadata: {
-              executionTime: 0,
-              timestamp: new Date(),
-              actionId: 'createReport',
-              userId: context.user.userId
-            }
-          };
-        } catch (error) {
-          return {
-            success: false,
-            error: error instanceof Error ? error.message : 'Failed to create report',
-            metadata: {
-              executionTime: 0,
-              timestamp: new Date(),
-              actionId: 'createReport',
-              userId: context.user.userId
-            }
-          };
-        }
-      }
-    });
-
-    // Run Report Action
-    this.actions.set('runReport', {
-      id: 'runReport',
-      name: 'Run Report',
-      description: 'Execute a report and generate results',
-      category: 'data',
-      permissions: ['reports:read'],
-      parameters: [
-        { name: 'reportId', type: 'string', required: true, description: 'Report ID to run' },
-        { name: 'parameters', type: 'object', required: false, description: 'Runtime parameters' },
-        { name: 'format', type: 'string', required: false, description: 'Output format (json, csv, pdf)' }
-      ],
-      execute: async (params: Record<string, unknown>, context: ActionContext): Promise<ActionResult> => {
-        try {
-          const { reportId, parameters = {}, format = 'json' } = params;
-          const orgId = context.user.organizationId || context.organization?.id;
-
-          if (!orgId) {
-            return {
-              success: false,
-              error: 'Organization ID is required to run report',
-              metadata: {
-                executionTime: 0,
-                timestamp: new Date(),
-                actionId: 'runReport',
-                userId: context.user.userId
-              }
-            };
-          }
-
-          const report = await new ParseQueryBuilder('Report')
-            .equalTo('objectId', reportId)
-            .equalTo('organizationId', orgId)
-            .first();
-          if (!report) {
-            return {
-              success: false,
-              error: 'Report not found',
-              metadata: {
-                executionTime: 0,
-                timestamp: new Date(),
-                actionId: 'runReport',
-                userId: context.user.userId
-              }
-            };
-          }
-
-          const dataSource = report.get('dataSource');
-          const visualization = report.get('visualization');
-          
-          // Execute the report based on data source configuration
-          let reportData;
-          if (dataSource.type === 'parse_query') {
-            const dataQuery = new Parse.Query(dataSource.className);
-            
-            // Apply organization filter
-            dataQuery.equalTo('organizationId', orgId);
-            
-            // Apply filters from report configuration
-            const filters = report.get('filters') || [];
-            filters.forEach((filter: any) => {
-              if (filter.field && filter.operator && filter.value !== undefined) {
-                switch (filter.operator) {
-                  case 'equals':
-                    dataQuery.equalTo(filter.field, filter.value);
-                    break;
-                  case 'contains':
-                    dataQuery.contains(filter.field, filter.value);
-                    break;
-                  case 'greaterThan':
-                    dataQuery.greaterThan(filter.field, filter.value);
-                    break;
-                  case 'lessThan':
-                    dataQuery.lessThan(filter.field, filter.value);
-                    break;
-                }
-              }
-            });
-
-            // Apply runtime parameters
-            Object.entries(parameters as Record<string, any>).forEach(([key, value]) => {
-              if (value !== undefined) {
-                dataQuery.equalTo(key, value);
-              }
-            });
-
-            const results = await dataQuery.find();
-            reportData = results.map(result => result.toJSON());
-          } else {
-            // Handle other data source types
-            reportData = [];
-          }
-
-          // Update report run statistics
-          report.increment('runCount');
-          report.set('lastRun', new Date());
-          await report.save();
-
-          return {
-            success: true,
-            data: { 
-              reportData,
-              visualization,
-              format,
-              runAt: new Date(),
-              recordCount: reportData.length
-            },
-            message: `Report executed successfully with ${reportData.length} records`,
-            metadata: {
-              executionTime: 0,
-              timestamp: new Date(),
-              actionId: 'runReport',
-              userId: context.user.userId
-            }
-          };
-        } catch (error) {
-          return {
-            success: false,
-            error: error instanceof Error ? error.message : 'Failed to run report',
-            metadata: {
-              executionTime: 0,
-              timestamp: new Date(),
-              actionId: 'runReport',
-              userId: context.user.userId
-            }
-          };
-        }
-      }
-    });
-
-    // Update Report Action
-    this.actions.set('updateReport', {
-      id: 'updateReport',
-      name: 'Update Report',
-      description: 'Update an existing report configuration',
-      category: 'data',
-      permissions: ['reports:write'],
-      parameters: [
-        { name: 'reportId', type: 'string', required: true, description: 'Report ID to update' },
-        { name: 'name', type: 'string', required: false, description: 'Report name' },
-        { name: 'description', type: 'string', required: false, description: 'Report description' },
-        { name: 'dataSource', type: 'object', required: false, description: 'Data source configuration' },
-        { name: 'visualization', type: 'object', required: false, description: 'Visualization configuration' },
-        { name: 'filters', type: 'array', required: false, description: 'Default filters' },
-        { name: 'schedule', type: 'object', required: false, description: 'Report schedule configuration' },
-        { name: 'isActive', type: 'boolean', required: false, description: 'Report active status' }
-      ],
-      execute: async (params: Record<string, unknown>, context: ActionContext): Promise<ActionResult> => {
-        try {
-          const { reportId, ...updateData } = params;
-          const orgId = context.user.organizationId || context.organization?.id;
-
-          if (!orgId) {
-            return {
-              success: false,
-              error: 'Organization ID is required to update report',
-              metadata: {
-                executionTime: 0,
-                timestamp: new Date(),
-                actionId: 'updateReport',
-                userId: context.user.userId
-              }
-            };
-          }
-
-          const report = await new ParseQueryBuilder('Report')
-            .equalTo('objectId', reportId)
-            .equalTo('organizationId', orgId)
-            .first();
-          if (!report) {
-            return {
-              success: false,
-              error: 'Report not found',
-              metadata: {
-                executionTime: 0,
-                timestamp: new Date(),
-                actionId: 'updateReport',
-                userId: context.user.userId
-              }
-            };
-          }
-
-          // Update fields
-          Object.entries(updateData).forEach(([key, value]) => {
-            if (value !== undefined) {
-              report.set(key, value);
-            }
+          const response = await callCloudFunction('getReports', {
+            organizationId: orgId,
+            category: category as string,
+            searchTerm: searchTerm as string,
+            includeInactive: includeInactive as boolean,
+            createdBy: createdBy as string
           });
 
-          report.set('updatedBy', context.user.userId);
-          const savedReport = await report.save();
+          if (!response.success) {
+            throw new Error(response.error || 'Failed to fetch reports');
+          }
 
-          return {
-            success: true,
-            data: { report: savedReport.toJSON() },
-            message: 'Report updated successfully',
-            metadata: {
-              executionTime: 0,
-              timestamp: new Date(),
-              actionId: 'updateReport',
-              userId: context.user.userId
-            }
-          };
+          const reports = (response as any).reports || [];
+          return { reports, count: reports.length };
         } catch (error) {
-          return {
-            success: false,
-            error: error instanceof Error ? error.message : 'Failed to update report',
-            metadata: {
-              executionTime: 0,
-              timestamp: new Date(),
-              actionId: 'updateReport',
-              userId: context.user.userId
-            }
-          };
+          throw new Error(`Failed to fetch reports: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
       }
-    });
+    );
+  }
 
-    // Delete Report Action
-    this.actions.set('deleteReport', {
-      id: 'deleteReport',
-      name: 'Delete Report',
-      description: 'Delete a report from the system',
-      category: 'data',
-      permissions: ['reports:write'],
-      parameters: [
-        { name: 'reportId', type: 'string', required: true, description: 'Report ID to delete' },
-        { name: 'confirmDelete', type: 'boolean', required: true, description: 'Confirmation flag for deletion' }
-      ],
-      execute: async (params: Record<string, unknown>, context: ActionContext): Promise<ActionResult> => {
+  private registerFetchMetricsAction(): void {
+    this.registerAction(
+      {
+        id: 'fetchMetrics',
+        name: 'Fetch Analytics Metrics',
+        description: 'Get analytics metrics and chart data for the specified time range',
+        category: 'data',
+        permissions: ['analytics:read'],
+        parameters: [
+          { name: 'timeRange', type: 'string', required: false, description: 'Time range for metrics (7d, 30d, 90d, 1y)' },
+          { name: 'organizationId', type: 'string', required: false, description: 'Organization ID for filtering' }
+        ]
+      },
+      async (params, context) => {
+        const orgValidation = this.validateOrganizationContext(context);
+        if (!orgValidation.success) {
+          throw new Error(orgValidation.error);
+        }
+
+        const { timeRange = '30d', organizationId } = params;
+        const orgId = organizationId || this.getOrganizationId(context);
+
         try {
-          const { reportId, confirmDelete } = params;
+          const response = await callCloudFunction('fetchMetrics', {
+            timeRange: timeRange as string,
+            organizationId: orgId
+          });
 
-          if (!confirmDelete) {
-            return {
-              success: false,
-              error: 'Delete confirmation is required',
-              metadata: {
-                executionTime: 0,
-                timestamp: new Date(),
-                actionId: 'deleteReport',
-                userId: context.user.userId
-              }
-            };
+          if (!response.success) {
+            throw new Error(response.error || 'Failed to fetch metrics');
           }
 
-          const orgId = context.user.organizationId || context.organization?.id;
-          if (!orgId) {
-            return {
-              success: false,
-              error: 'Organization ID is required to delete report',
-              metadata: {
-                executionTime: 0,
-                timestamp: new Date(),
-                actionId: 'deleteReport',
-                userId: context.user.userId
-              }
-            };
-          }
-
-          const report = await new ParseQueryBuilder('Report')
-            .equalTo('objectId', reportId)
-            .equalTo('organizationId', orgId)
-            .first();
-          if (!report) {
-            return {
-              success: false,
-              error: 'Report not found',
-              metadata: {
-                executionTime: 0,
-                timestamp: new Date(),
-                actionId: 'deleteReport',
-                userId: context.user.userId
-              }
-            };
-          }
-
-          await report.destroy();
-
-          return {
-            success: true,
-            data: { deletedReportId: reportId },
-            message: 'Report deleted successfully',
-            metadata: {
-              executionTime: 0,
-              timestamp: new Date(),
-              actionId: 'deleteReport',
-              userId: context.user.userId
-            }
-          };
+          return response.data || {};
         } catch (error) {
-          return {
-            success: false,
-            error: error instanceof Error ? error.message : 'Failed to delete report',
-            metadata: {
-              executionTime: 0,
-              timestamp: new Date(),
-              actionId: 'deleteReport',
-              userId: context.user.userId
-            }
-          };
+          throw new Error(`Failed to fetch metrics: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
       }
-    });
+    );
+  }
 
-    // Get Report Categories Action
-    this.actions.set('getReportCategories', {
-      id: 'getReportCategories',
-      name: 'Get Report Categories',
-      description: 'Get all available report categories',
-      category: 'data',
-      permissions: ['reports:read'],
-      parameters: [],
-      execute: async (params: Record<string, unknown>, context: ActionContext): Promise<ActionResult> => {
+  private registerGenerateReportAction(): void {
+    this.registerAction(
+      {
+        id: 'generateReport',
+        name: 'Generate Report',
+        description: 'Generate a new report with specified parameters and format',
+        category: 'data',
+        permissions: ['reports:write'],
+        parameters: [
+          { name: 'type', type: 'string', required: true, description: 'Report type (user_activity, token_usage, security_events, organization_summary)' },
+          { name: 'format', type: 'string', required: true, description: 'Output format (json, csv, pdf)' },
+          { name: 'title', type: 'string', required: false, description: 'Report title' },
+          { name: 'startDate', type: 'string', required: false, description: 'Start date (YYYY-MM-DD)' },
+          { name: 'endDate', type: 'string', required: false, description: 'End date (YYYY-MM-DD)' },
+          { name: 'filters', type: 'object', required: false, description: 'Additional filters' }
+        ]
+      },
+      async (params, context) => {
+        const orgValidation = this.validateOrganizationContext(context);
+        if (!orgValidation.success) {
+          throw new Error(orgValidation.error);
+        }
+
+        const { type, format, title, startDate, endDate, filters = {} } = params;
+        const orgId = this.getOrganizationId(context);
+
         try {
-          const orgId = context.user.organizationId || context.organization?.id;
+          const response = await callCloudFunction('generateReport', {
+            type: type as string,
+            format: format as string,
+            title: title as string,
+            startDate: startDate as string,
+            endDate: endDate as string,
+            filters: filters as object,
+            organizationId: orgId
+          });
 
-          if (!orgId) {
-            return {
-              success: false,
-              error: 'Organization ID is required to get categories',
-              metadata: {
-                executionTime: 0,
-                timestamp: new Date(),
-                actionId: 'getReportCategories',
-                userId: context.user.userId
-              }
-            };
+          if (!response.success) {
+            throw new Error(response.error || 'Failed to generate report');
           }
 
-          const reports = await new ParseQueryBuilder('Report')
-            .equalTo('organizationId', orgId)
-            .select('category')
-            .find();
-          const categorySet = new Set(reports.map(r => r.get('category')).filter(Boolean));
-          const categories = Array.from(categorySet);
-
-          return {
-            success: true,
-            data: { categories },
-            message: `Found ${categories.length} categories`,
-            metadata: {
-              executionTime: 0,
-              timestamp: new Date(),
-              actionId: 'getReportCategories',
-              userId: context.user.userId
-            }
-          };
+          return response.data || {};
         } catch (error) {
-          return {
-            success: false,
-            error: error instanceof Error ? error.message : 'Failed to get report categories',
-            metadata: {
-              executionTime: 0,
-              timestamp: new Date(),
-              actionId: 'getReportCategories',
-              userId: context.user.userId
-            }
-          };
+          throw new Error(`Failed to generate report: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
       }
-    });
+    );
+  }
+
+  private registerCreateReportAction(): void {
+    this.registerAction(
+      {
+        id: 'createReport',
+        name: 'Create Report',
+        description: 'Create a new custom report with data sources and visualizations',
+        category: 'data',
+        permissions: ['reports:write'],
+        parameters: [
+          { name: 'name', type: 'string', required: true, description: 'Report name' },
+          { name: 'description', type: 'string', required: false, description: 'Report description' },
+          { name: 'category', type: 'string', required: true, description: 'Report category' },
+          { name: 'dataSource', type: 'object', required: true, description: 'Data source configuration' },
+          { name: 'visualization', type: 'object', required: true, description: 'Visualization configuration' },
+          { name: 'filters', type: 'array', required: false, description: 'Default filters' },
+          { name: 'schedule', type: 'object', required: false, description: 'Report schedule configuration' },
+          { name: 'isPublic', type: 'boolean', required: false, description: 'Make report public' }
+        ]
+      },
+      async (params, context) => {
+        const orgValidation = this.validateOrganizationContext(context);
+        if (!orgValidation.success) {
+          throw new Error(orgValidation.error);
+        }
+
+        const { 
+          name, 
+          description, 
+          category, 
+          dataSource, 
+          visualization, 
+          filters = [], 
+          schedule,
+          isPublic = false 
+        } = params;
+        const orgId = this.getOrganizationId(context);
+
+        try {
+          const response = await callCloudFunction('createReport', {
+            name: name as string,
+            description: description as string,
+            category: category as string,
+            dataSource: dataSource as object,
+            visualization: visualization as object,
+            filters: filters as any[],
+            schedule: schedule as object,
+            isPublic: isPublic as boolean,
+            organizationId: orgId,
+            createdBy: context.user.userId
+          });
+
+          if (!response.success) {
+            throw new Error(response.error || 'Failed to create report');
+          }
+
+          return response.data || {};
+        } catch (error) {
+          throw new Error(`Failed to create report: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      }
+    );
+  }
+
+  private registerRunReportAction(): void {
+    this.registerAction(
+      {
+        id: 'runReport',
+        name: 'Run Report',
+        description: 'Execute a report and generate results',
+        category: 'data',
+        permissions: ['reports:read'],
+        parameters: [
+          { name: 'reportId', type: 'string', required: true, description: 'Report ID to run' },
+          { name: 'parameters', type: 'object', required: false, description: 'Runtime parameters' },
+          { name: 'format', type: 'string', required: false, description: 'Output format (json, csv, pdf)' }
+        ]
+      },
+      async (params, context) => {
+        const orgValidation = this.validateOrganizationContext(context);
+        if (!orgValidation.success) {
+          throw new Error(orgValidation.error);
+        }
+
+        const { reportId, parameters = {}, format = 'json' } = params;
+        const orgId = this.getOrganizationId(context);
+
+        try {
+          const response = await callCloudFunction('runReport', {
+            reportId: reportId as string,
+            parameters: parameters as object,
+            format: format as string,
+            organizationId: orgId
+          });
+
+          if (!response.success) {
+            throw new Error(response.error || 'Failed to run report');
+          }
+
+          return response.data || {};
+        } catch (error) {
+          throw new Error(`Failed to run report: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      }
+    );
+  }
+
+  private registerUpdateReportAction(): void {
+    this.registerAction(
+      {
+        id: 'updateReport',
+        name: 'Update Report',
+        description: 'Update an existing report configuration',
+        category: 'data',
+        permissions: ['reports:write'],
+        parameters: [
+          { name: 'reportId', type: 'string', required: true, description: 'Report ID to update' },
+          { name: 'name', type: 'string', required: false, description: 'Report name' },
+          { name: 'description', type: 'string', required: false, description: 'Report description' },
+          { name: 'dataSource', type: 'object', required: false, description: 'Data source configuration' },
+          { name: 'visualization', type: 'object', required: false, description: 'Visualization configuration' },
+          { name: 'filters', type: 'array', required: false, description: 'Default filters' },
+          { name: 'schedule', type: 'object', required: false, description: 'Report schedule configuration' },
+          { name: 'isActive', type: 'boolean', required: false, description: 'Report active status' }
+        ]
+      },
+      async (params, context) => {
+        const orgValidation = this.validateOrganizationContext(context);
+        if (!orgValidation.success) {
+          throw new Error(orgValidation.error);
+        }
+
+        const { reportId, ...updateData } = params;
+        const orgId = this.getOrganizationId(context);
+
+        try {
+          const response = await callCloudFunction('updateReport', {
+            reportId: reportId as string,
+            organizationId: orgId,
+            updatedBy: context.user.userId,
+            ...updateData
+          });
+
+          if (!response.success) {
+            throw new Error(response.error || 'Failed to update report');
+          }
+
+          return response.data || {};
+        } catch (error) {
+          throw new Error(`Failed to update report: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      }
+    );
+  }
+
+  private registerDeleteReportAction(): void {
+    this.registerAction(
+      {
+        id: 'deleteReport',
+        name: 'Delete Report',
+        description: 'Delete a report from the system',
+        category: 'data',
+        permissions: ['reports:write'],
+        parameters: [
+          { name: 'reportId', type: 'string', required: true, description: 'Report ID to delete' },
+          { name: 'confirmDelete', type: 'boolean', required: true, description: 'Confirmation flag for deletion' }
+        ]
+      },
+      async (params, context) => {
+        const orgValidation = this.validateOrganizationContext(context);
+        if (!orgValidation.success) {
+          throw new Error(orgValidation.error);
+        }
+
+        const { reportId, confirmDelete } = params;
+
+        if (!confirmDelete) {
+          throw new Error('Delete confirmation is required');
+        }
+
+        const orgId = this.getOrganizationId(context);
+
+        try {
+          const response = await callCloudFunction('deleteReport', {
+            reportId: reportId as string,
+            organizationId: orgId,
+            confirmDelete: confirmDelete as boolean
+          });
+
+          if (!response.success) {
+            throw new Error(response.error || 'Failed to delete report');
+          }
+
+          return { deletedReportId: reportId };
+        } catch (error) {
+          throw new Error(`Failed to delete report: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      }
+    );
+  }
+
+  private registerGetReportCategoriesAction(): void {
+    this.registerAction(
+      {
+        id: 'getReportCategories',
+        name: 'Get Report Categories',
+        description: 'Get all available report categories',
+        category: 'data',
+        permissions: ['reports:read'],
+        parameters: []
+      },
+      async (params, context) => {
+        const orgValidation = this.validateOrganizationContext(context);
+        if (!orgValidation.success) {
+          throw new Error(orgValidation.error);
+        }
+
+        const orgId = this.getOrganizationId(context);
+
+        try {
+          const response = await callCloudFunction('getReportCategories', {
+            organizationId: orgId
+          });
+
+          if (!response.success) {
+            throw new Error(response.error || 'Failed to get report categories');
+          }
+
+          const categories = (response as any).categories || [];
+          return { categories, count: categories.length };
+        } catch (error) {
+          throw new Error(`Failed to get report categories: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      }
+    );
   }
 }
 

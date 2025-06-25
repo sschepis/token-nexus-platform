@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useAppSelector } from "@/store/hooks";
-import Parse from "parse";
+import { dashboardApi } from "@/services/api";
 import { GridLayout } from "@/components/dashboard/GridLayout";
 import { DashboardControls } from "@/components/dashboard/DashboardControls";
 import { useDashboardStore } from "@/store/dashboardStore";
@@ -19,22 +19,19 @@ const Dashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
-
   const loadDashboardConfig = useCallback(async () => {
-    if (!currentOrg?.id) {
+    if (!currentOrg?.id || !user?.id) {
       setIsLoading(false);
       return;
     }
 
     setIsLoading(true);
     try {
-      const result = await Parse.Cloud.run('getDashboardConfig', {
-        // organizationId removed - will be injected by server middleware
-      });
+      const response = await dashboardApi.getDashboardLayout(user.id, currentOrg.id);
 
-      if (result.success && result.config) {
-        setLayouts(result.config.layouts);
-        setWidgets(result.config.widgets);
+      if (response.success && response.data) {
+        setLayouts(response.data.layouts);
+        setWidgets(response.data.widgets);
       }
     } catch (error) {
       console.error('Error loading dashboard config:', error);
@@ -42,30 +39,32 @@ const Dashboard = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [currentOrg?.id]); // Removed setLayouts, setWidgets from dependencies to prevent infinite loop
+  }, [currentOrg?.id, user?.id, setLayouts, setWidgets]);
 
   // Load dashboard config on mount or org change
   useEffect(() => {
     loadDashboardConfig();
-  }, [currentOrg?.id]); // Changed to depend directly on currentOrg?.id instead of loadDashboardConfig
-
+  }, [loadDashboardConfig]);
 
   const saveDashboardConfig = async () => {
-    if (!currentOrg?.id) {
-      toast.error('No organization selected');
+    if (!currentOrg?.id || !user?.id) {
+      toast.error('No organization or user selected');
       return;
     }
 
     setIsSaving(true);
     try {
-      const result = await Parse.Cloud.run('saveDashboardConfig', {
+      const response = await dashboardApi.saveDashboardLayout({
+        userId: user.id,
+        orgId: currentOrg.id,
         layouts,
         widgets
-        // organizationId removed - will be injected by server middleware
       });
 
-      if (result.success) {
+      if (response.success) {
         toast.success('Dashboard configuration saved');
+      } else {
+        toast.error(response.error || 'Failed to save dashboard configuration');
       }
     } catch (error) {
       console.error('Error saving dashboard config:', error);
@@ -75,78 +74,83 @@ const Dashboard = () => {
     }
   };
 
-  const toggleEditing = async () => {
+  const toggleEditMode = () => {
     if (isEditing) {
-      // Save when exiting edit mode
-      await saveDashboardConfig();
+      saveDashboardConfig();
     }
     setIsEditing(!isEditing);
   };
 
-  const openWidgetCatalog = () => {
+  const handleAddWidget = () => {
     setIsWidgetCatalogOpen(true);
   };
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
   }
 
   if (!currentOrg) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 space-y-4">
-        <Alert className="max-w-xl">
-          <AlertTitle>No Organization Selected</AlertTitle>
-          <AlertDescription>
-            Please select an organization to view your dashboard.
-          </AlertDescription>
-        </Alert>
-      </div>
+      <Alert>
+        <AlertTitle>No Organization Selected</AlertTitle>
+        <AlertDescription>
+          Please select an organization to view your dashboard.
+        </AlertDescription>
+      </Alert>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Welcome back, {user?.firstName}</h1>
-          <p className="text-muted-foreground mt-2">
-            Here's an overview of your {currentOrg?.name} organization
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Welcome back! Here's what's happening with your organization.
           </p>
         </div>
-        <DashboardControls 
-          isEditing={isEditing}
-          toggleEditing={toggleEditing}
-          openWidgetCatalog={openWidgetCatalog}
-          isSaving={isSaving}
-        />
-      </div>
-
-      {widgets.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-12 space-y-4">
-          <Alert className="max-w-xl">
-            <AlertTitle>Your dashboard is empty</AlertTitle>
-            <AlertDescription>
-              Add widgets to create your custom dashboard experience.
-            </AlertDescription>
-          </Alert>
-          <Button onClick={openWidgetCatalog}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Add Your First Widget
+        <div className="flex items-center gap-2">
+          {isEditing && (
+            <Button onClick={handleAddWidget} variant="outline">
+              <PlusCircle className="h-4 w-4 mr-2" />
+              Add Widget
+            </Button>
+          )}
+          <Button 
+            onClick={toggleEditMode} 
+            variant={isEditing ? "default" : "outline"}
+            disabled={isSaving}
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              isEditing ? "Save Layout" : "Edit Layout"
+            )}
           </Button>
         </div>
-      ) : (
-        <GridLayout 
-          isEditing={isEditing}
-        />
-      )}
+      </div>
 
-      <WidgetCatalog 
-        open={isWidgetCatalogOpen} 
-        onClose={() => setIsWidgetCatalogOpen(false)} 
+      <DashboardControls 
+        isEditing={isEditing}
+        isSaving={isSaving}
+        toggleEditing={toggleEditMode}
+        openWidgetCatalog={handleAddWidget}
+      />
+
+      <GridLayout 
+        isEditing={isEditing}
+      />
+
+      <WidgetCatalog
+        open={isWidgetCatalogOpen}
+        onClose={() => setIsWidgetCatalogOpen(false)}
       />
     </div>
   );

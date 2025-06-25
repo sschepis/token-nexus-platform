@@ -10,17 +10,38 @@ import {
   ActionEventType,
   ActionEventListener
 } from './types/ActionTypes';
+import { getRolePermissions } from './permissionManager/data/RolePermissions';
+import { hasRequiredPermissions, expandRolePermissions } from './permissionManager/utils/PermissionUtils'; // Import expandRolePermissions
+import { ApprovalWorkflowService, approvalWorkflowService } from './permissionManager/workflow/ApprovalWorkflowService';
+import { AuditLogger, auditLogger } from './permissionManager/audit/AuditLogger';
+import { ActionEventEmitter, actionEventEmitter as globalActionEventEmitter } from './services/ActionEventEmitter'; // Correctly import AEE, rename singleton to avoid conflict
 
 /**
  * Manages permissions and approval workflows for actions
  */
 export class PermissionManager {
-  private approvalWorkflows: Map<string, ApprovalWorkflow> = new Map();
+  private approvalWorkflowService: ApprovalWorkflowService;
+  private auditLogger: AuditLogger;
   private eventListeners: ActionEventListener[] = [];
-  private auditEnabled: boolean = true;
+  private registry?: any; // Will be set by ControllerRegistry
+  private actionEventEmitter: ActionEventEmitter; // Declare the property
 
-  constructor(auditEnabled: boolean = true) {
-    this.auditEnabled = auditEnabled;
+  constructor(
+    auditEnabled: boolean = true,
+    approvalWorkflowServiceInstance: ApprovalWorkflowService = approvalWorkflowService,
+    auditLoggerInstance: AuditLogger = auditLogger,
+    actionEventEmitterInstance: ActionEventEmitter = globalActionEventEmitter // Inject AEE, use renamed singleton
+  ) {
+    this.auditLogger = new AuditLogger(auditEnabled); // Use the auditEnabled to configure the AuditLogger
+    this.approvalWorkflowService = approvalWorkflowServiceInstance;
+    this.actionEventEmitter = actionEventEmitterInstance; // Assign injected AEE
+  }
+
+  /**
+   * Set the controller registry reference
+   */
+  setRegistry(registry: any): void {
+    this.registry = registry;
   }
 
   /**
@@ -28,17 +49,18 @@ export class PermissionManager {
    */
   canExecuteAction(actionId: string, userContext: UserContext): boolean {
     // System admin can execute all actions
-    if (userContext.roles.includes('system-admin')) {
-      return true;
+    if (userContext.isAdmin) {
+      return true; // Admin users can execute all actions
     }
 
     // Check if user has any of the required permissions
     const action = this.getActionById(actionId);
     if (!action) {
-      return false;
+      return false; // Action not found, cannot execute
     }
 
-    return this.hasRequiredPermissions(action.permissions, userContext);
+    // Use the external utility function
+    return hasRequiredPermissions(action.permissions, userContext);
   }
 
   /**
@@ -46,59 +68,67 @@ export class PermissionManager {
    */
   validateActionPermissions(action: ActionDefinition, userContext: UserContext): PermissionResult {
     const requiredPermissions = action.permissions;
-    const userPermissions = [...userContext.permissions, ...userContext.roles];
 
     // System admin bypass
-    if (userContext.roles.includes('system-admin')) {
+    if (userContext.isAdmin) {
       return {
         allowed: true,
+        reason: undefined,
         requiredPermissions,
         missingPermissions: []
       };
     }
 
-    const missingPermissions = requiredPermissions.filter(
-      permission => !userPermissions.includes(permission)
-    );
-
-    const allowed = missingPermissions.length === 0;
-
-    return {
-      allowed,
-      reason: allowed ? undefined : `Missing required permissions: ${missingPermissions.join(', ')}`,
-      requiredPermissions,
-      missingPermissions
-    };
+    // Use the external utility function
+    const allowed = hasRequiredPermissions(requiredPermissions, userContext);
+    
+    if (allowed) {
+      return {
+        allowed: true,
+        reason: undefined,
+        requiredPermissions,
+        missingPermissions: []
+      };
+    } else {
+      // Re-evaluate missing permissions for the detailed error message
+      const userPermissions = new Set([
+        ...userContext.permissions,
+        ...userContext.roles,
+        ...expandRolePermissions(userContext.roles) // Use imported function
+      ]);
+      const missingPermissions = requiredPermissions.filter(p => !userPermissions.has(p));
+      return {
+        allowed: false,
+        reason: `Missing required permissions: ${missingPermissions.join(', ')}`,
+        requiredPermissions,
+        missingPermissions
+      };
+    }
   }
 
   /**
    * Check if action requires approval workflow
    */
   requiresApproval(actionId: string, userContext: UserContext): boolean {
-    // System admin actions may still require approval for sensitive operations
     const action = this.getActionById(actionId);
     if (!action) {
       return false;
     }
-
-    // Check if there's an approval workflow defined for this action
-    const workflowId = this.getWorkflowIdForAction(actionId, userContext);
-    return workflowId !== null;
+    return this.approvalWorkflowService.requiresApproval(actionId, userContext);
   }
 
   /**
    * Get approval workflow for an action
    */
   getApprovalWorkflow(actionId: string): ApprovalWorkflow | null {
-    const workflowId = this.getWorkflowIdForAction(actionId);
-    return workflowId ? this.approvalWorkflows.get(workflowId) || null : null;
+    return this.approvalWorkflowService.getApprovalWorkflow(actionId);
   }
 
   /**
    * Register an approval workflow
    */
   registerApprovalWorkflow(workflow: ApprovalWorkflow): void {
-    this.approvalWorkflows.set(workflow.id, workflow);
+    this.approvalWorkflowService.registerApprovalWorkflow(workflow);
   }
 
   /**
@@ -111,10 +141,6 @@ export class PermissionManager {
     userContext: UserContext,
     error?: string
   ): void {
-    if (!this.auditEnabled) {
-      return;
-    }
-
     const event: ActionEvent = {
       type: error ? 'action_failed' : 'action_executed',
       actionId,
@@ -129,58 +155,10 @@ export class PermissionManager {
       },
       error
     };
-
-    this.emitEvent(event);
-    this.logAuditEvent(event);
+    this.actionEventEmitter.emitEvent(event);
+    this.auditLogger.logAuditEvent(event);
   }
 
-  /**
-   * Get role permissions
-   */
-  getRolePermissions(role: string): string[] {
-    const rolePermissions: Record<string, string[]> = {
-      'system-admin': ['*'], // All permissions
-      'organization-admin': [
-        'organization.read',
-        'organization.update',
-        'organization.members.manage',
-        'integrations.manage',
-        'billing.read',
-        'audit.read',
-        // Object Manager permissions
-        'objects:read',
-        'objects:write',
-        'records:read',
-        'records:write',
-        // Additional data management permissions
-        'schema.read',
-        'schema.write',
-        'data.export',
-        'data.import'
-      ],
-      'organization-member': [
-        'organization.read',
-        'profile.read',
-        'profile.update',
-        // Basic object access for members
-        'objects:read',
-        'records:read',
-        'records:write'
-      ],
-      'user': [
-        'profile.read',
-        'profile.update',
-        // Limited object access for regular users
-        'objects:read',
-        'records:read'
-      ],
-      'guest': [
-        'public.read'
-      ]
-    };
-
-    return rolePermissions[role] || [];
-  }
 
   /**
    * Add event listener
@@ -213,105 +191,29 @@ export class PermissionManager {
       error: reason
     };
 
-    this.emitEvent(event);
-  }
-
-  /**
-   * Check if user has required permissions
-   */
-  private hasRequiredPermissions(requiredPermissions: string[], userContext: UserContext): boolean {
-    if (requiredPermissions.length === 0) {
-      return true; // No permissions required
-    }
-
-    const userPermissions = [
-      ...userContext.permissions,
-      ...userContext.roles,
-      ...this.expandRolePermissions(userContext.roles)
-    ];
-
-    // Check for wildcard permission
-    if (userPermissions.includes('*')) {
-      return true;
-    }
-
-    // Check if user has any of the required permissions
-    return requiredPermissions.some(permission => 
-      userPermissions.includes(permission) ||
-      this.matchesWildcardPermission(permission, userPermissions)
-    );
-  }
-
-  /**
-   * Expand role permissions to include all permissions granted by roles
-   */
-  private expandRolePermissions(roles: string[]): string[] {
-    const expandedPermissions: string[] = [];
-    
-    roles.forEach(role => {
-      const rolePermissions = this.getRolePermissions(role);
-      expandedPermissions.push(...rolePermissions);
-    });
-
-    return expandedPermissions;
-  }
-
-  /**
-   * Check if permission matches any wildcard permissions
-   */
-  private matchesWildcardPermission(permission: string, userPermissions: string[]): boolean {
-    return userPermissions.some(userPerm => {
-      if (userPerm.endsWith('.*')) {
-        const prefix = userPerm.slice(0, -2);
-        return permission.startsWith(prefix + '.');
-      }
-      return false;
-    });
-  }
-
-  /**
-   * Get workflow ID for action (simplified logic)
-   */
-  private getWorkflowIdForAction(actionId: string, userContext?: UserContext): string | null {
-    // Define which actions require approval workflows
-    const approvalRules: Record<string, string> = {
-      // System admin actions that modify critical data
-      'system-admin.*': 'system-admin-approval',
-      // Organization admin actions
-      'organization.delete': 'organization-admin-approval',
-      'organization.members.remove': 'organization-admin-approval',
-      // Financial operations
-      'billing.*': 'financial-approval',
-      // External API operations with high impact
-      'external.dfns.transfer': 'financial-approval',
-      'external.dfns.wallet.create': 'wallet-creation-approval'
-    };
-
-    // Check for exact match first
-    if (approvalRules[actionId]) {
-      return approvalRules[actionId];
-    }
-
-    // Check for wildcard matches
-    for (const [pattern, workflowId] of Object.entries(approvalRules)) {
-      if (pattern.endsWith('*')) {
-        const prefix = pattern.slice(0, -1);
-        if (actionId.startsWith(prefix)) {
-          return workflowId;
-        }
-      }
-    }
-
-    return null;
+    this.actionEventEmitter.emitEvent(event);
   }
 
   /**
    * Get action by ID (placeholder - would integrate with registry)
    */
   private getActionById(actionId: string): ActionDefinition | null {
-    // This would integrate with the ControllerRegistry
-    // For now, return null as placeholder
-    return null;
+    // Integrate with the ControllerRegistry to get action definitions
+    // Import the registry instance if not already available
+    if (this.registry) {
+      return this.registry.getAction(actionId);
+    }
+    
+    // Fallback: try to get from global registry
+    try {
+      // NOTE: This will eventually be removed once proper dependency injection/global access is wired up.
+      // This is a temporary measure for initial refactoring.
+      const { controllerRegistry } = require('../controllers/ControllerRegistry');
+      return controllerRegistry.getAction(actionId);
+    } catch (error) {
+      console.warn('Could not access controller registry in PermissionManager.getActionById fallback:', error);
+      return null;
+    }
   }
 
   /**
@@ -322,168 +224,6 @@ export class PermissionManager {
     return parts.length > 1 ? parts[0] : 'unknown';
   }
 
-  /**
-   * Emit event to all listeners
-   */
-  private emitEvent(event: ActionEvent): void {
-    this.eventListeners.forEach(listener => {
-      try {
-        listener(event);
-      } catch (error) {
-        console.error('Error in action event listener:', error);
-      }
-    });
-  }
-
-  /**
-   * Log audit event (placeholder for actual logging implementation)
-   */
-  private logAuditEvent(event: ActionEvent): void {
-    // In a real implementation, this would write to a persistent audit log
-    // For now, just console log in development
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Audit Event:', {
-        type: event.type,
-        actionId: event.actionId,
-        userId: event.userId,
-        timestamp: event.timestamp.toISOString(),
-        data: event.data,
-        error: event.error
-      });
-    }
-
-    // TODO: Implement actual audit logging to Parse Server or external service
-  }
 }
 
-/**
- * Default approval workflows
- */
-export const createDefaultApprovalWorkflows = (): ApprovalWorkflow[] => {
-  return [
-    {
-      id: 'system-admin-approval',
-      name: 'System Admin Approval',
-      description: 'Approval workflow for system administration actions',
-      steps: [
-        {
-          id: 'senior-admin-approval',
-          name: 'Senior Admin Approval',
-          description: 'Requires approval from a senior system administrator',
-          approverRoles: ['senior-system-admin'],
-          requiredApprovals: 1,
-          timeout: 60, // 1 hour
-          autoApprove: false
-        }
-      ],
-      timeout: 120, // 2 hours total
-      escalation: [
-        {
-          triggerAfter: 60,
-          escalateTo: ['senior-system-admin', 'security-admin'],
-          action: 'notify',
-          message: 'System admin action pending approval for over 1 hour'
-        }
-      ]
-    },
-    {
-      id: 'organization-admin-approval',
-      name: 'Organization Admin Approval',
-      description: 'Approval workflow for organization administration actions',
-      steps: [
-        {
-          id: 'org-owner-approval',
-          name: 'Organization Owner Approval',
-          description: 'Requires approval from organization owner',
-          approverRoles: ['organization-owner'],
-          requiredApprovals: 1,
-          timeout: 30, // 30 minutes
-          autoApprove: false
-        }
-      ],
-      timeout: 60, // 1 hour total
-      escalation: [
-        {
-          triggerAfter: 30,
-          escalateTo: ['organization-owner', 'system-admin'],
-          action: 'notify',
-          message: 'Organization admin action pending approval'
-        }
-      ]
-    },
-    {
-      id: 'financial-approval',
-      name: 'Financial Operations Approval',
-      description: 'Approval workflow for financial and wallet operations',
-      steps: [
-        {
-          id: 'financial-admin-approval',
-          name: 'Financial Admin Approval',
-          description: 'Requires approval from financial administrator',
-          approverRoles: ['financial-admin', 'organization-owner'],
-          requiredApprovals: 1,
-          timeout: 15, // 15 minutes
-          autoApprove: false
-        },
-        {
-          id: 'security-review',
-          name: 'Security Review',
-          description: 'Security team review for high-value operations',
-          approverRoles: ['security-admin'],
-          requiredApprovals: 1,
-          timeout: 30, // 30 minutes
-          autoApprove: false,
-          conditions: [
-            {
-              field: 'amount',
-              operator: 'greater_than',
-              value: 10000 // Require security review for amounts > $10,000
-            }
-          ]
-        }
-      ],
-      timeout: 60, // 1 hour total
-      escalation: [
-        {
-          triggerAfter: 45,
-          escalateTo: ['security-admin', 'system-admin'],
-          action: 'notify',
-          message: 'Financial operation pending approval - security review required'
-        }
-      ]
-    },
-    {
-      id: 'wallet-creation-approval',
-      name: 'Wallet Creation Approval',
-      description: 'Approval workflow for creating new wallets',
-      steps: [
-        {
-          id: 'wallet-admin-approval',
-          name: 'Wallet Admin Approval',
-          description: 'Requires approval from wallet administrator',
-          approverRoles: ['wallet-admin', 'organization-admin'],
-          requiredApprovals: 1,
-          timeout: 20, // 20 minutes
-          autoApprove: false
-        }
-      ],
-      timeout: 40, // 40 minutes total
-      escalation: [
-        {
-          triggerAfter: 20,
-          escalateTo: ['wallet-admin', 'organization-admin'],
-          action: 'notify',
-          message: 'Wallet creation request pending approval'
-        }
-      ]
-    }
-  ];
-};
-
-// Export singleton instance
 export const permissionManager = new PermissionManager();
-
-// Initialize default approval workflows
-createDefaultApprovalWorkflows().forEach(workflow => {
-  permissionManager.registerApprovalWorkflow(workflow);
-});

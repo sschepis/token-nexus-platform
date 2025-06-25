@@ -20,20 +20,13 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import {
-  addRoute,
-  deleteRoute,
-  updateRoute,
-  setSelectedRoute
-} from "@/store/slices/routeSlice";
 import RouteDetail from "@/components/routes/RouteDetail";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DialogDescription } from "@radix-ui/react-dialog";
 import { Label } from "@/components/ui/label";
 import { HttpMethod, Route, RouteHandler } from "@/types/routes";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Navigation, Plus, Trash2, RefreshCw, Loader2, AlertCircle } from "lucide-react";
+import { Navigation, Plus, Trash2, RefreshCw, Loader2, AlertCircle, Zap } from "lucide-react";
 import { useRouter } from "next/router";
 import { usePageController } from "@/hooks/usePageController";
 import { usePermission } from "@/hooks/usePermission";
@@ -41,9 +34,21 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const RoutesPage = () => {
   const { toast } = useToast();
-  const dispatch = useAppDispatch();
   const router = useRouter();
-  const { routes, selectedRouteId } = useAppSelector((state) => state.route);
+  
+  // Use standardized page controller
+  const pageController = usePageController({
+    pageId: 'routes',
+    pageName: 'Route Management',
+    description: 'Manage API routes, page routes, and redirects for your application',
+    category: 'system-management',
+    permissions: ['routes:read', 'routes:write', 'routes:manage'],
+    tags: ['routes', 'api', 'navigation', 'system']
+  });
+
+  // Local state management
+  const [routes, setRoutes] = useState<Route[]>([]);
+  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("all");
   const [newRouteOpen, setNewRouteOpen] = useState(false);
   const [newPath, setNewPath] = useState("");
@@ -52,25 +57,14 @@ const RoutesPage = () => {
   const [newType, setNewType] = useState<"page" | "function" | "redirect">("page");
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(true);
-  const [controllerRoutes, setControllerRoutes] = useState<Route[]>([]);
   const [error, setError] = useState<string | null>(null);
-
-  // Initialize page controller
-  const pageController = usePageController({
-    pageId: 'routes',
-    pageName: 'Routes Management',
-    description: 'Manage application routes, endpoints, and navigation',
-    category: 'system',
-    permissions: ['routes:read', 'routes:write'],
-    tags: ['routes', 'navigation', 'management']
-  });
 
   // Permission checks
   const { hasPermission } = usePermission();
   const canRead = hasPermission('routes:read');
   const canWrite = hasPermission('routes:write');
 
-  // Load routes from controller
+  // Load routes function
   const loadRoutes = async () => {
     if (!pageController.isRegistered || !canRead) return;
     
@@ -82,7 +76,7 @@ const RoutesPage = () => {
       
       if (result.success && result.data) {
         const routesData = result.data as { routes: Route[]; total: number; sources: string[] };
-        setControllerRoutes(routesData.routes || []);
+        setRoutes(routesData.routes || []);
         toast({
           title: "Routes loaded",
           description: "Routes loaded successfully",
@@ -119,10 +113,8 @@ const RoutesPage = () => {
     ? routes.find(route => route.id === selectedRouteId) 
     : null;
 
-  // Use controller routes if available, fallback to Redux routes
-  const allRoutes = controllerRoutes.length > 0 ? controllerRoutes : routes;
-  
-  const filteredRoutes = allRoutes.filter((route) => {
+  // Use routes from controller
+  const filteredRoutes = routes.filter((route) => {
     const matchesTab =
       activeTab === "all" ||
       (activeTab === "active" && route.active) ||
@@ -189,17 +181,6 @@ const RoutesPage = () => {
           description: `Route ${newPath} created successfully`,
         });
         
-        // Also update Redux store for immediate UI update
-        dispatch(addRoute({
-          path: newPath,
-          method: newMethod,
-          handler: {
-            type: newType,
-            target: newTarget,
-            description: `${newType === "page" ? "Page" : newType === "function" ? "Function" : "Redirect"} for ${newPath}`
-          }
-        }));
-        
         // Refresh routes from controller
         await loadRoutes();
         
@@ -254,12 +235,6 @@ const RoutesPage = () => {
           description: `Route ${!currentActive ? "activated" : "deactivated"} successfully`,
         });
         
-        // Update Redux store for immediate UI update
-        dispatch(updateRoute({
-          routeId,
-          updates: { active: !currentActive }
-        }));
-        
         // Refresh routes from controller
         await loadRoutes();
       } else {
@@ -280,16 +255,14 @@ const RoutesPage = () => {
   };
 
   const handleViewRoute = (routeId: string) => {
-    dispatch(setSelectedRoute(routeId));
+    setSelectedRouteId(routeId);
     setActiveTab("detail");
-    // router.push(`/routes?detail=${routeId}`); // Optional: update URL for deep linking
   };
 
   const handleSelectRoute = (routeId: string | null) => {
-    dispatch(setSelectedRoute(routeId));
+    setSelectedRouteId(routeId);
     if (routeId === null) {
       setActiveTab("all");
-      // router.push('/routes'); // Optional: update URL
     }
   };
 
@@ -324,9 +297,6 @@ const RoutesPage = () => {
           title: "Route deleted",
           description: `Route ${path} deleted successfully`,
         });
-        
-        // Update Redux store for immediate UI update
-        dispatch(deleteRoute(routeId));
         
         if (selectedRouteId === routeId) {
           handleSelectRoute(null);
@@ -371,7 +341,7 @@ const RoutesPage = () => {
 
       if (result.success && result.data) {
         const searchData = result.data as { routes: Route[]; total: number; query: string; filters?: Record<string, unknown> };
-        setControllerRoutes(searchData.routes || []);
+        setRoutes(searchData.routes || []);
       }
     } catch (error) {
       console.error('Error searching routes:', error);
@@ -402,17 +372,29 @@ const RoutesPage = () => {
   }
 
   return (
-    // <AppLayout> // Removed AppLayout wrapper from here; _app.tsx handles it.
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Routes</h1>
-            <p className="text-muted-foreground mt-2">
-              Manage API routes, page routes, and redirects
-            </p>
+            <div className="flex items-center gap-3">
+              <Navigation className="h-8 w-8" />
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight">Routes</h1>
+                <p className="text-muted-foreground mt-1">
+                  Manage API routes, page routes, and redirects
+                </p>
+              </div>
+            </div>
           </div>
           
           <div className="flex items-center space-x-2">
+            {pageController.isRegistered && (
+              <div className="flex items-center gap-2 mr-2">
+                <Badge variant="outline" className="text-xs">
+                  <Zap className="h-3 w-3 mr-1" />
+                  {pageController.getAvailableActions().length} AI actions
+                </Badge>
+              </div>
+            )}
             <Button
               variant="outline"
               onClick={handleRefreshRoutes}
@@ -540,6 +522,7 @@ const RoutesPage = () => {
               handleViewRoute={handleViewRoute}
               handleDeleteRoute={handleDeleteRoute}
               isLoading={isLoading}
+              canWrite={canWrite}
             />
           </TabsContent>
 
@@ -550,6 +533,7 @@ const RoutesPage = () => {
               handleViewRoute={handleViewRoute}
               handleDeleteRoute={handleDeleteRoute}
               isLoading={isLoading}
+              canWrite={canWrite}
             />
           </TabsContent>
 
@@ -560,6 +544,7 @@ const RoutesPage = () => {
               handleViewRoute={handleViewRoute}
               handleDeleteRoute={handleDeleteRoute}
               isLoading={isLoading}
+              canWrite={canWrite}
             />
           </TabsContent>
 
@@ -570,6 +555,7 @@ const RoutesPage = () => {
               handleViewRoute={handleViewRoute}
               handleDeleteRoute={handleDeleteRoute}
               isLoading={isLoading}
+              canWrite={canWrite}
             />
           </TabsContent>
 
@@ -580,6 +566,7 @@ const RoutesPage = () => {
               handleViewRoute={handleViewRoute}
               handleDeleteRoute={handleDeleteRoute}
               isLoading={isLoading}
+              canWrite={canWrite}
             />
           </TabsContent>
 
@@ -603,9 +590,10 @@ interface RouteTableProps {
   handleViewRoute: (id: string) => void;
   handleDeleteRoute: (id: string, path: string) => void;
   isLoading?: boolean;
+  canWrite?: boolean;
 }
 
-const RouteTable = ({ routes, handleToggleActive, handleViewRoute, handleDeleteRoute, isLoading = false }: RouteTableProps) => {
+const RouteTable = ({ routes, handleToggleActive, handleViewRoute, handleDeleteRoute, isLoading = false, canWrite = false }: RouteTableProps) => {
   return (
     <Card>
       <CardHeader>
