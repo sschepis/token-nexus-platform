@@ -1,0 +1,292 @@
+@startuml Organization Centric Pages - Class Diagram
+!theme plain
+title Organization Centric Pages - Class Diagram
+
+package "Organization Context Layer" {
+    interface Organization {
+        +id: string
+        +name: string
+        +settings: OrganizationSettings
+        +members: OrganizationMember[]
+        +permissions: string[]
+    }
+    
+    class OrganizationContext {
+        +currentOrg: Organization
+        +isOrgLoading: boolean
+        +orgError: string
+        +switchOrganization(orgId): Promise<void>
+        +refreshOrganization(): Promise<void>
+        +validateContext(): boolean
+    }
+    
+    class OrganizationMember {
+        +id: string
+        +userId: string
+        +organizationId: string
+        +role: string
+        +permissions: string[]
+        +joinedAt: Date
+        +isActive: boolean
+    }
+}
+
+package "Permission System" {
+    interface PermissionManager {
+        +hasPermission(permission): boolean
+        +checkAnyPermission(permissions): boolean
+        +checkAllPermissions(permissions): boolean
+        +getUserPermissions(): string[]
+    }
+    
+    enum OrganizationPermission {
+        ORG_ADMIN
+        USER_MANAGER
+        USERS_READ
+        USERS_WRITE
+        USERS_DELETE
+        ORG_MEMBER
+        BILLING_ADMIN
+        SETTINGS_ADMIN
+    }
+    
+    class PermissionContext {
+        +user: User
+        +organization: Organization
+        +permissions: string[]
+        +roles: string[]
+        +validatePermission(permission): boolean
+    }
+}
+
+package "Controller Layer" {
+    abstract class BasePageController {
+        #pageId: string
+        #pageName: string
+        #description: string
+        #category: string
+        #tags: string[]
+        #permissions: string[]
+        #version: string
+        #organizationScoped: boolean
+        +registerAction(definition, handler): void
+        +executeAction(actionId, params, context): Promise<ActionResult>
+        #validateOrganizationContext(context): ValidationResult
+        #getOrganizationId(context): string
+        #initializeActions(): void
+    }
+    
+    class OrganizationUsersPageController extends BasePageController {
+        +constructor()
+        #initializeActions(): void
+        -registerViewUsersAction(): void
+        -registerInviteUserAction(): void
+        -registerManageUserRolesAction(): void
+        -registerRemoveUserAction(): void
+        -registerBulkOperationsAction(): void
+        -registerSearchUsersAction(): void
+        -registerRefreshAction(): void
+        -registerExportAction(): void
+    }
+    
+    class OrganizationSettingsPageController extends BasePageController {
+        +constructor()
+        #initializeActions(): void
+        -registerViewSettingsAction(): void
+        -registerUpdateSettingsAction(): void
+        -registerManageIntegrationsAction(): void
+    }
+}
+
+package "Action System" {
+    interface ActionDefinition {
+        +id: string
+        +name: string
+        +description: string
+        +category: string
+        +permissions: string[]
+        +parameters: ActionParameter[]
+        +metadata: ActionMetadata
+    }
+    
+    interface ActionContext {
+        +user: User
+        +organization: Organization
+        +params: Record<string, any>
+        +timestamp: Date
+    }
+    
+    interface ActionResult {
+        +success: boolean
+        +data?: any
+        +error?: string
+        +message?: string
+        +metadata: ResultMetadata
+    }
+    
+    class ActionParameter {
+        +name: string
+        +type: string
+        +description: string
+        +required: boolean
+        +defaultValue?: any
+        +validation?: string
+        +options?: string[]
+    }
+    
+    class ActionMetadata {
+        +tags: string[]
+        +examples: ActionExample[]
+        +riskLevel: string
+        +auditRequired: boolean
+    }
+}
+
+package "Data Management" {
+    interface ApiService {
+        +getOrgUsers(params): Promise<ApiResponse>
+        +inviteUser(params): Promise<ApiResponse>
+        +updateUserRole(params): Promise<ApiResponse>
+        +removeUser(params): Promise<ApiResponse>
+        +getOrgSettings(params): Promise<ApiResponse>
+        +updateOrgSettings(params): Promise<ApiResponse>
+    }
+    
+    class OrganizationDataService {
+        -apiService: ApiService
+        +fetchUsers(orgId, filters): Promise<User[]>
+        +inviteUser(orgId, userData): Promise<User>
+        +updateUser(orgId, userId, data): Promise<User>
+        +removeUser(orgId, userId): Promise<void>
+        +fetchSettings(orgId): Promise<OrganizationSettings>
+        +updateSettings(orgId, settings): Promise<OrganizationSettings>
+        -validateOrgContext(orgId): boolean
+    }
+    
+    interface ReduxState {
+        +orgUsers: OrgUsersState
+        +orgSettings: OrgSettingsState
+        +currentOrg: Organization
+        +permissions: string[]
+    }
+    
+    class OrgUsersState {
+        +users: User[]
+        +isLoading: boolean
+        +error: string
+        +totalCount: number
+        +filters: UserFilters
+    }
+}
+
+package "Component Layer" {
+    class OrganizationUsersPage {
+        -pageController: OrganizationUsersPageController
+        -currentOrg: Organization
+        -isOrgLoading: boolean
+        -controllerError: string
+        -searchTerm: string
+        -isLoading: boolean
+        -users: User[]
+        +loadUsers(): Promise<void>
+        +handleRefreshUsers(): Promise<void>
+        +handleInviteUser(): Promise<void>
+        +handleRemoveUser(userId): Promise<void>
+        +validateOrgContext(): boolean
+        +render(): JSX.Element
+    }
+    
+    class UserTable {
+        +users: User[]
+        +searchTerm: string
+        +canEdit: boolean
+        +canDelete: boolean
+        +canViewDetails: boolean
+        +onUserAction: Function
+        +render(): JSX.Element
+    }
+    
+    class InviteUserModal {
+        +isOpen: boolean
+        +onClose: Function
+        +onInvite: Function
+        +organizationId: string
+        +availableRoles: string[]
+        +render(): JSX.Element
+    }
+}
+
+package "Hooks" {
+    class usePageController {
+        +pageController: BasePageController
+        +isRegistered: boolean
+        +availableActions: ActionDefinition[]
+        +executeAction(id, params): Promise<ActionResult>
+        +getAvailableActions(): ActionDefinition[]
+    }
+    
+    class useOrganization {
+        +currentOrg: Organization
+        +isOrgLoading: boolean
+        +orgError: string
+        +switchOrganization(orgId): Promise<void>
+        +refreshOrganization(): Promise<void>
+    }
+    
+    class usePermission {
+        +hasPermission(permission): boolean
+        +checkAnyPermission(permissions): boolean
+        +checkAllPermissions(permissions): boolean
+        +getUserPermissions(): string[]
+    }
+}
+
+package "Security & Audit" {
+    class AuditLogger {
+        +logAction(action, context, result): Promise<void>
+        +logPermissionCheck(permission, result): Promise<void>
+        +logOrganizationAccess(orgId, userId): Promise<void>
+    }
+    
+    class SecurityValidator {
+        +validateOrganizationAccess(user, orgId): boolean
+        +validatePermission(user, permission): boolean
+        +sanitizeInput(input): any
+        +validateApiCall(params): ValidationResult
+    }
+}
+
+' Relationships
+BasePageController --> ActionDefinition : registers
+BasePageController --> ActionContext : uses
+BasePageController --> ActionResult : returns
+BasePageController --> OrganizationContext : validates
+
+OrganizationUsersPageController --> OrganizationDataService : calls
+OrganizationUsersPageController --> AuditLogger : logs to
+
+OrganizationUsersPage --> usePageController : uses
+OrganizationUsersPage --> useOrganization : uses
+OrganizationUsersPage --> usePermission : uses
+OrganizationUsersPage --> UserTable : renders
+OrganizationUsersPage --> InviteUserModal : renders
+
+useOrganization --> OrganizationContext : manages
+usePermission --> PermissionManager : uses
+usePageController --> BasePageController : wraps
+
+OrganizationDataService --> ApiService : uses
+OrganizationDataService --> SecurityValidator : validates with
+
+OrganizationContext --> Organization : contains
+PermissionContext --> OrganizationPermission : uses
+ActionDefinition --> ActionParameter : contains
+ActionDefinition --> ActionMetadata : contains
+
+ReduxState --> OrgUsersState : contains
+ReduxState --> Organization : contains
+
+AuditLogger --> SecurityValidator : uses for validation
+SecurityValidator --> PermissionContext : validates
+
+@enduml

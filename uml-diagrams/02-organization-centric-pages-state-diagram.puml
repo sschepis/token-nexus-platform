@@ -1,0 +1,141 @@
+@startuml Organization Centric Pages - State Diagram
+!theme plain
+title Organization Centric Pages - State Management
+
+[*] --> PageInitialization : User navigates to org page
+
+state PageInitialization {
+    [*] --> LoadingOrgContext : Check organization context
+    LoadingOrgContext --> NoOrgContext : No organization available
+    LoadingOrgContext --> OrgContextAvailable : Organization found
+    LoadingOrgContext --> OrgContextError : Organization load error
+    
+    NoOrgContext --> [*] : Display "No organization" message
+    OrgContextError --> LoadingOrgContext : Retry organization load
+    
+    OrgContextAvailable --> CheckingPermissions : Validate user permissions
+    CheckingPermissions --> InsufficientPermissions : Missing required permissions
+    CheckingPermissions --> PermissionsValid : Has required permissions
+    
+    InsufficientPermissions --> [*] : Display "Access denied" message
+    PermissionsValid --> InitializingController : Setup page controller
+}
+
+state InitializingController {
+    [*] --> RegisteringActions : Register organization actions
+    RegisteringActions --> ControllerError : Action registration failed
+    RegisteringActions --> ControllerReady : All actions registered
+    ControllerError --> RegisteringActions : Retry registration
+    
+    ControllerReady --> ValidatingOrgScope : Validate organization scope
+    ValidatingOrgScope --> OrgScopeInvalid : Organization scope validation failed
+    ValidatingOrgScope --> PageReady : Organization scope valid
+    OrgScopeInvalid --> [*] : Display scope error
+}
+
+state PageReady {
+    [*] --> LoadingData : Initial data load
+    LoadingData --> DataLoadError : Data load failed
+    LoadingData --> PageActive : Data loaded successfully
+    DataLoadError --> LoadingData : Retry data load
+    
+    state PageActive {
+        [*] --> Idle : Ready for user interaction
+        
+        Idle --> ExecutingAction : User performs action
+        ExecutingAction --> ValidatingOrgContext : Check organization context
+        ValidatingOrgContext --> OrgContextLost : Organization context invalid
+        ValidatingOrgContext --> ValidatingPermissions : Organization context valid
+        OrgContextLost --> PageInitialization : Re-initialize page
+        
+        ValidatingPermissions --> PermissionDenied : Insufficient permissions
+        ValidatingPermissions --> ProcessingAction : Permissions valid
+        PermissionDenied --> Idle : Show permission error
+        
+        ProcessingAction --> ActionSuccess : Action completed successfully
+        ProcessingAction --> ActionError : Action failed
+        ActionSuccess --> LoggingSuccess : Log successful action
+        ActionError --> LoggingError : Log failed action
+        LoggingSuccess --> Idle : Update UI with success
+        LoggingError --> Idle : Show error message
+        
+        Idle --> RefreshingData : Manual or auto refresh
+        RefreshingData --> Idle : Data refreshed
+        
+        -- Organization Context Changes --
+        Idle --> OrgContextChanged : Organization switched
+        OrgContextChanged --> ValidatingNewOrg : Validate new organization
+        ValidatingNewOrg --> OrgSwitchSuccess : New organization valid
+        ValidatingNewOrg --> OrgSwitchFailed : New organization invalid
+        OrgSwitchSuccess --> LoadingData : Load data for new org
+        OrgSwitchFailed --> Idle : Show switch error
+        
+        -- Permission Changes --
+        Idle --> PermissionChanged : User permissions updated
+        PermissionChanged --> ValidatingNewPermissions : Check new permissions
+        ValidatingNewPermissions --> PermissionUpdateSuccess : Permissions still valid
+        ValidatingNewPermissions --> PermissionUpdateFailed : Permissions insufficient
+        PermissionUpdateSuccess --> Idle : Continue with new permissions
+        PermissionUpdateFailed --> PageInitialization : Re-check access
+        
+        -- Data Management States --
+        Idle --> CreatingResource : User creates new resource
+        CreatingResource --> ValidatingCreation : Validate creation permissions
+        ValidatingCreation --> CreationDenied : Insufficient create permissions
+        ValidatingCreation --> ProcessingCreation : Creation allowed
+        CreationDenied --> Idle : Show creation error
+        ProcessingCreation --> CreationSuccess : Resource created
+        ProcessingCreation --> CreationError : Creation failed
+        CreationSuccess --> Idle : Update UI with new resource
+        CreationError --> Idle : Show creation error
+        
+        Idle --> UpdatingResource : User updates resource
+        UpdatingResource --> ValidatingUpdate : Validate update permissions
+        ValidatingUpdate --> UpdateDenied : Insufficient update permissions
+        ValidatingUpdate --> ProcessingUpdate : Update allowed
+        UpdateDenied --> Idle : Show update error
+        ProcessingUpdate --> UpdateSuccess : Resource updated
+        ProcessingUpdate --> UpdateError : Update failed
+        UpdateSuccess --> Idle : Update UI with changes
+        UpdateError --> Idle : Show update error
+        
+        Idle --> DeletingResource : User deletes resource
+        DeletingResource --> ConfirmingDeletion : Show confirmation dialog
+        ConfirmingDeletion --> DeletionCancelled : User cancels
+        ConfirmingDeletion --> ValidatingDeletion : User confirms
+        DeletionCancelled --> Idle : Return to idle
+        ValidatingDeletion --> DeletionDenied : Insufficient delete permissions
+        ValidatingDeletion --> ProcessingDeletion : Deletion allowed
+        DeletionDenied --> Idle : Show deletion error
+        ProcessingDeletion --> DeletionSuccess : Resource deleted
+        ProcessingDeletion --> DeletionError : Deletion failed
+        DeletionSuccess --> Idle : Remove resource from UI
+        DeletionError --> Idle : Show deletion error
+        
+        -- Bulk Operations --
+        Idle --> BulkOperation : User initiates bulk action
+        BulkOperation --> ValidatingBulkPermissions : Check bulk permissions
+        ValidatingBulkPermissions --> BulkDenied : Insufficient bulk permissions
+        ValidatingBulkPermissions --> ProcessingBulk : Bulk operation allowed
+        BulkDenied --> Idle : Show bulk error
+        ProcessingBulk --> BulkSuccess : Bulk operation completed
+        ProcessingBulk --> BulkPartialSuccess : Some operations failed
+        ProcessingBulk --> BulkError : Bulk operation failed
+        BulkSuccess --> Idle : Update UI with all changes
+        BulkPartialSuccess --> Idle : Show partial success message
+        BulkError --> Idle : Show bulk error
+    }
+}
+
+' Global state transitions
+PageActive --> PageInitialization : Organization context lost
+ExecutingAction --> PageInitialization : Critical permission change
+ProcessingAction --> PageInitialization : Organization access revoked
+
+' Notes
+note right of ValidatingOrgContext : All actions must validate\norganization context to ensure\nproper data isolation
+note right of ValidatingPermissions : Permission checks occur\nat multiple levels for\nsecurity in depth
+note right of LoggingSuccess : All organization operations\nare logged for audit\nand compliance tracking
+note right of OrgContextChanged : Organization switching\ntriggers complete page\nre-initialization
+
+@enduml

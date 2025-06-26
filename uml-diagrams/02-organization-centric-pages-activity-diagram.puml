@@ -1,0 +1,218 @@
+@startuml Organization Centric Pages - Activity Diagram
+!theme plain
+title Organization Centric Pages - Workflow Activities
+
+|User|
+start
+:Navigate to Organization Page;
+
+|Organization Context|
+:Load Organization Context;
+if (Organization Available?) then (no)
+    :Display "No Organization Context";
+    stop
+else (yes)
+endif
+
+:Validate Organization Access;
+if (User Member of Organization?) then (no)
+    :Display "Access Denied";
+    stop
+else (yes)
+endif
+
+|Permission System|
+:Check User Permissions;
+if (Has Required Permissions?) then (no)
+    :Display "Insufficient Permissions";
+    stop
+else (yes)
+endif
+
+|Controller Layer|
+:Initialize Page Controller;
+:Set Organization Scope;
+:Register Organization Actions;
+
+|Data Layer|
+fork
+    :Load Organization Data;
+fork again
+    :Load User Permissions;
+fork again
+    :Initialize Audit Context;
+end fork
+
+|UI Layer|
+:Render Page Components;
+:Display Organization Header;
+:Show Available Actions;
+
+|User|
+repeat
+    :Select Action;
+    
+    |Permission System|
+    :Validate Action Permissions;
+    if (Action Permitted?) then (no)
+        :Display Permission Error;
+    else (yes)
+        |Organization Context|
+        :Validate Organization Context;
+        if (Organization Context Valid?) then (no)
+            :Display Context Error;
+        else (yes)
+            |Controller Layer|
+            :Execute Action;
+            
+            switch (Action Type)
+            case (View Data)
+                |Data Layer|
+                :Query Organization Database;
+                :Apply Organization Filter;
+                :Return Scoped Results;
+                
+            case (Create Resource)
+                |Data Layer|
+                :Validate Resource Data;
+                :Set Organization ID;
+                :Create Resource;
+                :Log Creation;
+                
+            case (Update Resource)
+                |Data Layer|
+                :Validate Resource Ownership;
+                :Check Organization Scope;
+                :Update Resource;
+                :Log Update;
+                
+            case (Delete Resource)
+                |Data Layer|
+                :Validate Delete Permissions;
+                :Check Organization Scope;
+                :Confirm Deletion;
+                :Delete Resource;
+                :Log Deletion;
+                
+            case (Invite User)
+                |Data Layer|
+                :Validate Email;
+                :Check Organization Limits;
+                :Create Invitation;
+                :Send Invitation Email;
+                :Log Invitation;
+                
+            case (Manage Roles)
+                |Data Layer|
+                :Validate Role Permissions;
+                :Check Organization Scope;
+                :Update User Roles;
+                :Log Role Change;
+                
+            case (Bulk Operation)
+                |Data Layer|
+                :Validate Bulk Permissions;
+                :Process Items in Batches;
+                fork
+                    :Update Item 1;
+                fork again
+                    :Update Item 2;
+                fork again
+                    :Update Item N;
+                end fork
+                :Aggregate Results;
+                :Log Bulk Operation;
+                
+            case (Export Data)
+                |Data Layer|
+                :Validate Export Permissions;
+                :Query Organization Data;
+                :Apply Security Filters;
+                :Generate Export File;
+                :Log Export;
+                
+            endswitch
+            
+            |Audit System|
+            if (Action Successful?) then (yes)
+                :Log Success;
+                :Update Metrics;
+            else (no)
+                :Log Error;
+                :Record Failure Details;
+            endif
+            
+            |UI Layer|
+            :Update Display;
+            :Show Result Message;
+        endif
+    endif
+    
+    |Organization Context|
+    fork
+        :Monitor Organization Changes;
+        if (Organization Changed?) then (yes)
+            :Reload Organization Context;
+            :Refresh Page Data;
+        endif
+    fork again
+        :Monitor Permission Changes;
+        if (Permissions Changed?) then (yes)
+            :Reload User Permissions;
+            :Update UI Elements;
+        endif
+    fork again
+        :Monitor Data Changes;
+        if (Data Updated?) then (yes)
+            :Refresh Affected Components;
+        endif
+    end fork
+    
+repeat while (Continue Using Page?) is (yes)
+
+|User|
+:Exit Page;
+
+|Audit System|
+:Log Session End;
+:Record Usage Statistics;
+
+|Organization Context|
+:Clean Up Context;
+:Save State;
+
+stop
+
+note right of "Validate Organization Context"
+    Organization context validation:
+    - Current organization exists
+    - User is member of organization
+    - Organization is active
+    - User has valid session
+end note
+
+note right of "Apply Organization Filter"
+    All database queries include:
+    - WHERE organizationId = currentOrg.id
+    - ACL-based filtering
+    - Permission-based field filtering
+    - Data isolation enforcement
+end note
+
+note right of "Process Items in Batches"
+    Bulk operations:
+    - Process in small batches
+    - Validate each item individually
+    - Maintain transaction integrity
+    - Provide progress feedback
+end note
+
+note right of "Monitor Organization Changes"
+    Real-time monitoring:
+    - Organization membership changes
+    - Permission updates
+    - Organization settings changes
+    - Data synchronization
+end note
+
+@enduml

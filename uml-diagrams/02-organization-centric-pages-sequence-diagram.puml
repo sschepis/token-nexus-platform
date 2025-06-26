@@ -1,0 +1,191 @@
+@startuml Organization Centric Pages - Sequence Diagram
+!theme plain
+title Organization Centric Pages - User Management Flow
+
+actor "Organization User" as User
+participant "OrganizationUsersPage" as Page
+participant "useOrganization" as OrgHook
+participant "usePermission" as PermHook
+participant "OrganizationUsersPageController" as Controller
+participant "OrganizationDataService" as DataService
+participant "ApiService" as API
+participant "AuditLogger" as Audit
+database "Organization Database" as DB
+
+== Page Initialization ==
+User -> Page: Access Organization Users Page
+Page -> OrgHook: getCurrentOrg()
+OrgHook -> OrgHook: Check organization context
+OrgHook --> Page: currentOrg or loading state
+
+alt Organization Context Available
+    Page -> PermHook: checkAnyPermission(['org_admin', 'user_manager', 'users:read'])
+    PermHook -> PermHook: Validate user permissions
+    PermHook --> Page: Permission result
+    
+    alt Has Required Permissions
+        Page -> Controller: Initialize controller
+        Controller -> Controller: Set organizationScoped: true
+        Controller -> Controller: Register organization actions
+        Controller --> Page: Controller ready
+        
+        Page -> Page: Set canViewUsers = true
+        Page -> Page: Trigger loadUsers()
+    else Insufficient Permissions
+        Page -> Page: Display "Access Denied" message
+        Page -> Page: Set canViewUsers = false
+    end
+else No Organization Context
+    Page -> Page: Display "No organization context" message
+end
+
+== Data Loading ==
+Page -> Controller: executeAction('viewUsers', {orgId: currentOrg.id})
+Controller -> Controller: validateOrganizationContext(context)
+
+alt Organization Context Valid
+    Controller -> Audit: logAction('viewUsers', context)
+    Controller -> DataService: fetchUsers(orgId, filters)
+    DataService -> DataService: validateOrgContext(orgId)
+    DataService -> API: getOrgUsers({orgId, ...filters})
+    
+    note right of API: Organization-scoped query:\n- WHERE organizationId = orgId\n- Apply user permissions\n- Include ACL filtering
+    
+    API -> DB: Query users with org scope
+    DB --> API: Organization users data
+    API --> DataService: ApiResponse with users
+    DataService --> Controller: User array
+    
+    Controller -> Audit: logAction('viewUsers', 'success')
+    Controller --> Page: ActionResult with users
+    Page -> Page: Update users state
+    Page -> Page: Render user table
+    
+else Invalid Organization Context
+    Controller -> Audit: logAction('viewUsers', 'failed', 'invalid_org_context')
+    Controller --> Page: ActionResult with error
+    Page -> Page: Display error message
+end
+
+== User Invitation Flow ==
+User -> Page: Click "Invite User" button
+Page -> PermHook: hasPermission('org_admin') || hasPermission('user_manager')
+
+alt Has Invite Permission
+    Page -> Page: Open InviteUserModal
+    User -> Page: Fill invitation form (email, role)
+    User -> Page: Submit invitation
+    
+    Page -> Controller: executeAction('inviteUser', {orgId, email, role})
+    Controller -> Controller: validateOrganizationContext(context)
+    Controller -> PermHook: validatePermission('user_manager')
+    
+    alt Permission Valid
+        Controller -> Audit: logAction('inviteUser', context)
+        Controller -> DataService: inviteUser(orgId, userData)
+        DataService -> API: inviteUser({orgId, email, role})
+        
+        API -> DB: Create user invitation
+        API -> API: Send invitation email
+        DB --> API: Invitation created
+        API --> DataService: Success response
+        DataService --> Controller: User invitation data
+        
+        Controller -> Audit: logAction('inviteUser', 'success', {email, role})
+        Controller --> Page: ActionResult success
+        Page -> Page: Close modal
+        Page -> Page: Show success toast
+        Page -> Controller: executeAction('viewUsers') // Refresh list
+        
+    else Permission Denied
+        Controller -> Audit: logAction('inviteUser', 'failed', 'insufficient_permissions')
+        Controller --> Page: ActionResult with error
+        Page -> Page: Show error toast
+    end
+    
+else No Invite Permission
+    Page -> Page: Button disabled/hidden
+end
+
+== User Role Management ==
+User -> Page: Click "Manage Roles" for user
+Page -> PermHook: hasPermission('org_admin')
+
+alt Has Admin Permission
+    Page -> Controller: executeAction('manageUserRoles', {orgId, userId})
+    Controller -> Controller: validateOrganizationContext(context)
+    Controller -> Audit: logAction('manageUserRoles', context)
+    
+    Controller -> DataService: getUserRoles(orgId, userId)
+    DataService -> API: getOrgUserRoles({orgId, userId})
+    API -> DB: Query user roles in organization
+    DB --> API: User roles data
+    API --> DataService: Roles response
+    DataService --> Controller: User roles
+    
+    Controller --> Page: ActionResult with roles
+    Page -> Page: Open role management modal
+    
+    User -> Page: Update user roles
+    User -> Page: Save changes
+    
+    Page -> Controller: executeAction('updateUserRoles', {orgId, userId, roles})
+    Controller -> Audit: logAction('updateUserRoles', context)
+    Controller -> DataService: updateUserRoles(orgId, userId, roles)
+    DataService -> API: updateOrgUserRoles({orgId, userId, roles})
+    API -> DB: Update user roles
+    DB --> API: Success
+    API --> DataService: Success response
+    DataService --> Controller: Updated user data
+    
+    Controller -> Audit: logAction('updateUserRoles', 'success')
+    Controller --> Page: ActionResult success
+    Page -> Page: Update user in table
+    Page -> Page: Show success message
+    
+else No Admin Permission
+    Page -> Page: Show "Insufficient permissions" message
+end
+
+== User Removal ==
+User -> Page: Click "Remove User"
+Page -> PermHook: hasPermission('org_admin')
+
+alt Has Admin Permission
+    Page -> Page: Show confirmation dialog
+    User -> Page: Confirm removal
+    
+    Page -> Controller: executeAction('removeUser', {orgId, userId, reason})
+    Controller -> Controller: validateOrganizationContext(context)
+    Controller -> Audit: logAction('removeUser', context, {userId, reason})
+    
+    Controller -> DataService: removeUser(orgId, userId)
+    DataService -> API: removeOrgUser({orgId, userId})
+    API -> DB: Remove user from organization
+    DB --> API: Success
+    API --> DataService: Success response
+    DataService --> Controller: Removal confirmation
+    
+    Controller -> Audit: logAction('removeUser', 'success', {userId})
+    Controller --> Page: ActionResult success
+    Page -> Page: Remove user from table
+    Page -> Page: Show success message
+    
+else No Admin Permission
+    Page -> Page: Show "Insufficient permissions" message
+end
+
+== Real-time Updates ==
+loop Organization Context Changes
+    OrgHook -> OrgHook: Monitor organization changes
+    OrgHook -> Page: Organization updated
+    Page -> Page: Refresh data if needed
+end
+
+loop Permission Changes
+    PermHook -> PermHook: Monitor permission changes
+    PermHook -> Page: Permissions updated
+    Page -> Page: Update UI based on new permissions
+end
+
+@enduml

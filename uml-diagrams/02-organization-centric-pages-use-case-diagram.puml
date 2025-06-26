@@ -1,0 +1,260 @@
+@startuml Organization Centric Pages - Use Case Diagram
+!theme plain
+title Organization Centric Pages - Use Case Diagram
+
+left to right direction
+
+' Actors
+actor "Organization Admin" as OrgAdmin
+actor "User Manager" as UserMgr
+actor "Organization Member" as OrgMember
+actor "Developer" as Dev
+actor "Viewer" as Viewer
+actor "AI Assistant" as AI
+actor "System" as System
+
+' Actor relationships
+OrgAdmin --|> UserMgr : is a
+OrgAdmin --|> OrgMember : is a
+UserMgr --|> OrgMember : is a
+Dev --|> OrgMember : is a
+Viewer --|> OrgMember : is a
+
+' System boundary
+rectangle "Token Nexus Platform - Organization Centric Pages" {
+    
+    ' Organization Context Management
+    package "Organization Context" {
+        usecase "Switch Organization" as UC1
+        usecase "View Organization Details" as UC2
+        usecase "Validate Organization Access" as UC3
+        usecase "Monitor Organization Changes" as UC4
+    }
+    
+    ' User Management Use Cases
+    package "User Management" {
+        usecase "View Organization Users" as UC5
+        usecase "Search Users" as UC6
+        usecase "Invite User to Organization" as UC7
+        usecase "Remove User from Organization" as UC8
+        usecase "Manage User Roles" as UC9
+        usecase "View User Activity" as UC10
+        usecase "Bulk User Operations" as UC11
+        usecase "Export User Data" as UC12
+    }
+    
+    ' Permission Management Use Cases
+    package "Permission Management" {
+        usecase "Assign User Permissions" as UC13
+        usecase "Revoke User Permissions" as UC14
+        usecase "View Permission Matrix" as UC15
+        usecase "Create Custom Roles" as UC16
+        usecase "Manage Role Hierarchy" as UC17
+    }
+    
+    ' Organization Settings Use Cases
+    package "Organization Settings" {
+        usecase "View Organization Settings" as UC18
+        usecase "Update Organization Profile" as UC19
+        usecase "Configure Organization Policies" as UC20
+        usecase "Manage Integrations" as UC21
+        usecase "Configure Billing Settings" as UC22
+        usecase "Manage API Keys" as UC23
+    }
+    
+    ' Data Management Use Cases
+    package "Data Management" {
+        usecase "View Organization Data" as UC24
+        usecase "Create Organization Resources" as UC25
+        usecase "Update Organization Resources" as UC26
+        usecase "Delete Organization Resources" as UC27
+        usecase "Export Organization Data" as UC28
+        usecase "Import Data" as UC29
+        usecase "Manage Data Retention" as UC30
+    }
+    
+    ' Collaboration Use Cases
+    package "Collaboration" {
+        usecase "Create Team Workspaces" as UC31
+        usecase "Manage Project Access" as UC32
+        usecase "Share Resources" as UC33
+        usecase "Collaborate on Documents" as UC34
+        usecase "Manage Team Communications" as UC35
+    }
+    
+    ' Monitoring & Analytics Use Cases
+    package "Monitoring & Analytics" {
+        usecase "View Organization Analytics" as UC36
+        usecase "Monitor User Activity" as UC37
+        usecase "Track Resource Usage" as UC38
+        usecase "Generate Reports" as UC39
+        usecase "Set Up Alerts" as UC40
+        usecase "View Audit Logs" as UC41
+    }
+    
+    ' AI Integration Use Cases
+    package "AI Integration" {
+        usecase "Execute AI Actions" as UC42
+        usecase "Query Organization Data" as UC43
+        usecase "Generate Insights" as UC44
+        usecase "Automate Workflows" as UC45
+        usecase "Natural Language Commands" as UC46
+    }
+    
+    ' Security & Compliance Use Cases
+    package "Security & Compliance" {
+        usecase "Enforce Security Policies" as UC47
+        usecase "Monitor Security Events" as UC48
+        usecase "Manage Access Controls" as UC49
+        usecase "Generate Compliance Reports" as UC50
+        usecase "Audit User Actions" as UC51
+    }
+}
+
+' Organization Admin use cases
+OrgAdmin --> UC1
+OrgAdmin --> UC2
+OrgAdmin --> UC5
+OrgAdmin --> UC6
+OrgAdmin --> UC7
+OrgAdmin --> UC8
+OrgAdmin --> UC9
+OrgAdmin --> UC10
+OrgAdmin --> UC11
+OrgAdmin --> UC12
+OrgAdmin --> UC13
+OrgAdmin --> UC14
+OrgAdmin --> UC15
+OrgAdmin --> UC16
+OrgAdmin --> UC17
+OrgAdmin --> UC18
+OrgAdmin --> UC19
+OrgAdmin --> UC20
+OrgAdmin --> UC21
+OrgAdmin --> UC22
+OrgAdmin --> UC23
+OrgAdmin --> UC24
+OrgAdmin --> UC25
+OrgAdmin --> UC26
+OrgAdmin --> UC27
+OrgAdmin --> UC28
+OrgAdmin --> UC29
+OrgAdmin --> UC30
+OrgAdmin --> UC31
+OrgAdmin --> UC32
+OrgAdmin --> UC33
+OrgAdmin --> UC36
+OrgAdmin --> UC37
+OrgAdmin --> UC38
+OrgAdmin --> UC39
+OrgAdmin --> UC40
+OrgAdmin --> UC41
+OrgAdmin --> UC47
+OrgAdmin --> UC48
+OrgAdmin --> UC49
+OrgAdmin --> UC50
+OrgAdmin --> UC51
+
+' User Manager use cases
+UserMgr --> UC1
+UserMgr --> UC2
+UserMgr --> UC5
+UserMgr --> UC6
+UserMgr --> UC7
+UserMgr --> UC8
+UserMgr --> UC9
+UserMgr --> UC10
+UserMgr --> UC11
+UserMgr --> UC13
+UserMgr --> UC14
+UserMgr --> UC15
+UserMgr --> UC37
+UserMgr --> UC41
+
+' Organization Member use cases
+OrgMember --> UC1
+OrgMember --> UC2
+OrgMember --> UC5
+OrgMember --> UC6
+OrgMember --> UC24
+OrgMember --> UC33
+OrgMember --> UC34
+OrgMember --> UC35
+OrgMember --> UC42
+OrgMember --> UC43
+OrgMember --> UC46
+
+' Developer use cases
+Dev --> UC25
+Dev --> UC26
+Dev --> UC27
+Dev --> UC28
+Dev --> UC31
+Dev --> UC32
+Dev --> UC36
+Dev --> UC44
+Dev --> UC45
+
+' Viewer use cases (read-only)
+Viewer --> UC24
+Viewer --> UC36
+Viewer --> UC43
+
+' AI Assistant interactions
+AI --> UC42
+AI --> UC43
+AI --> UC44
+AI --> UC45
+AI --> UC46
+
+' System interactions
+System --> UC3
+System --> UC4
+System --> UC47
+System --> UC48
+System --> UC51
+
+' Include relationships (common dependencies)
+UC5 .> UC3 : <<include>>
+UC6 .> UC3 : <<include>>
+UC7 .> UC3 : <<include>>
+UC8 .> UC3 : <<include>>
+UC9 .> UC3 : <<include>>
+UC10 .> UC3 : <<include>>
+UC11 .> UC3 : <<include>>
+UC12 .> UC3 : <<include>>
+
+UC13 .> UC15 : <<include>>
+UC14 .> UC15 : <<include>>
+UC16 .> UC15 : <<include>>
+UC17 .> UC15 : <<include>>
+
+UC18 .> UC3 : <<include>>
+UC19 .> UC3 : <<include>>
+UC20 .> UC3 : <<include>>
+UC21 .> UC3 : <<include>>
+UC22 .> UC3 : <<include>>
+UC23 .> UC3 : <<include>>
+
+UC24 .> UC3 : <<include>>
+UC25 .> UC3 : <<include>>
+UC26 .> UC3 : <<include>>
+UC27 .> UC3 : <<include>>
+UC28 .> UC3 : <<include>>
+UC29 .> UC3 : <<include>>
+UC30 .> UC3 : <<include>>
+
+' Extend relationships (optional features)
+UC4 .> UC1 : <<extend>>
+UC37 .> UC10 : <<extend>>
+UC44 .> UC36 : <<extend>>
+UC45 .> UC42 : <<extend>>
+UC48 .> UC41 : <<extend>>
+
+' Notes
+note right of UC3 : All organization operations\nrequire valid organization\ncontext and membership
+note right of UC42 : AI assistant can execute\nany action the user has\npermissions for
+note right of UC47 : Security policies are\nenforced at multiple\nlayers automatically
+note right of UC51 : All user actions are\nautomatically audited\nfor compliance
+
+@enduml

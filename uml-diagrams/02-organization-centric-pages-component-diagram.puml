@@ -1,0 +1,173 @@
+@startuml Organization Centric Pages - Component Diagram
+!theme plain
+title Organization Centric Pages - Architecture Components
+
+package "Frontend Layer" {
+    component [Organization Users Page] as OUP
+    component [Organization Settings Page] as OSP
+    component [User Table Component] as UTC
+    component [Invite User Modal] as IUM
+    component [Role Management Modal] as RMM
+    component [Organization Selector] as OS
+    
+    OUP --> UTC : renders
+    OUP --> IUM : opens
+    OUP --> RMM : opens
+    OSP --> OS : includes
+}
+
+package "Hook Layer" {
+    component [usePageController] as UPC
+    component [useOrganization] as UO
+    component [usePermission] as UP
+    component [useAppSelector] as UAS
+    component [useAppDispatch] as UAD
+    
+    OUP --> UPC : uses
+    OUP --> UO : uses
+    OUP --> UP : uses
+    OUP --> UAS : uses
+    OUP --> UAD : uses
+    OSP --> UPC : uses
+    OSP --> UO : uses
+    OSP --> UP : uses
+}
+
+package "Controller Layer" {
+    component [Base Page Controller] as BPC
+    component [Organization Users Controller] as OUC
+    component [Organization Settings Controller] as OSC
+    component [Action Registry] as AR
+    
+    BPC <|-- OUC : extends
+    BPC <|-- OSC : extends
+    UPC --> OUC : manages
+    UPC --> OSC : manages
+    OUC --> AR : registers with
+    OSC --> AR : registers with
+}
+
+package "Organization Context" {
+    component [Organization Provider] as OP
+    component [Organization Context] as OC
+    component [Organization Validator] as OV
+    component [Multi-Org Manager] as MOM
+    
+    UO --> OP : uses
+    OP --> OC : provides
+    OC --> OV : validates with
+    OP --> MOM : manages
+}
+
+package "Permission System" {
+    component [Permission Provider] as PP
+    component [Permission Context] as PC
+    component [Role Manager] as RM
+    component [ACL Engine] as ACL
+    
+    UP --> PP : uses
+    PP --> PC : provides
+    PC --> RM : manages
+    PC --> ACL : enforces
+}
+
+package "Data Management" {
+    component [Organization Data Service] as ODS
+    component [API Service] as AS
+    component [Redux Store] as RS
+    component [React Query Cache] as RQC
+    
+    OUC --> ODS : calls
+    OSC --> ODS : calls
+    ODS --> AS : uses
+    UAS --> RS : reads from
+    UAD --> RS : dispatches to
+    ODS --> RQC : caches with
+}
+
+package "Security Layer" {
+    component [Organization Security] as OSec
+    component [Permission Validator] as PV
+    component [Input Sanitizer] as IS
+    component [Audit Logger] as AL
+    
+    OV --> OSec : validates
+    PC --> PV : validates
+    ODS --> IS : sanitizes with
+    OUC --> AL : logs to
+    OSC --> AL : logs to
+}
+
+package "AI Integration" {
+    component [AI Assistant Service] as AIS
+    component [Organization AI Actions] as OAA
+    component [Action Executor] as AE
+    
+    AR --> AIS : integrates
+    AIS --> OAA : provides
+    OAA --> AE : executes through
+    AE --> OUC : calls
+    AE --> OSC : calls
+}
+
+package "Backend Services" {
+    component [Parse Server] as PS
+    component [Cloud Functions] as CF
+    component [Database] as DB
+    component [Email Service] as ES
+    
+    AS --> PS : calls
+    PS --> CF : executes
+    CF --> DB : queries
+    CF --> ES : sends emails
+}
+
+package "External Systems" {
+    component [Authentication Service] as AuthS
+    component [Notification Service] as NS
+    component [Analytics Service] as AnS
+    component [Billing Service] as BS
+    
+    PP --> AuthS : authenticates
+    AL --> NS : notifies
+    AL --> AnS : tracks
+    ODS --> BS : integrates
+}
+
+' Organization boundaries
+rectangle "Organization Isolation Boundary" {
+    OC
+    OV
+    OSec
+    ODS
+    DB
+}
+
+rectangle "Permission Boundary" {
+    PC
+    PV
+    ACL
+    RM
+}
+
+rectangle "Data Security Boundary" {
+    IS
+    AL
+    OSec
+    PV
+}
+
+' Data flow connections
+OUC ..> DB : org-scoped queries
+OSC ..> DB : org-scoped updates
+AL ..> NS : security alerts
+AIS ..> AR : action discovery
+RQC ..> AS : cached requests
+
+' Notes
+note right of OC : Organization context ensures\nall operations are scoped\nto current organization
+note right of PV : Permission validation occurs\nat multiple layers for\nsecurity in depth
+note right of AL : All organization operations\nare logged for audit\nand compliance
+note right of AIS : AI assistant can execute\nall registered organization\nactions with proper context
+
+@enduml
