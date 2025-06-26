@@ -1,0 +1,178 @@
+@startuml System Level Pages - Activity Diagram
+!theme plain
+title System Level Pages - Workflow Activities
+
+|System Admin|
+start
+:Access System Page;
+
+|Security Layer|
+:Validate System Admin Status;
+if (Is System Admin?) then (no)
+    :Log Access Attempt;
+    :Display Access Denied;
+    stop
+else (yes)
+endif
+
+:Check MFA Status;
+if (MFA Verified?) then (no)
+    :Prompt for MFA;
+    :Verify MFA Token;
+    if (MFA Valid?) then (no)
+        :Log Security Event;
+        :Lock Account;
+        stop
+    else (yes)
+    endif
+else (yes)
+endif
+
+:Validate Session;
+if (Session Valid?) then (no)
+    :Clear Session;
+    :Redirect to Login;
+    stop
+else (yes)
+endif
+
+:Check Permissions;
+if (Has Required Permissions?) then (no)
+    :Log Permission Denial;
+    :Display Insufficient Permissions;
+    stop
+else (yes)
+endif
+
+|Controller Layer|
+:Initialize System Controller;
+:Register System Actions;
+:Set Security Requirements;
+
+|Data Layer|
+fork
+    :Load System Metrics;
+fork again
+    :Load Organization Data;
+fork again
+    :Initialize Health Monitoring;
+end fork
+
+|UI Layer|
+:Render System Page;
+:Display Security Indicators;
+:Show Platform Statistics;
+
+|System Admin|
+repeat
+    :Select Action;
+    
+    |Controller Layer|
+    :Validate Action Permissions;
+    if (Action Permitted?) then (no)
+        :Log Unauthorized Attempt;
+        :Display Error Message;
+    else (yes)
+        |Audit Layer|
+        :Log Action Start;
+        :Record Context Data;
+        
+        |Data Layer|
+        switch (Action Type)
+        case (View Data)
+            :Query Cross-Org Database;
+            :Aggregate Results;
+        case (Modify Data)
+            :Validate Modification;
+            :Execute Changes;
+            :Update Database;
+        case (Export Data)
+            :Generate Export;
+            :Apply Security Filters;
+            :Create Download;
+        case (Bulk Operation)
+            :Validate Bulk Request;
+            :Process in Batches;
+            :Monitor Progress;
+        endswitch
+        
+        |Audit Layer|
+        if (Action Successful?) then (yes)
+            :Log Success;
+            :Record Metrics;
+        else (no)
+            :Log Error;
+            :Record Failure Details;
+        endif
+        
+        |UI Layer|
+        :Update Display;
+        :Show Result Message;
+    endif
+    
+    |Monitoring|
+    fork
+        :Check System Health;
+        if (Health Issues?) then (yes)
+            :Display Health Alert;
+        endif
+    fork again
+        :Monitor Security Events;
+        if (Security Event?) then (yes)
+            :Display Security Alert;
+            :Log Security Event;
+        endif
+    fork again
+        :Check Session Status;
+        if (Session Near Expiry?) then (yes)
+            :Show Session Warning;
+            if (User Active?) then (yes)
+                :Extend Session;
+            else (no)
+                :Force Logout;
+                stop
+            endif
+        endif
+    end fork
+    
+repeat while (Continue Using Page?) is (yes)
+
+|System Admin|
+:Exit System Page;
+
+|Audit Layer|
+:Log Session End;
+:Record Usage Statistics;
+
+|Security Layer|
+:Clear Sensitive Data;
+:Update Last Activity;
+
+stop
+
+note right of "Validate System Admin Status"
+    Enhanced security validation:
+    - System admin flag
+    - Active permissions
+    - Session validity
+    - IP restrictions
+end note
+
+note right of "Log Action Start"
+    Comprehensive audit logging:
+    - User context
+    - Action details
+    - Risk assessment
+    - Timestamp
+    - IP address
+end note
+
+note right of "Query Cross-Org Database"
+    Cross-organization access:
+    - Multi-tenant queries
+    - Data aggregation
+    - Security filtering
+    - Performance optimization
+end note
+
+@enduml

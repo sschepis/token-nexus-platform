@@ -1,0 +1,115 @@
+@startuml System Level Pages - Sequence Diagram
+!theme plain
+title System Level Pages - User Management Flow
+
+actor "System Admin" as Admin
+participant "SystemUsersPage" as Page
+participant "SystemAuth" as Auth
+participant "SystemUsersPageController" as Controller
+participant "SystemDataService" as DataService
+participant "AuditService" as Audit
+participant "SystemApiService" as API
+database "Cross-Org Database" as DB
+
+== Authentication & Authorization ==
+Admin -> Page: Access System Users Page
+Page -> Auth: validateSystemAccess()
+Auth -> Auth: Check isSystemAdmin
+Auth -> Auth: Check MFA verification
+Auth -> Auth: Check session timeout
+Auth --> Page: Access granted
+
+== Page Initialization ==
+Page -> Controller: Initialize controller
+Controller -> Controller: Register system actions
+Controller -> Controller: Set security requirements
+Controller --> Page: Controller ready
+
+== Data Loading ==
+Page -> Controller: executeAction('viewAllUsers', filters)
+Controller -> Controller: validateSystemAccess(context)
+
+alt Access Validation Success
+    Controller -> Audit: logSystemAction(auditData)
+    Controller -> DataService: getAllUsers(filters)
+    DataService -> API: POST /system/users
+    
+    note right of API: Enhanced security headers:\n- X-System-Admin: true\n- X-MFA-Token: token\n- X-Audit-Context: context
+    
+    API -> DB: Query across all organizations
+    DB --> API: User data with org context
+    API --> DataService: SystemUserResponse
+    DataService --> Controller: User data
+    
+    Controller -> Audit: logSystemAction(success)
+    Controller --> Page: ActionResult with user data
+    Page -> Page: Update UI with users
+    
+else Access Validation Failed
+    Controller -> Audit: logSecurityEvent(access_denied)
+    Controller --> Page: ActionResult with error
+    Page -> Page: Display security error
+end
+
+== User Action - Suspend User ==
+Admin -> Page: Click suspend user
+Page -> Controller: executeAction('suspendUser', {userId, reason})
+Controller -> Controller: validateSystemAccess(context)
+
+alt Validation Success
+    Controller -> Audit: logSystemAction(suspendUser)
+    Controller -> DataService: suspendUser(userId, reason)
+    DataService -> API: POST /system/users/suspend
+    API -> DB: Update user status
+    DB --> API: Success
+    API --> DataService: Success
+    DataService --> Controller: Success
+    
+    Controller -> Audit: logSystemAction(success, high_risk)
+    Controller --> Page: ActionResult success
+    Page -> Page: Show success message
+    Page -> Controller: executeAction('viewAllUsers') // Refresh
+    
+else Validation Failed
+    Controller -> Audit: logSecurityEvent(unauthorized_action)
+    Controller --> Page: ActionResult with error
+    Page -> Page: Show error message
+end
+
+== Export Operation ==
+Admin -> Page: Click export users
+Page -> Controller: executeAction('exportUserData', {format: 'csv'})
+Controller -> Controller: validateSystemAccess(context)
+
+Controller -> Audit: logSystemAction(exportUserData)
+Controller -> DataService: exportAllUsers(format)
+DataService -> API: POST /system/users/export
+API -> DB: Query all user data
+DB --> API: Complete user dataset
+API --> DataService: CSV data
+DataService --> Controller: Export data
+
+Controller -> Audit: logSystemAction(success, medium_risk)
+Controller --> Page: ActionResult with CSV data
+Page -> Page: Trigger file download
+Page -> Page: Show success message
+
+== Real-time Health Monitoring ==
+loop Every 30 seconds
+    Page -> DataService: getSystemHealth()
+    DataService -> API: GET /system/health
+    API -> DB: Check system metrics
+    DB --> API: Health metrics
+    API --> DataService: SystemHealth
+    DataService --> Page: Health status
+    Page -> Page: Update health indicators
+end
+
+== Security Event Monitoring ==
+loop Real-time
+    API -> Page: Security event (SSE)
+    Page -> Page: Display security alert
+    Page -> Audit: Acknowledge security event
+end
+
+@enduml

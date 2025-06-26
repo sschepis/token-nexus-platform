@@ -1,0 +1,241 @@
+@startuml System Level Pages - Class Diagram
+!theme plain
+title System Level Pages - Class Diagram
+
+package "Security Layer" {
+    interface SystemUser {
+        +isAdmin: boolean
+        +systemPermissions: string[]
+        +lastAdminActivity: Date
+        +adminSessionExpiry: Date
+    }
+    
+    class SystemPageContext {
+        +user: SystemUser
+        +mfaVerified: boolean
+        +sessionStartTime: Date
+        +lastActivity: Date
+        +ipAddress: string
+        +userAgent: string
+        +validateSystemAccess(): boolean
+    }
+    
+    enum SystemPermission {
+        SYSTEM_ADMIN
+        PLATFORM_MONITOR
+        USER_MANAGER
+        ORG_MANAGER
+        SECURITY_ADMIN
+        BILLING_ADMIN
+        SUPPORT_ADMIN
+    }
+}
+
+package "Controller Layer" {
+    abstract class BaseSystemController {
+        #pageId: string
+        #pageName: string
+        #description: string
+        #category: string
+        #tags: string[]
+        #permissions: string[]
+        #version: string
+        #systemLevel: boolean
+        #requiresMFA: boolean
+        #auditLevel: string
+        +registerAction(definition, handler): void
+        +executeAction(actionId, params, context): Promise<SystemActionResult>
+        #validateSystemAccess(context): ValidationResult
+        #initializeActions(): void
+    }
+    
+    class SystemUsersPageController extends BaseSystemController {
+        +constructor()
+        #initializeActions(): void
+        -registerViewAllUsersAction(): void
+        -registerSearchUsersAction(): void
+        -registerManageUserSystemRolesAction(): void
+        -registerSuspendUserAction(): void
+        -registerViewUserActivityAction(): void
+        -registerBulkUserOperationsAction(): void
+        -registerExportUserDataAction(): void
+    }
+}
+
+package "Action System" {
+    interface SystemActionDefinition {
+        +id: string
+        +name: string
+        +description: string
+        +category: string
+        +permissions: string[]
+        +requiresMFA: boolean
+        +auditLevel: string
+        +parameters: ActionParameter[]
+        +metadata: ActionMetadata
+    }
+    
+    interface SystemActionContext {
+        +user: SystemUser
+        +mfaVerified: boolean
+        +ipAddress: string
+        +userAgent: string
+        +timestamp: Date
+    }
+    
+    interface SystemActionResult {
+        +success: boolean
+        +data?: any
+        +error?: string
+        +message?: string
+        +metadata: ResultMetadata
+    }
+    
+    class ActionParameter {
+        +name: string
+        +type: string
+        +description: string
+        +required: boolean
+        +defaultValue?: any
+        +validation?: ValidationRules
+        +options?: string[]
+    }
+}
+
+package "Data Layer" {
+    interface SystemDataService {
+        +getAllUsers(filters): Promise<SystemUserResponse>
+        +getAllOrganizations(filters): Promise<OrganizationResponse>
+        +getSystemMetrics(): Promise<SystemMetrics>
+        +getAuditLogs(filters): Promise<AuditLogResponse>
+    }
+    
+    class SystemMetrics {
+        +userMetrics: UserMetrics
+        +organizationMetrics: OrganizationMetrics
+        +platformMetrics: PlatformMetrics
+    }
+    
+    class UserMetrics {
+        +totalUsers: number
+        +activeUsers: number
+        +newUsersToday: number
+        +suspendedUsers: number
+    }
+    
+    class OrganizationMetrics {
+        +totalOrganizations: number
+        +activeOrganizations: number
+        +newOrganizationsToday: number
+    }
+    
+    class PlatformMetrics {
+        +totalApiCalls: number
+        +errorRate: number
+        +averageResponseTime: number
+        +uptime: number
+    }
+}
+
+package "Audit System" {
+    class SystemAuditLog {
+        +id: string
+        +timestamp: Date
+        +userId: string
+        +action: string
+        +resource: string
+        +resourceId?: string
+        +organizationId?: string
+        +ipAddress: string
+        +userAgent: string
+        +mfaVerified: boolean
+        +result: AuditResult
+        +details: Record<string, any>
+        +riskLevel: RiskLevel
+    }
+    
+    enum AuditResult {
+        SUCCESS
+        FAILURE
+        ERROR
+    }
+    
+    enum RiskLevel {
+        LOW
+        MEDIUM
+        HIGH
+        CRITICAL
+    }
+    
+    interface AuditService {
+        +logSystemAction(auditData): Promise<void>
+        +logSecurityEvent(auditData): Promise<void>
+        +logSystemError(auditData): Promise<void>
+    }
+}
+
+package "Component Layer" {
+    class SystemUsersPage {
+        -pageController: SystemUsersPageController
+        -isSystemAdmin: boolean
+        -mfaVerified: boolean
+        -controllerError: string
+        -searchTerm: string
+        -isLoading: boolean
+        -selectedOrganization: string
+        -statusFilter: string
+        +loadUsers(): Promise<void>
+        +handleRefreshUsers(): Promise<void>
+        +handleSuspendUser(userId): Promise<void>
+        +handleExportUsers(): Promise<void>
+        +render(): JSX.Element
+    }
+    
+    class SystemMetricsCard {
+        -healthMetrics: SystemHealth
+        -isHealthy: boolean
+        +render(): JSX.Element
+    }
+}
+
+package "Monitoring" {
+    interface SystemHealth {
+        +overall: string
+        +averageResponseTime: number
+        +errorRate: number
+        +uptime: number
+        +activeSessions: number
+    }
+    
+    class SystemHealthMonitor {
+        +getSystemHealth(): Promise<SystemHealth>
+        +monitorRealTime(): void
+    }
+}
+
+' Relationships
+BaseSystemController --> SystemActionDefinition : registers
+BaseSystemController --> SystemActionContext : uses
+BaseSystemController --> SystemActionResult : returns
+BaseSystemController --> AuditService : logs to
+
+SystemUsersPageController --> SystemDataService : calls
+SystemUsersPageController --> SystemAuditLog : creates
+
+SystemUsersPage --> SystemUsersPageController : uses
+SystemUsersPage --> SystemPageContext : validates
+
+SystemPageContext --> SystemUser : contains
+SystemUser --> SystemPermission : has
+
+SystemMetrics --> UserMetrics : contains
+SystemMetrics --> OrganizationMetrics : contains
+SystemMetrics --> PlatformMetrics : contains
+
+SystemAuditLog --> AuditResult : has
+SystemAuditLog --> RiskLevel : has
+
+SystemMetricsCard --> SystemHealth : displays
+SystemHealthMonitor --> SystemHealth : provides
+
+@enduml

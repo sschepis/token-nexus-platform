@@ -1,0 +1,99 @@
+@startuml System Level Pages - State Diagram
+!theme plain
+title System Level Pages - Security and Lifecycle States
+
+[*] --> PageAccess : User attempts access
+
+state PageAccess {
+    [*] --> CheckingAuth : Validate user
+    CheckingAuth --> AuthFailed : Not system admin
+    CheckingAuth --> MFARequired : System admin but no MFA
+    CheckingAuth --> SessionCheck : System admin + MFA verified
+    
+    AuthFailed --> [*] : Redirect to login
+    MFARequired --> MFAVerification : Prompt for MFA
+    MFAVerification --> MFAFailed : Invalid MFA
+    MFAVerification --> SessionCheck : MFA verified
+    MFAFailed --> [*] : Security lockout
+    
+    SessionCheck --> SessionExpired : Session timeout
+    SessionCheck --> PermissionCheck : Valid session
+    SessionExpired --> [*] : Re-authentication required
+    
+    PermissionCheck --> InsufficientPermissions : Missing required permissions
+    PermissionCheck --> SystemPageReady : All checks passed
+    InsufficientPermissions --> [*] : Access denied
+}
+
+state SystemPageReady {
+    [*] --> InitializingController : Setup page controller
+    InitializingController --> ControllerError : Controller initialization failed
+    InitializingController --> LoadingData : Controller ready
+    ControllerError --> SystemPageReady : Retry initialization
+    
+    LoadingData --> DataLoadError : API/Database error
+    LoadingData --> PageActive : Data loaded successfully
+    DataLoadError --> LoadingData : Retry data load
+    
+    state PageActive {
+        [*] --> Idle : Ready for user interaction
+        
+        Idle --> ExecutingAction : User performs action
+        ExecutingAction --> ValidatingAction : Check permissions for action
+        ValidatingAction --> ActionDenied : Insufficient permissions
+        ValidatingAction --> AuditingAction : Permissions valid
+        ActionDenied --> Idle : Show error message
+        
+        AuditingAction --> ProcessingAction : Log action start
+        ProcessingAction --> ActionSuccess : Action completed
+        ProcessingAction --> ActionError : Action failed
+        ActionSuccess --> LoggingResult : Log success
+        ActionError --> LoggingError : Log error
+        LoggingResult --> Idle : Update UI
+        LoggingError --> Idle : Show error
+        
+        Idle --> RefreshingData : Auto-refresh or manual refresh
+        RefreshingData --> Idle : Data updated
+        
+        Idle --> MonitoringHealth : Health check cycle
+        MonitoringHealth --> HealthAlert : Issues detected
+        MonitoringHealth --> Idle : System healthy
+        HealthAlert --> Idle : Alert displayed
+        
+        -- Security Events --
+        Idle --> SecurityAlert : Security event received
+        SecurityAlert --> Idle : Alert acknowledged
+        
+        -- Session Management --
+        Idle --> SessionWarning : Session near expiry
+        SessionWarning --> SessionRenewal : User activity detected
+        SessionWarning --> SessionExpired : No user activity
+        SessionRenewal --> Idle : Session extended
+    }
+}
+
+state SessionExpired {
+    [*] --> LoggingOut : Clear session data
+    LoggingOut --> AuditingLogout : Log session end
+    AuditingLogout --> [*] : Redirect to login
+}
+
+state SecurityLockout {
+    [*] --> LoggingSecurityEvent : Log security violation
+    LoggingSecurityEvent --> NotifyingAdmins : Send security alerts
+    NotifyingAdmins --> [*] : Account locked
+}
+
+' Transitions from any state
+PageActive --> SessionExpired : Session timeout
+PageActive --> SecurityLockout : Security violation detected
+ExecutingAction --> SecurityLockout : Suspicious activity
+ValidatingAction --> SecurityLockout : Permission escalation attempt
+
+' Notes
+note right of MFAVerification : Multi-factor authentication\nrequired for all system pages
+note right of AuditingAction : All system actions logged\nwith full context and metadata
+note right of MonitoringHealth : Real-time health monitoring\nevery 30 seconds
+note right of SecurityAlert : Real-time security event\nmonitoring via SSE
+
+@enduml

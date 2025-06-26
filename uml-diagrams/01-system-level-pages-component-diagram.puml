@@ -1,0 +1,136 @@
+@startuml System Level Pages - Component Diagram
+!theme plain
+title System Level Pages - Architecture Components
+
+package "Frontend Layer" {
+    component [System Admin Interface] as SAI
+    component [System Users Page] as SUP
+    component [System Metrics Card] as SMC
+    component [Multi-Org Context] as MOC
+    component [Security Validation] as SV
+    
+    SAI --> SUP : renders
+    SAI --> SMC : includes
+    SUP --> MOC : uses
+    SUP --> SV : validates through
+}
+
+package "Controller Layer" {
+    component [Base System Controller] as BSC
+    component [System Users Controller] as SUC
+    component [System Page Controller Hook] as SPCH
+    
+    BSC <|-- SUC : extends
+    SUP --> SPCH : uses
+    SPCH --> SUC : manages
+}
+
+package "Security Layer" {
+    component [System Auth Service] as SAS
+    component [MFA Verification] as MFA
+    component [Permission Manager] as PM
+    component [Session Manager] as SM
+    
+    SV --> SAS : authenticates
+    SAS --> MFA : requires
+    SAS --> PM : checks permissions
+    SAS --> SM : manages sessions
+}
+
+package "Platform Services Layer" {
+    component [System Data Service] as SDS
+    component [System API Service] as SAPIS
+    component [Cross-Org Database Access] as CODA
+    component [System Health Monitor] as SHM
+    
+    SUC --> SDS : calls
+    SDS --> SAPIS : uses
+    SAPIS --> CODA : accesses
+    SMC --> SHM : monitors
+}
+
+package "Audit & Compliance" {
+    component [Audit Service] as AS
+    component [Security Event Monitor] as SEM
+    component [Compliance Logger] as CL
+    
+    SUC --> AS : logs to
+    SAS --> AS : audits
+    AS --> CL : stores
+    SEM --> AS : reports to
+}
+
+package "AI Assistant Integration" {
+    component [AI Assistant Service] as AIS
+    component [System AI Actions] as SAA
+    component [Action Registry] as AR
+    
+    SUC --> AIS : integrates
+    AIS --> SAA : provides
+    SAA --> AR : registers with
+}
+
+package "Data Storage" {
+    database [System Database] as SDB
+    database [Audit Database] as ADB
+    database [Multi-Org Data] as MOD
+    
+    CODA --> SDB : queries
+    CODA --> MOD : accesses
+    AS --> ADB : stores
+}
+
+package "External Systems" {
+    component [Organization Services] as OS
+    component [User Management] as UM
+    component [Billing System] as BS
+    component [Monitoring Tools] as MT
+    
+    SAPIS --> OS : integrates
+    SAPIS --> UM : manages
+    SAPIS --> BS : accesses
+    SHM --> MT : reports to
+}
+
+' Security boundaries
+rectangle "System Admin Security Boundary" {
+    SAI
+    SUP
+    SMC
+    SV
+    BSC
+    SUC
+    SPCH
+}
+
+rectangle "Platform Security Boundary" {
+    SAS
+    MFA
+    PM
+    SM
+    SDS
+    SAPIS
+    CODA
+    SHM
+}
+
+rectangle "Audit Security Boundary" {
+    AS
+    SEM
+    CL
+    ADB
+}
+
+' Data flow connections
+SUC ..> CODA : cross-org queries
+AS ..> SEM : security events
+SHM ..> MT : health metrics
+AIS ..> AR : action definitions
+
+' Notes
+note right of SAI : Requires System Admin\nprivileges and MFA
+note right of CODA : Accesses data across\nall organizations
+note right of AS : All actions logged\nwith full context
+note right of SHM : Real-time monitoring\nevery 30 seconds
+
+@enduml

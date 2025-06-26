@@ -1,0 +1,222 @@
+@startuml System Level Pages - Use Case Diagram
+!theme plain
+title System Level Pages - Use Case Diagram
+
+left to right direction
+
+' Actors
+actor "System Administrator" as SysAdmin
+actor "Platform Monitor" as Monitor
+actor "Security Admin" as SecAdmin
+actor "User Manager" as UserMgr
+actor "Organization Manager" as OrgMgr
+actor "AI Assistant" as AI
+actor "Audit System" as AuditSys
+actor "External Systems" as ExtSys
+
+' System boundary
+rectangle "Token Nexus Platform - System Level Pages" {
+    
+    ' Authentication & Authorization Use Cases
+    package "Security & Access Control" {
+        usecase "Authenticate with MFA" as UC1
+        usecase "Validate System Permissions" as UC2
+        usecase "Manage Session Security" as UC3
+        usecase "Monitor Security Events" as UC4
+        usecase "Enforce Access Policies" as UC5
+    }
+    
+    ' User Management Use Cases
+    package "User Administration" {
+        usecase "View All Platform Users" as UC6
+        usecase "Search Users Across Organizations" as UC7
+        usecase "Manage User System Roles" as UC8
+        usecase "Suspend/Activate Users" as UC9
+        usecase "View User Activity Logs" as UC10
+        usecase "Export User Data" as UC11
+        usecase "Bulk User Operations" as UC12
+    }
+    
+    ' Organization Management Use Cases
+    package "Organization Administration" {
+        usecase "View All Organizations" as UC13
+        usecase "Manage Organization Settings" as UC14
+        usecase "Monitor Organization Health" as UC15
+        usecase "Configure Organization Policies" as UC16
+        usecase "View Cross-Org Analytics" as UC17
+    }
+    
+    ' System Monitoring Use Cases
+    package "Platform Monitoring" {
+        usecase "Monitor System Health" as UC18
+        usecase "View Performance Metrics" as UC19
+        usecase "Track Resource Usage" as UC20
+        usecase "Generate System Reports" as UC21
+        usecase "Configure Alerts" as UC22
+        usecase "View Real-time Dashboard" as UC23
+    }
+    
+    ' Audit & Compliance Use Cases
+    package "Audit & Compliance" {
+        usecase "View Audit Logs" as UC24
+        usecase "Generate Compliance Reports" as UC25
+        usecase "Track Security Events" as UC26
+        usecase "Monitor Data Access" as UC27
+        usecase "Export Audit Data" as UC28
+    }
+    
+    ' AI Integration Use Cases
+    package "AI Assistant Integration" {
+        usecase "Execute AI-Powered Actions" as UC29
+        usecase "Analyze User Patterns" as UC30
+        usecase "Detect System Anomalies" as UC31
+        usecase "Generate Insights" as UC32
+        usecase "Automate Routine Tasks" as UC33
+    }
+    
+    ' Data Management Use Cases
+    package "Cross-Organization Data" {
+        usecase "Access Multi-Org Data" as UC34
+        usecase "Aggregate Platform Statistics" as UC35
+        usecase "Synchronize Data Sources" as UC36
+        usecase "Manage Data Retention" as UC37
+        usecase "Ensure Data Consistency" as UC38
+    }
+}
+
+' Actor relationships and generalizations
+SysAdmin --|> Monitor : is a
+SysAdmin --|> SecAdmin : is a
+SysAdmin --|> UserMgr : is a
+SysAdmin --|> OrgMgr : is a
+
+' System Administrator use cases
+SysAdmin --> UC1
+SysAdmin --> UC2
+SysAdmin --> UC3
+SysAdmin --> UC6
+SysAdmin --> UC7
+SysAdmin --> UC8
+SysAdmin --> UC9
+SysAdmin --> UC10
+SysAdmin --> UC11
+SysAdmin --> UC12
+SysAdmin --> UC13
+SysAdmin --> UC14
+SysAdmin --> UC15
+SysAdmin --> UC16
+SysAdmin --> UC17
+SysAdmin --> UC18
+SysAdmin --> UC19
+SysAdmin --> UC20
+SysAdmin --> UC21
+SysAdmin --> UC22
+SysAdmin --> UC23
+SysAdmin --> UC24
+SysAdmin --> UC25
+SysAdmin --> UC26
+SysAdmin --> UC27
+SysAdmin --> UC28
+SysAdmin --> UC29
+SysAdmin --> UC34
+SysAdmin --> UC35
+SysAdmin --> UC36
+SysAdmin --> UC37
+SysAdmin --> UC38
+
+' Platform Monitor use cases
+Monitor --> UC1
+Monitor --> UC2
+Monitor --> UC18
+Monitor --> UC19
+Monitor --> UC20
+Monitor --> UC21
+Monitor --> UC23
+
+' Security Admin use cases
+SecAdmin --> UC1
+SecAdmin --> UC2
+SecAdmin --> UC4
+SecAdmin --> UC5
+SecAdmin --> UC24
+SecAdmin --> UC26
+SecAdmin --> UC27
+
+' User Manager use cases
+UserMgr --> UC1
+UserMgr --> UC2
+UserMgr --> UC6
+UserMgr --> UC7
+UserMgr --> UC8
+UserMgr --> UC9
+UserMgr --> UC10
+UserMgr --> UC11
+
+' Organization Manager use cases
+OrgMgr --> UC1
+OrgMgr --> UC2
+OrgMgr --> UC13
+OrgMgr --> UC14
+OrgMgr --> UC15
+OrgMgr --> UC16
+OrgMgr --> UC17
+
+' AI Assistant interactions
+AI --> UC29
+AI --> UC30
+AI --> UC31
+AI --> UC32
+AI --> UC33
+
+' System interactions
+AuditSys --> UC24
+AuditSys --> UC25
+AuditSys --> UC26
+AuditSys --> UC27
+AuditSys --> UC28
+
+ExtSys --> UC34
+ExtSys --> UC36
+ExtSys --> UC38
+
+' Include relationships
+UC6 .> UC2 : <<include>>
+UC7 .> UC2 : <<include>>
+UC8 .> UC2 : <<include>>
+UC9 .> UC2 : <<include>>
+UC10 .> UC2 : <<include>>
+UC11 .> UC2 : <<include>>
+UC12 .> UC2 : <<include>>
+
+UC13 .> UC2 : <<include>>
+UC14 .> UC2 : <<include>>
+UC15 .> UC2 : <<include>>
+UC16 .> UC2 : <<include>>
+UC17 .> UC2 : <<include>>
+
+UC18 .> UC2 : <<include>>
+UC19 .> UC2 : <<include>>
+UC20 .> UC2 : <<include>>
+UC21 .> UC2 : <<include>>
+UC22 .> UC2 : <<include>>
+UC23 .> UC2 : <<include>>
+
+UC24 .> UC2 : <<include>>
+UC25 .> UC2 : <<include>>
+UC26 .> UC2 : <<include>>
+UC27 .> UC2 : <<include>>
+UC28 .> UC2 : <<include>>
+
+' Extend relationships
+UC4 .> UC26 : <<extend>>
+UC5 .> UC2 : <<extend>>
+UC30 .> UC6 : <<extend>>
+UC31 .> UC18 : <<extend>>
+
+' Notes
+note right of UC1 : Multi-factor authentication\nrequired for all system operations
+note right of UC2 : Hierarchical permission system\nwith role-based access control
+note right of UC34 : Cross-organization data access\nwith security filtering
+note right of UC29 : AI-powered system operations\nwith natural language interface
+
+@enduml
