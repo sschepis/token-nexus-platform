@@ -10,7 +10,7 @@ async function createSampleApp() {
     // Create admin user if needed for createdBy field
     const adminQuery = new Parse.Query(Parse.User);
 
-    adminQuery.equalTo('username', 'admin@gemcms.com');
+    adminQuery.equalTo('username', 'admin@nomyx.io');
     const adminUser = await adminQuery.first({ useMasterKey: true });
 
     if (!adminUser) {

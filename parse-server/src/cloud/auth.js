@@ -70,31 +70,154 @@ const customUserLoginHandler = async (request) => {
 
     const isSystemAdmin = fullUser.get("isAdmin") || fullUser.get("isSystemAdmin") || false;
     let currentOrg = fullUser.get("currentOrganization");
-    let orgId = null;
+    let currentOrgId = null;
+    let organizations = [];
+    
+    // Get all organizations for the user
+    if (isSystemAdmin) {
+      // System admins have implicit access to all organizations
+      const Organization = Parse.Object.extend('Organization');
+      const orgQuery = new Parse.Query(Organization);
+      orgQuery.equalTo('isActive', true);
+      
+      const allOrgs = await orgQuery.find({ useMasterKey: true });
+      
+      organizations = allOrgs.map(org => ({
+        id: org.id,
+        name: org.get('name'),
+        description: org.get('description'),
+        subdomain: org.get('subdomain'),
+        industry: org.get('industry'),
+        logo: org.get('logo'),
+        planType: org.get('planType'),
+        status: org.get('status'),
+        administrator: org.get('administrator'),
+        createdAt: org.createdAt?.toISOString(),
+        updatedAt: org.updatedAt?.toISOString(),
+        settings: org.get('settings') || {},
+        userRoles: ['admin'], // System admins have admin role in all orgs
+        isCurrentOrg: false
+      }));
+      
+      // Set current organization based on currentOrganizationId
+      currentOrgId = fullUser.get('currentOrganizationId');
+      if (currentOrgId) {
+        const matchingOrg = organizations.find(org => org.id === currentOrgId);
+        if (matchingOrg) {
+          matchingOrg.isCurrentOrg = true;
+          currentOrg = matchingOrg;
+        }
+      }
+      
+      // If no current org set but user has orgs, set first one as current
+      if (!currentOrgId && organizations.length > 0) {
+        organizations[0].isCurrentOrg = true;
+        currentOrgId = organizations[0].id;
+        currentOrg = organizations[0];
+        
+        // Update user's current organization
+        try {
+          const orgPointer = new Parse.Object('Organization');
+          orgPointer.id = currentOrgId;
+          fullUser.set("currentOrganization", orgPointer);
+          fullUser.set("currentOrganizationId", currentOrgId);
+          await fullUser.save(null, { useMasterKey: true });
+        } catch (error) {
+          logger.warn(`Could not update current organization for admin user ${user.id}:`, error);
+        }
+      }
+      
+    } else {
+      // Regular users - get organizations from relation
+      try {
+        // Get organizations from the relation
+        const orgRelation = fullUser.relation("organizations");
+        const orgResults = await orgRelation.query().find({ useMasterKey: true });
+
+        if (orgResults && orgResults.length > 0) {
+          // Get user's roles for each organization
+          const roleQuery = new Parse.Query(Parse.Role);
+          roleQuery.equalTo("users", fullUser);
+          const userRoles = await roleQuery.find({ useMasterKey: true });
+
+          // Map roles to organizations
+          const userOrgRoles = new Map(); // orgId -> [roles]
+          userRoles.forEach(role => {
+            const roleName = role.getName();
+            
+            // Skip system-wide roles like 'SystemAdmin'
+            if (roleName === 'SystemAdmin' || !roleName.includes('_')) {
+              return;
+            }
+
+            // Extract orgId from role name (everything after the last underscore)
+            const lastUnderscoreIndex = roleName.lastIndexOf('_');
+            if (lastUnderscoreIndex > 0) {
+              const orgId = roleName.substring(lastUnderscoreIndex + 1);
+              const roleType = roleName.substring(0, lastUnderscoreIndex);
+              
+              if (orgId && orgId.length > 0) {
+                if (!userOrgRoles.has(orgId)) {
+                  userOrgRoles.set(orgId, []);
+                }
+                userOrgRoles.get(orgId).push(roleType);
+              }
+            }
+          });
+
+          // Build organizations array with user's roles
+          organizations = orgResults.map(org => {
+            const orgId = org.id;
+            const orgRoles = userOrgRoles.get(orgId) || [];
+            const isCurrentOrg = currentOrg && currentOrg.id === orgId;
+            
+            return {
+              id: org.id,
+              name: org.get("name"),
+              description: org.get("description"),
+              subdomain: org.get("subdomain"),
+              industry: org.get("industry"),
+              logo: org.get("logo"),
+              planType: org.get("planType"),
+              status: org.get("status"),
+              administrator: org.get("administrator"),
+              createdAt: org.createdAt?.toISOString(),
+              updatedAt: org.updatedAt?.toISOString(),
+              settings: org.get("settings") || {},
+              userRoles: orgRoles,
+              isCurrentOrg: isCurrentOrg
+            };
+          });
+        }
+      } catch (error) {
+        logger.warn(`Could not fetch user organizations for user ${user.id}:`, error);
+        organizations = [];
+      }
+    }
     
     // Enhanced currentOrganization parsing with validation and repair
     if (currentOrg) {
       // Handle different possible formats of currentOrganization
       if (typeof currentOrg === 'string') {
         // Handle string ID format (malformed data)
-        orgId = currentOrg;
-        logger.info(`Found string currentOrganization for user ${user.id}: ${orgId}`);
+        currentOrgId = currentOrg;
+        logger.info(`Found string currentOrganization for user ${user.id}: ${currentOrgId}`);
       } else if (currentOrg.id) {
         // Handle proper Parse Pointer
-        orgId = currentOrg.id;
+        currentOrgId = currentOrg.id;
       } else if (currentOrg.objectId) {
         // Handle object with objectId
-        orgId = currentOrg.objectId;
+        currentOrgId = currentOrg.objectId;
       } else if (currentOrg.get && typeof currentOrg.get === 'function') {
         // Handle Parse Object
-        orgId = currentOrg.get('objectId');
+        currentOrgId = currentOrg.get('objectId');
       }
       
       // Validate organization exists and repair malformed data
-      if (orgId) {
+      if (currentOrgId) {
         try {
           const orgQuery = new Parse.Query("Organization");
-          const validOrg = await orgQuery.get(orgId, { useMasterKey: true });
+          const validOrg = await orgQuery.get(currentOrgId, { useMasterKey: true });
           
           if (validOrg && typeof currentOrg === 'string') {
             // Repair: Convert string to proper Pointer and set both fields
@@ -109,43 +232,40 @@ const customUserLoginHandler = async (request) => {
             await fullUser.save(null, { useMasterKey: true });
           }
         } catch (orgError) {
-          logger.warn(`Organization ${orgId} not found for user ${user.id}, will use fallback:`, orgError.message);
-          orgId = null;
+          logger.warn(`Organization ${currentOrgId} not found for user ${user.id}, will use fallback:`, orgError.message);
+          currentOrgId = null;
           currentOrg = null;
         }
       }
     }
 
     // Enhanced fallback logic when currentOrganization is invalid
-    if (!orgId) {
+    if (!currentOrgId && organizations.length > 0) {
       try {
-        // Get user's organizations directly from relation
-        const userOrgsQuery = fullUser.relation("organizations").query();
-        const userOrgs = await userOrgsQuery.find({ useMasterKey: true });
+        // Set the first organization as current with both fields
+        const firstOrg = organizations[0];
+        const orgPointer = new Parse.Object('Organization');
+        orgPointer.id = firstOrg.id;
         
-        if (userOrgs.length > 0) {
-          // Set the first organization as current with both fields
-          const firstOrg = userOrgs[0];
-          fullUser.set("currentOrganization", firstOrg);
-          fullUser.set("currentOrganizationId", firstOrg.id);
-          await fullUser.save(null, { useMasterKey: true });
-          
-          orgId = firstOrg.id;
-          currentOrg = firstOrg;
-          
-          logger.info(`Set first organization ${orgId} as current for user ${user.id}`);
-        }
+        fullUser.set("currentOrganization", orgPointer);
+        fullUser.set("currentOrganizationId", firstOrg.id);
+        await fullUser.save(null, { useMasterKey: true });
+        
+        currentOrgId = firstOrg.id;
+        firstOrg.isCurrentOrg = true;
+        
+        logger.info(`Set first organization ${currentOrgId} as current for user ${user.id}`);
       } catch (error) {
-        logger.warn(`Could not fetch user organizations for user ${user.id}:`, error);
+        logger.warn(`Could not set current organization for user ${user.id}:`, error);
       }
     }
 
     // Ensure user has a current organization set (fallback)
-    if (!orgId) {
+    if (!currentOrgId && !isSystemAdmin) {
       try {
         const orgResult = await Parse.Cloud.run('ensureUserHasCurrentOrg', {}, { sessionToken: user.getSessionToken() });
         if (orgResult.hasCurrentOrg) {
-          orgId = orgResult.orgId;
+          currentOrgId = orgResult.orgId;
           // Refetch the user to get the updated currentOrganization
           const updatedUser = await new Parse.Query(Parse.User)
             .include("currentOrganization")
@@ -158,33 +278,68 @@ const customUserLoginHandler = async (request) => {
       }
     }
 
+    // Build comprehensive permissions based on user type and roles
     let permissions = [
-      "dashboard:read", "objects:read", "tokens:read", "users:read", 
-      "integrations:read", "reports:read", "audit:read", 
+      "dashboard:read", "objects:read", "tokens:read", "users:read",
+      "integrations:read", "reports:read", "audit:read",
       "notifications:read", "settings:read", "marketplace:read"
     ];
 
     if (isSystemAdmin) {
-      permissions.push("system:admin", "users:write", "tokens:write", "integrations:write", "settings:write");
-    } else if (orgId) {
-      // Placeholder for fetching org-specific roles and permissions
-      // e.g., if (userIsInRole(`orgAdmin_${orgId}`)) { permissions.push("orgSettings:write"); }
+      // System admins have ALL permissions
+      permissions = [
+        "system:admin", "dashboard:*", "objects:*", "tokens:*", "users:*",
+        "integrations:*", "reports:*", "audit:*", "notifications:*",
+        "settings:*", "marketplace:*", "organizations:*", "roles:*",
+        "security:*", "analytics:*", "workflows:*", "templates:*"
+      ];
+    } else if (currentOrgId) {
+      // Add organization-specific permissions based on user's roles
+      const currentOrgData = organizations.find(org => org.id === currentOrgId);
+      if (currentOrgData && currentOrgData.userRoles) {
+        if (currentOrgData.userRoles.includes('admin') || currentOrgData.userRoles.includes('orgAdmin')) {
+          permissions.push(
+            "users:write", "tokens:write", "integrations:write",
+            "settings:write", "objects:write", "reports:write"
+          );
+        }
+        if (currentOrgData.userRoles.includes('manager')) {
+          permissions.push("users:write", "reports:write");
+        }
+      }
     }
 
+    // Enhanced user object with all necessary fields
     const frontendUser = {
       id: fullUser.id,
       email: fullUser.get("email"),
       firstName: fullUser.get("firstName") || '',
       lastName: fullUser.get("lastName") || '',
       avatarUrl: fullUser.get("avatarUrl"),
+      isActive: fullUser.get("isActive"),
+      isAdmin: isSystemAdmin,
+      createdAt: fullUser.get("createdAt"),
+      lastLogin: fullUser.get("lastLogin"),
+      onboarded: fullUser.get("onboarded") || false,
+      emailVerified: fullUser.get("emailVerified") || false
     };
 
+    // Update last login timestamp
+    try {
+      fullUser.set("lastLogin", new Date());
+      await fullUser.save(null, { useMasterKey: true });
+    } catch (error) {
+      logger.warn(`Could not update last login for user ${user.id}:`, error);
+    }
+
     return {
+      success: true,
       user: frontendUser,
       token: user.getSessionToken(),
-      orgId: orgId,
-      permissions: permissions,
-      isAdmin: isSystemAdmin, // Added isAdmin flag
+      isAdmin: isSystemAdmin,
+      currentOrg: currentOrgId,
+      organizations: organizations,
+      permissions: permissions
     };
   } catch (error) {
     logger.error("Custom user login error:", error);

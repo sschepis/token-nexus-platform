@@ -41,7 +41,7 @@ async function checkFrontendOrg() {
 
     // Check if admin user has correct role
     const adminUser = await new Parse.Query(Parse.User)
-      .equalTo('username', 'admin@gemcms.com')
+      .equalTo('username', 'admin@nomyx.io')
       .first({ useMasterKey: true });
 
     const adminRole = await new Parse.Query(Parse.Role)

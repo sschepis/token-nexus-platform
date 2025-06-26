@@ -568,7 +568,7 @@ Control new organization signups:
 
 ### Support Channels
 
-- **Email Support**: admin@tokennexus.com
+- **Email Support**: admin@nomyx.io
 - **Documentation**: docs.tokennexus.com
 - **Community Forum**: community.tokennexus.com
 - **Emergency Support**: +1-XXX-XXX-XXXX

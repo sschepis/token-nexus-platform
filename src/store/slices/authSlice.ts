@@ -43,7 +43,7 @@ export const authSlice = createSlice({
       state.isLoading = true;
       state.error = null;
     },
-    loginSuccess: (state, action: PayloadAction<{ user: User; token: string; orgId: string | null; permissions: string[]; isAdmin?: boolean }>) => {
+    loginSuccess: (state, action: PayloadAction<{ user: User; token: string; orgId: string | null; permissions: string[]; isAdmin?: boolean; organizations?: any[] }>) => {
       state.isAuthenticated = true;
       state.isLoading = false;
       state.user = {

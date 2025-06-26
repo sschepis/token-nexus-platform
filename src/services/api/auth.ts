@@ -54,7 +54,7 @@ const authApi = {
    * @throws {Error} Throws an error if login fails.
    * @returns {Promise<{ user: any; token: string; orgId: string; permissions: string[]; isAdmin?: boolean }>} A promise that resolves with user data, token, orgId, and permissions.
    */
-  login: async (credentials: { email: string; password: string }): Promise<{ user: any; token: string; orgId: string; permissions: string[]; isAdmin?: boolean }> => {
+  login: async (credentials: { email: string; password: string }): Promise<{ user: any; token: string; orgId: string; permissions: string[]; isAdmin?: boolean; organizations?: any[] }> => {
     try {
       await ensureParseInitialized();
 
@@ -69,35 +69,31 @@ const authApi = {
         console.debug('[Auth API] No active Parse session or error during logout:', e);
       }
       
-      // Use Parse's native logIn method
-      const user = await Parse.User.logIn(credentials.email, credentials.password);
-      
-      // After Parse.User.logIn, the Parse SDK should automatically set the current user
-      // and store the session token in local storage.
+      // Use our enhanced customUserLogin cloud function instead of Parse.User.logIn
+      const loginResult = await Parse.Cloud.run('customUserLogin', {
+        username: credentials.email,
+        password: credentials.password
+      });
 
-      const sessionToken = user.getSessionToken();
-      if (!sessionToken) {
-        throw new Error('No session token received after successful Parse.User.logIn.');
+      if (!loginResult.success) {
+        throw new Error('Login failed: Invalid credentials');
       }
 
-      // Extract user information, organization ID, and permissions
-      const orgId = user.get('organization')?.id || null;
-      const isAdmin = user.get('isAdmin') || false;
-      const permissions = user.get('permissions') || [];
-
+      // The customUserLogin function returns comprehensive user data
       return {
         user: {
-          id: user.id,
-          email: user.get('email'),
-          firstName: user.get('firstName'),
-          lastName: user.get('lastName'),
-          avatarUrl: user.get('avatarUrl'),
-          isAdmin: isAdmin, // Use the isAdmin value already extracted
+          id: loginResult.user.id,
+          email: loginResult.user.email,
+          firstName: loginResult.user.firstName,
+          lastName: loginResult.user.lastName,
+          avatarUrl: loginResult.user.avatarUrl,
+          isAdmin: loginResult.isAdmin,
         },
-        token: sessionToken,
-        orgId: orgId,
-        permissions: permissions, // Use the permissions value already extracted
-        isAdmin: isAdmin, // This isAdmin is picked up by loginSuccess payload's isAdmin property for AuthState.user.isAdmin
+        token: loginResult.token,
+        orgId: loginResult.currentOrg,
+        permissions: loginResult.permissions || [],
+        isAdmin: loginResult.isAdmin,
+        organizations: loginResult.organizations || []
       };
     } catch (error: any) {
       console.error('[Auth API] Login failed:', error);

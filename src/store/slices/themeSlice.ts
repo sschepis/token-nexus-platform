@@ -1,8 +1,8 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
 import { OrganizationTheme, ThemeUpdate, ThemeValidationResult, ThemeTemplate } from '../../theming/types/theme.types';
 import { getThemeEngine } from '../../theming/engine/ThemeEngine';
 import { ThemeValidator } from '../../theming/utils/themeValidation';
-import { themeTemplatesList } from '../../theming/templates';
+// import { themeTemplatesList } from '../../theming/templates'; // REMOVED: No longer loaded directly client-side
 import { toast } from 'sonner';
 import { 
   AsyncThunkFactory, 
@@ -53,37 +53,32 @@ const themeThunks = {
     cloudFunction: 'getOrganizationTheme',
     transformParams: (organizationId: string) => ({ orgId: organizationId }),
     transformResponse: (result: any) => {
+      // Assuming result.success and result.theme will be OrganizationTheme
       if (result.success && result.theme) {
         return result.theme as OrganizationTheme;
       } else {
-        // Return platform defaults if no custom theme
+        // Fallback to platform defaults if no custom theme or error from server
         try {
           const themeEngine = getThemeEngine();
-          const platformDefaults = themeEngine.getPlatformDefaults();
+          const platformDefaults = themeEngine.getPlatformDefaults(); // Will now come from BuiltInThemes.ts
           return platformDefaults;
         } catch (error) {
-          // If theme engine fails, return a minimal theme that won't cause errors
-          // This prevents infinite loops while still providing basic functionality
-          console.warn('Theme engine failed, using minimal fallback theme:', error);
-          
-          // Use type assertion to bypass strict typing for emergency fallback
+          console.warn('Theme engine failed for fallback, using minimal emergency theme:', error);
+          // Minimal fallback to prevent crashes if theme engine fails completely
           return {
-            id: 'fallback',
-            name: 'Fallback Theme',
-            version: '1.0.0',
-            description: 'Emergency fallback theme',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            // Minimal required properties to prevent crashes
-            colors: { primary: '#007bff' },
-            typography: { fontFamily: 'system-ui' },
-            spacing: { md: '1rem' },
-            borderRadius: { md: '0.375rem' },
-            shadows: { md: '0 4px 6px rgba(0,0,0,0.1)' },
-            components: {},
-            branding: { companyName: '' },
-            layout: { containerMaxWidth: '1200px' },
-            animations: { duration: { normal: '300ms' } }
+            id: 'emergency-fallback', name: 'Emergency Fallback', version: '1.0.0',
+            description: 'Minimal theme due to serious client-side error',
+            createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+            colors: { primary: '#000000', secondary: '#cccccc', accent: '#333333', background: '#f0f0f0', surface: '#ffffff', text: { primary: '#000000', secondary: '#555555', muted: '#999999' }, border: '#e0e0e0', input: '#e0e0e0', ring: '#000000', destructive: '#ff0000', warning: '#ffcc00', success: '#00ff00', info: '#0000ff', neutral: { 50: '#f9fafb', 100: '#f3f4f6', 200: '#e5e7eb', 300: '#d1d5db', 400: '#9ca3af', 500: '#6b7280', 600: '#4b5563', 700: '#374151', 800: '#1f2937', 900: '#111827', 950: '#030712' } },
+            typography: { fontFamily: 'sans-serif', sizes: { xs: '0.75rem', sm: '0.875rem', base: '1rem', lg: '1.125rem', xl: '1.25rem', '2xl': '1.5rem', '3xl': '1.875rem', '4xl': '2.25rem', '5xl': '3rem', '6xl': '3.75rem' }, weights: { light: 300, normal: 400, medium: 500, semibold: 600, bold: 700, extrabold: 800 }, lineHeights: { tight: '1.25', normal: '1.5', relaxed: '1.75', loose: '2' }, letterSpacing: { tight: '-0.02em', normal: '0', wide: '0.02em' } },
+            spacing: { xs: '0.25rem', sm: '0.5rem', md: '1rem', lg: '1.5rem', xl: '2rem', '2xl': '3rem', '3xl': '4rem', '4xl': '5rem', '5xl': '6rem', '6xl': '7rem' },
+            borderRadius: { none: '0px', sm: '0.125rem', md: '0.375rem', lg: '0.5rem', xl: '0.75rem', '2xl': '1rem', '3xl': '1.5rem', full: '9999px' },
+            shadows: { sm: '0 1px 2px 0 rgba(0,0,0,0.05)', md: '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)', lg: '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05)', xl: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)', '2xl': '0 25px 50px -12px rgba(0,0,0,0.25)', inner: 'inset 0 2px 4px 0 rgba(0,0,0,0.06)', none: 'none' },
+            components: { button: {}, card: {}, input: {}, sidebar: {}, navbar: {}, modal: {}, dropdown: {}, table: {}, badge: {}, alert: {}, tooltip: {}, tabs: {} },
+            branding: { logo: '', favicon: '', appIcon: '', brandName: '', tagline: '' },
+            layout: { sidebarWidth: '16rem', headerHeight: '4rem', containerMaxWidth: '1280px', contentPadding: '1.5rem', gridGap: '1rem', cardPadding: '1rem', formSpacing: '1rem' },
+            animations: { duration: { fast: '150ms', normal: '300ms', slow: '500ms' }, easing: { ease: 'ease', easeIn: 'ease-in', easeOut: 'ease-out', easeInOut: 'ease-in-out', bounce: 'cubic-bezier(0.175, 0.885, 0.32, 1.275)' }, transitions: { all: 'all 0.3s ease', colors: 'background-color 0.3s ease, color 0.3s ease', opacity: 'opacity 0.3s ease', transform: 'transform 0.3s ease' } },
+            customProperties: {}, darkMode: undefined
           } as unknown as OrganizationTheme;
         }
       }
@@ -121,63 +116,53 @@ const themeThunks = {
     errorMessage: 'Failed to reset theme'
   }),
 
-  validateTheme: AsyncThunkFactory.create<{ theme: OrganizationTheme }, ThemeValidationResult>({
-    name: 'theme/validateTheme',
-    cloudFunction: 'validateTheme',
-    transformParams: (params) => ({ theme: params.theme }),
-    transformResponse: (result: any) => {
-      // For client-side validation, we can use ThemeValidator directly
-      return ThemeValidator.validateTheme(result.theme || result);
-    },
-    errorMessage: 'Failed to validate theme'
-  }),
+  // validateTheme is a client-side only utility, so it uses createAsyncThunk directly
+  validateTheme: createAsyncThunk<ThemeValidationResult, { theme: OrganizationTheme }, { rejectValue: string }>( // Added rejectValue type
+    'theme/validateTheme',
+    async (params, { rejectWithValue }) => {
+      try {
+        const validationResult = ThemeValidator.validateTheme(params.theme);
+        return validationResult;
+      } catch (error: any) {
+        return rejectWithValue(error.message || 'Client-side validation failed');
+      }
+    }
+  ),
 
   loadThemeTemplates: AsyncThunkFactory.create<void, ThemeTemplate[]>({
     name: 'theme/loadThemeTemplates',
-    cloudFunction: 'getThemeTemplates',
+    cloudFunction: 'getThemeTemplates', // This will now fetch from server
     transformResponse: (result: any) => {
-      // For now, return built-in templates, but could be server-loaded in future
-      return themeTemplatesList;
+      if (result.success && Array.isArray(result.templates)) {
+        return result.templates as ThemeTemplate[];
+      } else {
+        // Fallback to an empty array or handle error if no templates from server
+        console.warn('Failed to load theme templates from server, returning empty array.');
+        return [];
+      }
     },
     errorMessage: 'Failed to load theme templates'
   }),
 
   applyThemeTemplate: AsyncThunkFactory.create<{ templateId: string; organizationId: string }, OrganizationTheme>({
     name: 'theme/applyThemeTemplate',
-    cloudFunction: 'applyThemeTemplate',
+    cloudFunction: 'applyThemeTemplate', // This will now call a server-side function
     transformParams: (params) => ({
       templateId: params.templateId,
-      _originalParams: params // Store original params for response transformation
+      organizationId: params.organizationId // Pass organizationId to the server
     }),
     transformResponse: (result: any) => {
-      // Extract original params from result or use result directly
-      const originalParams = result._originalParams || result;
-      const templateId = result.templateId || originalParams.templateId;
-      const organizationId = result.organizationId || originalParams.organizationId;
-      
-      // Client-side template application
-      const template = themeTemplatesList.find(t => t.id === templateId);
-      if (!template) {
-        throw new Error('Theme template not found');
+      if (result.success && result.theme) {
+        toast.success('Theme template applied successfully');
+        return result.theme as OrganizationTheme;
+      } else {
+        throw new Error(result.error || 'Failed to apply theme template');
       }
-
-      const themeEngine = getThemeEngine();
-      const inheritance = themeEngine.resolveTheme({}, template.theme as OrganizationTheme);
-      const resolvedTheme = inheritance.resolved;
-      
-      // Set organization-specific properties
-      resolvedTheme.organizationId = organizationId;
-      resolvedTheme.id = `${organizationId}-${templateId}-${Date.now()}`;
-      resolvedTheme.name = `${template.name} - ${organizationId}`;
-      resolvedTheme.templateId = templateId;
-
-      toast.success('Theme template applied successfully');
-      return resolvedTheme;
     },
     errorMessage: 'Failed to apply theme template'
   }),
 
-  // Additional thunks for controller actions
+  // Additional thunks for controller actions (already point to cloud functions via factory)
   getAvailableThemes: AsyncThunkFactory.create<{ orgId: string; includeCustom?: boolean; category?: string }, any[]>({
     name: 'theme/getAvailableThemes',
     cloudFunction: 'getAvailableThemes',
@@ -274,25 +259,10 @@ const themeThunks = {
   })
 };
 
-// Export thunks for backward compatibility
-export const {
-  loadOrganizationTheme,
-  saveOrganizationTheme,
-  resetOrganizationTheme,
-  validateTheme,
-  loadThemeTemplates,
-  applyThemeTemplate,
-  getAvailableThemes,
-  createCustomTheme,
-  updateThemeCustomization,
-  deleteCustomTheme,
-  applyTheme
-} = themeThunks;
-
 const initialState: ThemeState = createAsyncInitialState({
   currentTheme: null,
   
-  templates: themeTemplatesList,
+  templates: [], // Initialize templates as empty, they will be loaded from server
   templatesLoading: false,
   templatesError: null,
   
@@ -318,7 +288,7 @@ const themeSlice = createSlice({
   initialState,
   reducers: {
     /**
-     * Sets the current theme
+     * Sets the current theme (used in fulfilled thunk cases)
      */
     setCurrentTheme: (state, action: PayloadAction<OrganizationTheme>) => {
       state.currentTheme = action.payload;
@@ -343,11 +313,10 @@ const themeSlice = createSlice({
     },
 
     /**
-     * Updates the current theme with partial changes
+     * Updates the current theme with partial changes (client-side only for editor)
      */
     updateCurrentTheme: (state, action: PayloadAction<ThemeUpdate>) => {
       if (state.currentTheme) {
-        // Deep merge the updates
         const themeEngine = getThemeEngine();
         const inheritance = themeEngine.resolveTheme(action.payload, state.currentTheme);
         state.currentTheme = inheritance.resolved;
@@ -356,7 +325,7 @@ const themeSlice = createSlice({
     },
 
     /**
-     * Sets preview theme
+     * Sets preview theme (client-side only)
      */
     setPreviewTheme: (state, action: PayloadAction<OrganizationTheme | null>) => {
       state.previewTheme = action.payload;
@@ -364,7 +333,7 @@ const themeSlice = createSlice({
     },
 
     /**
-     * Clears preview mode
+     * Clears preview mode (client-side only)
      */
     clearPreview: (state) => {
       state.previewTheme = null;
@@ -422,7 +391,7 @@ const themeSlice = createSlice({
     },
 
     /**
-     * Resets theme state
+     * Resets theme state (clears all volatile state)
      */
     resetThemeState: (state) => {
       state.currentTheme = null;
@@ -455,7 +424,10 @@ const themeSlice = createSlice({
     }
   },
   extraReducers: (builder) => {
-    // Load organization theme using AsyncReducerBuilder
+    // These extraReducers handle the state updates based on the lifecycle of the async thunks.
+    // The AsyncReducerBuilder abstracts the common pending/fulfilled/rejected patterns.
+
+    // Load organization theme
     AsyncReducerBuilder.addAsyncCase(builder, themeThunks.loadOrganizationTheme, {
       loadingFlag: 'isFetching',
       onFulfilled: (state, action) => {
@@ -484,6 +456,45 @@ const themeSlice = createSlice({
       }
     });
 
+    // Validate theme (client-side only, thus using createAsyncThunk directly)
+    // Manually add cases as it's not using AsyncThunkFactory.create standard boilerplate
+    builder
+      .addCase(themeThunks.validateTheme.pending, (state) => {
+        state.isLoading = true; // Use general isLoading for client-side thunks
+        state.error = null;
+        state.validationResult = null;
+      })
+      .addCase(themeThunks.validateTheme.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.error = null;
+        state.validationResult = action.payload;
+      })
+      .addCase(themeThunks.validateTheme.rejected, (state, action) => {
+        state.isLoading = false;
+        // action.payload contains the rejected value (error message string in this case)
+        state.validationResult = {
+          isValid: false,
+          errors: [{ field: 'general', message: action.payload as string || 'Validation failed', severity: 'error', code: 'VALIDATION_ERROR' }],
+          warnings: [],
+          accessibilityScore: 0,
+          performanceScore: 0
+        };
+        state.error = action.payload as string || 'Validation failed'; // Also update general error state
+      });
+
+    // Load theme templates
+    AsyncReducerBuilder.addAsyncCase(builder, themeThunks.loadThemeTemplates, {
+      loadingFlag: 'templatesLoading',
+      onFulfilled: (state, action) => {
+        state.templates = action.payload;
+        state.templatesError = null;
+      },
+      onRejected: (state, action) => {
+        state.templates = [];
+        state.templatesError = action.payload as string || 'Failed to load templates';
+      }
+    });
+
     // Apply theme template
     AsyncReducerBuilder.addAsyncCase(builder, themeThunks.applyThemeTemplate, {
       loadingFlag: 'isUpdating',
@@ -498,34 +509,14 @@ const themeSlice = createSlice({
       }
     });
 
-    // Validate theme
-    AsyncReducerBuilder.addAsyncCase(builder, themeThunks.validateTheme, {
-      onFulfilled: (state, action) => {
-        state.validationResult = action.payload;
-      }
-    });
-
-    // Load theme templates
-    AsyncReducerBuilder.addAsyncCase(builder, themeThunks.loadThemeTemplates, {
-      loadingFlag: 'templatesLoading',
-      onFulfilled: (state, action) => {
-        state.templates = action.payload;
-        state.templatesError = null;
-      },
-      onRejected: (state, action) => {
-        state.templatesError = action.payload || 'Failed to load theme templates';
-      }
-    });
-
     // Get available themes
     AsyncReducerBuilder.addAsyncCase(builder, themeThunks.getAvailableThemes, {
-      loadingFlag: 'templatesLoading',
+      loadingFlag: 'isFetching',
       onFulfilled: (state, action) => {
-        state.templates = action.payload;
-        state.templatesError = null;
+        state.templates = action.payload; // Update templates with available themes
       },
       onRejected: (state, action) => {
-        state.templatesError = action.payload || 'Failed to get available themes';
+        state.templatesError = action.payload as string || 'Failed to load available themes';
       }
     });
 
@@ -533,9 +524,7 @@ const themeSlice = createSlice({
     AsyncReducerBuilder.addAsyncCase(builder, themeThunks.createCustomTheme, {
       loadingFlag: 'isUpdating',
       onFulfilled: (state, action) => {
-        // Add the new custom theme to templates
-        state.templates.push(action.payload);
-        state.editorState.isDirty = false;
+        state.templates = [...state.templates, action.payload]; // Using spread to ensure immutability
       }
     });
 
@@ -552,35 +541,43 @@ const themeSlice = createSlice({
     AsyncReducerBuilder.addAsyncCase(builder, themeThunks.deleteCustomTheme, {
       loadingFlag: 'isUpdating',
       onFulfilled: (state, action) => {
-        // Remove the deleted theme from templates
-        state.templates = state.templates.filter(
-          template => template.id !== action.payload.themeTemplateId
-        );
+        state.templates = state.templates.filter(t => t.id !== action.payload.themeTemplateId);
       }
     });
 
-    // Apply theme
+    // Apply theme (this is different from applyThemeTemplate)
     AsyncReducerBuilder.addAsyncCase(builder, themeThunks.applyTheme, {
       loadingFlag: 'isUpdating',
       onFulfilled: (state, action) => {
         state.currentTheme = action.payload;
         state.editorState.isDirty = false;
-        
-        // Add to history
-        state.themeHistory = state.themeHistory.slice(0, state.historyIndex + 1);
-        state.themeHistory.push(action.payload);
-        state.historyIndex = state.themeHistory.length - 1;
       }
     });
   }
 });
 
+// Export all thunks (Async Actions)
 export const {
-  setCurrentTheme,
-  updateCurrentTheme,
-  setPreviewTheme,
+  loadOrganizationTheme,
+  saveOrganizationTheme,
+  resetOrganizationTheme,
+  validateTheme, // Client-side thunk
+  loadThemeTemplates,
+  applyThemeTemplate,
+  getAvailableThemes,
+  createCustomTheme,
+  updateThemeCustomization,
+  deleteCustomTheme,
+  applyTheme
+} = themeThunks; 
+
+// Export all standard reducers (Synchronous Actions)
+export const { 
+  setCurrentTheme, 
+  updateCurrentTheme, 
+  setPreviewTheme, 
   clearPreview,
-  undoTheme,
+  undoTheme, 
   redoTheme,
   setEditorActiveTab,
   setSelectedComponent,
@@ -592,16 +589,3 @@ export const {
 } = themeSlice.actions;
 
 export default themeSlice.reducer;
-
-// Selectors
-export const selectCurrentTheme = (state: { theme: ThemeState }) => state.theme.currentTheme;
-export const selectThemeLoading = (state: { theme: ThemeState }) => state.theme.isLoading;
-export const selectThemeError = (state: { theme: ThemeState }) => state.theme.error;
-export const selectThemeTemplates = (state: { theme: ThemeState }) => state.theme.templates;
-export const selectPreviewTheme = (state: { theme: ThemeState }) => state.theme.previewTheme;
-export const selectIsPreviewMode = (state: { theme: ThemeState }) => state.theme.isPreviewMode;
-export const selectValidationResult = (state: { theme: ThemeState }) => state.theme.validationResult;
-export const selectEditorState = (state: { theme: ThemeState }) => state.theme.editorState;
-export const selectCanUndo = (state: { theme: ThemeState }) => state.theme.historyIndex > 0;
-export const selectCanRedo = (state: { theme: ThemeState }) => 
-  state.theme.historyIndex < state.theme.themeHistory.length - 1;

@@ -8,7 +8,7 @@ async function fixAdminRole() {
   try {
     // Get admin user
     const query = new Parse.Query(Parse.User);
-    query.equalTo('username', 'admin@gemcms.com');
+    query.equalTo('username', 'admin@nomyx.io');
     const adminUser = await query.first({ useMasterKey: true });
 
     if (!adminUser) {

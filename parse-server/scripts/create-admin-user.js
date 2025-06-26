@@ -42,9 +42,9 @@ async function createAdminUser() {
 
     // Prepare admin user creation
     const userDetails = {
-      username: 'admin@gemcms.com',
+      username: 'admin@nomyx.io',
       password: 'admin',
-      email: 'admin@gemcms.com',
+      email: 'admin@nomyx.io',
       isAdmin: true,
     };
 
@@ -88,7 +88,7 @@ async function createAdminUser() {
     // Verify user roles and isAdmin flag
     const verifyUserQuery = new Parse.Query(Parse.User);
 
-    verifyUserQuery.equalTo('username', 'admin@gemcms.com');
+    verifyUserQuery.equalTo('username', 'admin@nomyx.io');
     const verifiedUser = await verifyUserQuery.first({ useMasterKey: true });
 
     const verifyRoleQuery = new Parse.Query(Parse.Role);
@@ -101,7 +101,7 @@ async function createAdminUser() {
     console.log('User roles:', await verifiedAdminRole.getUsers().query().find());
 
     console.log('\nYou can now login with:');
-    console.log('Email: admin@gemcms.com');
+    console.log('Email: admin@nomyx.io');
     console.log('Password: admin');
 
     process.exit(0);

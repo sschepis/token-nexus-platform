@@ -20,7 +20,7 @@ import { auditLogsPageController } from './AuditLogsPageController';
 import { tokensPageController } from './TokensPageController';
 import { aiAssistantPageController } from './AIAssistantPageController';
 import { settingsPageController } from './SettingsPageController';
-import { themePageController } from './ThemePageController';
+import { ThemePageController } from './ThemePageController';
 import { workflowPageController } from './WorkflowPageController';
 import { usersPageController } from './UsersPageController';
 import { routesPageController } from './RoutesPageController';
@@ -48,7 +48,7 @@ export function registerAllControllers(): void {
     { name: 'tokensPageController', controller: () => tokensPageController },
     { name: 'aiAssistantPageController', controller: () => aiAssistantPageController },
     { name: 'settingsPageController', controller: () => settingsPageController },
-    { name: 'themePageController', controller: () => themePageController },
+    { name: 'themePageController', controller: () => new ThemePageController() },
     { name: 'workflowPageController', controller: () => workflowPageController },
     { name: 'orgLifecyclePageController', controller: () => orgLifecyclePageController },
     { name: 'mcpServersPageController', controller: () => mcpServersPageController }

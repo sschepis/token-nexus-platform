@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { useAppDispatch } from "@/store/hooks";
 import { loginStart, loginSuccess, loginFailed } from "@/store/slices/authSlice";
-import { fetchUserOrganizations, setCurrentOrgById } from "@/store/slices/orgSlice";
+import { fetchUserOrganizations, setCurrentOrgById, fetchOrgsSuccess } from "@/store/slices/orgSlice";
 import { apiService } from "@/services/api";
 import { toast } from "@/hooks/use-toast";
 import Parse from "parse";
@@ -21,6 +21,24 @@ const LoginPage = () => {
   const [remember, setRemember] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Auto-login for testing purposes
+  useEffect(() => {
+    const autoLogin = async () => {
+      // Check if we should auto-login (for development/testing)
+      const shouldAutoLogin = process.env.NODE_ENV === 'development' &&
+                             process.env.NEXT_PUBLIC_AUTO_LOGIN === 'true';
+      
+      if (shouldAutoLogin) {
+        const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'admin@nomyx.io';
+        const adminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'admin123';
+        
+        console.log('Auto-login enabled for testing - logging in as admin');
+        await handleLoginInternal(adminEmail, adminPassword);
+      }
+    };
+
+    autoLogin();
+  }, []);
 
   const handleLoginInternal = async (loginEmail: string, loginPassword: string) => {
     if (!loginEmail || !loginPassword) {
@@ -48,16 +66,25 @@ const LoginPage = () => {
         token: authResponse.token,
         orgId: authResponse.orgId,
         permissions: authResponse.permissions,
-        isAdmin: authResponse.isAdmin
+        isAdmin: authResponse.isAdmin,
+        organizations: authResponse.organizations
       }));
       
-      // Fetch user organizations and current organization details
-      const userOrgsResult = await dispatch(fetchUserOrganizations()).unwrap();
-      
-      // The fetchUserOrganizations already sets the current organization from server
-      // If no current organization was set, set the first available one
-      if (!userOrgsResult.currentOrganization && userOrgsResult.organizations.length > 0) {
-        dispatch(setCurrentOrgById(userOrgsResult.organizations[0].id));
+      // Use organization data from login response instead of making additional API call
+      if (authResponse.organizations && authResponse.organizations.length > 0) {
+        // Set organizations in the org slice
+        const organizations = authResponse.organizations;
+        const currentOrganization = organizations.find(org => org.isCurrentOrg) || organizations[0];
+        
+        // Dispatch organization data to the org slice
+        dispatch(fetchOrgsSuccess(organizations));
+        
+        // Set current organization
+        if (currentOrganization) {
+          dispatch(setCurrentOrgById(currentOrganization.id));
+        }
+      } else {
+        console.warn('No organizations returned from login response');
       }
       
       toast({

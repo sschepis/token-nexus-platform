@@ -8,14 +8,14 @@ async function createOrganization() {
   try {
     // First ensure admin user exists
     const query = new Parse.Query(Parse.User);
-    query.equalTo('username', 'admin@gemcms.com');
+    query.equalTo('username', 'admin@nomyx.io');
     let adminUser = await query.first({ useMasterKey: true });
 
     if (!adminUser) {
       adminUser = new Parse.User();
-      adminUser.set('username', 'admin@gemcms.com');
+      adminUser.set('username', 'admin@nomyx.io');
       adminUser.set('password', 'admin');
-      adminUser.set('email', 'admin@gemcms.com');
+      adminUser.set('email', 'admin@nomyx.io');
       adminUser.set('isAdmin', true);
       await adminUser.save(null, { useMasterKey: true });
 

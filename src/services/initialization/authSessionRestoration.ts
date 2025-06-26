@@ -74,78 +74,25 @@ export async function restoreAuthSession(): Promise<void> {
       
       console.log('[DEBUG] Redux state updated with Parse session data');
 
-      // Handle organization setup
+      // Handle organization setup - skip fetchUserOrganizations during session restoration
+      // as it calls getUserDetails which can fail during session restoration
       try {
-        await store.dispatch(fetchUserOrganizations()).unwrap();
-        const userOrgs = store.getState().org.userOrgs;
-        
-        let finalOrgId = currentOrgId;
-        
-        if (currentOrgId && userOrgs.some(org => org.id === currentOrgId)) {
+        // For session restoration, we'll set basic org context and let the app
+        // fetch detailed org data after full initialization
+        if (currentOrgId) {
+          console.log('[DEBUG] Setting current org from session:', currentOrgId);
           store.dispatch(setCurrentOrgById(currentOrgId));
-          try {
-            await store.dispatch(fetchCurrentOrgDetails(currentOrgId)).unwrap();
-          } catch (error) {
-            console.warn('Failed to fetch org details for stored orgId:', error);
-          }
-        } else if (userOrgs.length > 0) {
-          finalOrgId = userOrgs[0].id;
-          store.dispatch(setCurrentOrgById(finalOrgId));
-          try {
-            await store.dispatch(fetchCurrentOrgDetails(finalOrgId)).unwrap();
-          } catch (error) {
-            console.warn('Failed to fetch org details for first org:', error);
-          }
         }
         
-        // Refresh permissions if organization changed
-        if (finalOrgId !== currentOrgId) {
-          console.log('[DEBUG] Organization changed, refreshing permissions...');
-          let updatedPermissions: string[] = [];
-          
-          if (isSystemAdmin) {
-            console.log('[DEBUG] System admin - keeping all permissions');
-            updatedPermissions = ['*'];
-          } else {
-            try {
-              updatedPermissions = await getUserPermissions(currentParseUser, finalOrgId || undefined);
-              console.log('[DEBUG] Updated permissions for new org:', updatedPermissions);
-            } catch (error) {
-              console.error('[DEBUG] Error fetching updated permissions:', error);
-              updatedPermissions = permissions; // Keep existing permissions
-            }
-          }
-          
-          // Update Redux state with new permissions and orgId
-          store.dispatch(loginSuccess({
-            user: userData,
-            token: sessionToken,
-            orgId: finalOrgId,
-            permissions: updatedPermissions,
-            isAdmin: isSystemAdmin
-          }));
-        }
-        
-        // Update Parse user's current organization (without master key)
-        const currentOrgInRedux = store.getState().org.currentOrg;
-        
-        if (currentParseUser && currentOrgInRedux?.id) {
-          const currentOrgPointer = currentParseUser.get('currentOrganization');
-          if (!currentOrgPointer || currentOrgPointer.id !== currentOrgInRedux.id) {
-            const orgPointer = Parse.Object.extend('Organization').createWithoutData(currentOrgInRedux.id);
-            currentParseUser.set('currentOrganization', orgPointer);
-            // Save without master key - user can update their own record
-            await currentParseUser.save()
-              .catch((err: any) => console.warn('[DEBUG authSessionRestoration] Could not update Parse User currentOrganization (non-critical):', err));
-          }
-        }
+        // Note: We skip fetchUserOrganizations here to avoid the getUserDetails call
+        // The organization data will be fetched when the user navigates or when needed
         
         console.log('[DEBUG] Session restored successfully');
         (window as any).sessionReady = true;
         window.dispatchEvent(new CustomEvent('sessionReady'));
         
       } catch (error) {
-        console.warn('Failed to fetch user organizations during init:', error);
+        console.warn('Failed to setup organization context during session restoration:', error);
         (window as any).sessionReady = true;
         window.dispatchEvent(new CustomEvent('sessionReady'));
       }

@@ -147,7 +147,7 @@ Parse.Cloud.define("fetchOrgAppInstallations", async (request) => {
     
     // Use existing getInstalledAppsForOrg function
     const installations = await Parse.Cloud.run("getInstalledAppsForOrg", {
-      organizationId: orgId
+      orgId: orgId  // Note: the function expects 'orgId', not 'organizationId'
     }, { user });
     
     // Transform to match expected OrgAppInstallation format
@@ -159,19 +159,19 @@ Parse.Cloud.define("fetchOrgAppInstallations", async (request) => {
         className: "Organization"
       },
       appDefinition: {
-        id: inst.appDefinition.objectId,
-        objectId: inst.appDefinition.objectId,
-        name: inst.appDefinition.name,
-        description: inst.appDefinition.description,
-        publisherName: inst.appDefinition.publisherName || "Unknown",
-        category: inst.appDefinition.category || "other",
-        iconUrl: inst.appDefinition.iconUrl
+        id: inst.appDefinition?.objectId || inst.appDefinition?.id,
+        objectId: inst.appDefinition?.objectId || inst.appDefinition?.id,
+        name: inst.appDefinition?.name,
+        description: inst.appDefinition?.description,
+        publisherName: inst.appDefinition?.publisherName || "Unknown",
+        category: inst.appDefinition?.category || "other",
+        iconUrl: inst.appDefinition?.iconUrl
       },
       installedVersion: {
-        id: inst.installedVersion.objectId,
-        objectId: inst.installedVersion.objectId,
-        versionString: inst.installedVersion.versionString,
-        changelog: inst.installedVersion.changelog,
+        id: inst.installedVersion?.objectId || inst.installedVersion?.id,
+        objectId: inst.installedVersion?.objectId || inst.installedVersion?.id,
+        versionString: inst.installedVersion?.versionString || inst.installedVersion?.version,
+        changelog: inst.installedVersion?.changelog,
         status: "published"
       },
       installationDate: inst.installationDate,

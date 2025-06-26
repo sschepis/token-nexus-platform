@@ -8,14 +8,14 @@ async function ensureSystemAdmin() {
   try {
     // Try to find existing admin user
     let adminUser = await new Parse.Query(Parse.User)
-      .equalTo('email', 'admin@gemcms.com')
+      .equalTo('email', 'admin@nomyx.io')
       .first({ useMasterKey: true });
 
     if (!adminUser) {
       // Create new admin user
       adminUser = new Parse.User();
-      adminUser.set('username', 'admin@gemcms.com');
-      adminUser.set('email', 'admin@gemcms.com');
+      adminUser.set('username', 'admin@nomyx.io');
+      adminUser.set('email', 'admin@nomyx.io');
       adminUser.set('password', 'admin');
       adminUser.set('firstName', 'System');
       adminUser.set('lastName', 'Administrator');
@@ -40,7 +40,7 @@ async function ensureSystemAdmin() {
     });
 
     console.log('\nYou can now login with:');
-    console.log('Email: admin@gemcms.com');
+    console.log('Email: admin@nomyx.io');
     console.log('Password: admin');
 
     process.exit(0);

@@ -8,12 +8,13 @@ require('./identity-management/identityFunctions');
 
 // Core Organization Management (Primary organization functions)
 require('./organization/organizationManagement');
-// DISABLED: Replaced with newer implementation in src/cloud/organizations
-// require('./organization/organizations');
+// Ensure the correct organization cloud functions are loaded
+require('../../src/cloud/organizations');
+
 require('./organization/orgUsers');
 
 // User Management (Load after organization to avoid getUserDetails conflict)
-// Note: getUserDetails is already defined in organization/organizations.js
+// Note: getUserDetails is now definitively loaded from src/cloud/organizations
 // require('./global/globalUserManagement'); // DISABLED - causes getUserDetails duplicate
 
 // App Framework & Marketplace
@@ -23,7 +24,6 @@ require('./triggers/appTriggers');
 require('./apis/appAPIs');
 require('./bootstrap/appFrameworkInit');
 require('./integrations/appStore');
-require('./organization/orgAppInstallations');
 require('./integrations/marketplaceManagement');
 
 // AI Assistant
@@ -49,15 +49,15 @@ require('./schema/reportsIntegrationsSchemas');
 require('./artifacts/artifacts');
 require('./object-management/objectManager');
 
-// Setup
-require('./bootstrap/setup');
+// Setup - Modular bootstrap functions
+require('./bootstrap');
 
 // Integrations
 require('./integrations/integrations');
 require('./apis/apiManagement');
 
 // Dashboard & Reporting
-require('./dashboard/dashboard');
+require('./dashboard');
 require('./reports/reportManagement');
 
 // CMS & Marketing

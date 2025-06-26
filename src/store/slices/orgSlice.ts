@@ -311,17 +311,24 @@ export const fetchUserOrganizations = createAsyncThunk(
         return rejectWithValue('No current user found to fetch organizations for.');
       }
 
-      const userDetailsResponse: any = await callCloudFunction('getUserDetails', { userId: currentUserId });
-      
-      if (!userDetailsResponse || !userDetailsResponse.success || !userDetailsResponse.organizations) {
-        console.warn('getUserDetails did not return expected organizations array:', userDetailsResponse);
+      try {
+        const userDetailsResponse: any = await callCloudFunction('getUserDetails', { userId: currentUserId });
+        
+        if (!userDetailsResponse || !userDetailsResponse.success || !userDetailsResponse.organizations) {
+          console.warn('getUserDetails did not return expected organizations array:', userDetailsResponse);
+          return { organizations: [] as Organization[], currentOrganization: null };
+        }
+        
+        const organizations = userDetailsResponse.organizations.map((orgJson: any) => serializeOrganization(orgJson));
+        const currentOrganization = userDetailsResponse.currentOrganization ? serializeOrganization(userDetailsResponse.currentOrganization) : null;
+        
+        return { organizations, currentOrganization };
+      } catch (cloudFunctionError) {
+        console.warn('getUserDetails cloud function failed, returning empty organizations:', cloudFunctionError);
+        // Return empty organizations instead of throwing - this allows the app to continue
+        // The organizations will be fetched when the user performs an action that requires them
         return { organizations: [] as Organization[], currentOrganization: null };
       }
-      
-      const organizations = userDetailsResponse.organizations.map((orgJson: any) => serializeOrganization(orgJson));
-      const currentOrganization = userDetailsResponse.currentOrganization ? serializeOrganization(userDetailsResponse.currentOrganization) : null;
-      
-      return { organizations, currentOrganization };
     } catch (error: any) {
       console.error('Failed to fetch user organizations:', error);
       return rejectWithValue(error.message || 'Failed to fetch user organizations.');
@@ -375,7 +382,8 @@ const orgSlice = createSlice({
       state.userOrgs = action.payload.map(org => serializeOrganization(org));
       state.isLoading = false;
       if (action.payload.length > 0 && !state.currentOrg) {
-        // Optionally set first org as current
+        // Set first org as current
+        state.currentOrg = serializeOrganization(action.payload[0]);
       }
     },
 

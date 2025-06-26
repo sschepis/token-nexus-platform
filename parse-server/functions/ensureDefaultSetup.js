@@ -23,8 +23,9 @@ async function ensureDefaultAdmin() {
     adminUser = new Parse.User();
     adminUser.set('username', 'admin');
     adminUser.set('password', 'admin');
-    adminUser.set('email', 'admin@gemcms.com');
+    adminUser.set('email', 'admin@nomyx.io');
     adminUser.set('role', 'admin');
+    adminUser.set('isAdmin', true); // Set system admin flag
 
     // Save the user
     await adminUser.save(null, { useMasterKey: true });
@@ -33,10 +34,20 @@ async function ensureDefaultAdmin() {
       email: adminUser.get('email'),
     });
   } else {
-    logger.info('Default admin user already exists', {
-      userId: existingUser.id,
-      email: existingUser.get('email'),
-    });
+    // Ensure existing user has isAdmin flag set
+    if (!existingUser.get('isAdmin')) {
+      existingUser.set('isAdmin', true);
+      await existingUser.save(null, { useMasterKey: true });
+      logger.info('Updated existing admin user with isAdmin flag', {
+        userId: existingUser.id,
+        email: existingUser.get('email'),
+      });
+    } else {
+      logger.info('Default admin user already exists', {
+        userId: existingUser.id,
+        email: existingUser.get('email'),
+      });
+    }
   }
 
   // Create or get admin role

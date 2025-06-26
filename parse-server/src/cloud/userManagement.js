@@ -51,77 +51,8 @@ Parse.Cloud.define('getUserCount', async (request) => {
  * Get user details by ID
  * This replaces direct _User table queries from the client
  */
-Parse.Cloud.define('getUserDetails', async (request) => {
-  const { user, params } = request;
-  
-  if (!user) {
-    throw new Error('User must be authenticated');
-  }
-
-  try {
-    const { userId, organizationId } = params;
-    
-    if (!userId) {
-      throw new Error('User ID is required');
-    }
-
-    // Users can always get their own details
-    if (userId === user.id) {
-      logger.info(`getUserDetails: User ${userId} retrieving own details`);
-      return {
-        success: true,
-        user: {
-          id: user.id,
-          username: user.get('username'),
-          email: user.get('email'),
-          firstName: user.get('firstName'),
-          lastName: user.get('lastName'),
-          roles: user.get('roles') || [],
-          permissions: user.get('permissions') || [],
-          organizationId: user.get('organizationId'),
-          isActive: user.get('isActive'),
-          lastLogin: user.get('lastLogin')
-        }
-      };
-    }
-
-    // For other users, check permissions
-    const userOrgId = user.get('organizationId');
-    if (organizationId && userOrgId !== organizationId && !user.get('isAdmin')) {
-      throw new Error('Insufficient permissions to access user data');
-    }
-
-    // Query the target user
-    const userQuery = new Parse.Query(Parse.User);
-    const targetUser = await userQuery.get(userId, { useMasterKey: true });
-
-    // Additional permission check - users can only see users in their org unless admin
-    if (!user.get('isAdmin') && targetUser.get('organizationId') !== userOrgId) {
-      throw new Error('Insufficient permissions to access user data');
-    }
-
-    logger.info(`getUserDetails: User ${user.id} retrieving details for user ${userId}`);
-
-    return {
-      success: true,
-      user: {
-        id: targetUser.id,
-        username: targetUser.get('username'),
-        email: targetUser.get('email'),
-        firstName: targetUser.get('firstName'),
-        lastName: targetUser.get('lastName'),
-        roles: targetUser.get('roles') || [],
-        permissions: targetUser.get('permissions') || [],
-        organizationId: targetUser.get('organizationId'),
-        isActive: targetUser.get('isActive'),
-        lastLogin: targetUser.get('lastLogin')
-      }
-    };
-  } catch (error) {
-    logger.error('Error in getUserDetails:', error);
-    throw new Error(`Failed to get user details: ${error.message}`);
-  }
-});
+// REMOVED: getUserDetails function - duplicate removed to prevent conflicts
+// The authoritative getUserDetails is in src/cloud/organizations/getUserDetails.js
 
 /**
  * Get organization users with pagination
