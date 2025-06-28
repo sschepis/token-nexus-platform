@@ -1,0 +1,85 @@
+@startuml
+!theme toy
+
+actor User
+participant "ClientApp" as Client
+participant "RealTimeManager" as RTM
+participant "SecurityService" as SS
+participant "ConnectionManager" as CM
+participant "PresenceManager" as PM
+participant "MessageRouter" as MR
+participant "SyncEngine" as SE
+
+User -> Client: Establishes Real-time Connection
+Client -> RTM: createConnection(request: ConnectionRequest)
+activate RTM
+
+RTM -> RTM: getConfiguration(request.configId)
+RTM -> SS: validateToken(request.token)
+activate SS
+SS --> RTM: UserContext
+deactivate SS
+RTM -> SS: checkPermission(userId, resource, action)
+activate SS
+SS --> RTM: Authorized
+deactivate SS
+RTM -> RTM: checkRateLimit(userId, config)
+
+RTM -> CM: createConnection(request, config)
+activate CM
+CM --> RTM: RealTimeConnection
+deactivate CM
+
+alt If config dictates presence
+    RTM -> PM: addUser(connection)
+    activate PM
+    PM --> RTM:
+    deactivate PM
+end
+
+RTM -> MR: addConnection(connection)
+activate MR
+MR --> RTM:
+deactivate MR
+
+RTM -> RTM: trackConnectionEvent(connection, 'connected')
+
+RTM --> Client: RealTimeConnection
+deactivate RTM
+Client --> User: Connection Established
+
+User -> Client: Sends Real-time Message/Operation
+Client -> RTM: sendMessage(message: RealTimeMessage, targets) OR handleCollaborativeEdit(operation: CollaborativeOperation)
+activate RTM
+
+alt If it's a collaborative edit
+    RTM -> RTM: getConfiguration(operation.configId)
+    RTM -> SE: applyOperation(operation, config)
+    activate SE
+    SE --> RTM: OperationResult
+    deactivate SE
+    alt If operation successful
+        RTM -> RTM: broadcastOperation(operation, result)
+        RTM -> MR: sendMessage(generatedBroadcastMessage, authorizedConnections)
+        activate MR
+        MR --> RTM: SendResult
+        deactivate MR
+    end
+    RTM --> Client: OperationResult
+else If it's a general message
+    RTM -> RTM: validateMessage(message)
+    RTM -> RTM: resolveTargets(targets) OR getConnectionsForScope(message.scope)
+    RTM -> RTM: filterByPermissions(connections, message)
+
+    RTM -> MR: sendMessage(message, authorizedConnections)
+    activate MR
+    MR --> RTM: SendResult
+    deactivate MR
+    RTM -> RTM: trackMessageEvent(message, results)
+    RTM --> Client: SendResult
+end
+
+deactivate RTM
+Client --> User: Message/Operation Processed
+
+@enduml

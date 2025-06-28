@@ -1,0 +1,57 @@
+@startuml
+!theme toy
+
+start
+:Initiate Notification Send;
+
+:Validate Notification Request;
+if (Request Valid?) then (no)
+  :Handle Validation Error;
+  stop
+endif
+
+:Check Compliance;
+if (Compliant?) then (no)
+  :Handle Compliance Error;
+  stop
+endif
+
+:Process Recipients and User Preferences;
+fork
+  :Retrieve User Preferences;
+  :Check Opt-Out Status;
+  :Filter Channels by Preferences;
+fork again
+  :Prepare Notification Content (Templating, Localization, Personalization);
+fork again
+  :Resolve Sender Information;
+end fork
+:Generate Notification Metadata;
+
+:Route Notification based on Delivery Strategy;
+if (Strategy is IMMEDIATE) then (Immediate Delivery)
+  :Deliver to Each Channel (Parallel);
+  json:
+  {
+    "channel1": "Success/Fail",
+    "channel2": "Success/Fail"
+  }
+  endjson
+  :Calculate Overall Status;
+else if (Strategy is BATCHED) then (Batched Delivery)
+  :Add Notification to Batch Queue;
+else if (Strategy is SCHEDULED) then (Scheduled Delivery)
+  :Store Scheduled Notification;
+  :Schedule with Queue for Future Delivery;
+else if (Strategy is DIGEST) then (Digest Delivery)
+  :Add Notification to Digest Queue (Grouped by Recipient/Category);
+else (Unsupported Strategy)
+  :Handle Unsupported Strategy Error;
+  stop
+endif
+
+:Track Notification Event (e.g., "created");
+:Return Notification Result;
+stop
+
+@enduml

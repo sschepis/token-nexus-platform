@@ -1,0 +1,45 @@
+@startuml
+!theme toy
+
+state "Analytics Service State" {
+    [*] --> Idle : System initialized, awaiting new events or requests
+    
+    state "Data Collection" as DataCollection {
+        [*] --> ReceivingEvents : Listening for incoming events
+        ReceivingEvents --> ValidatingEvents : Checking event format, properties
+        ValidatingEvents --> FilteringEvents : Applying sampling, exclusion rules
+        FilteringEvents --> EnrichingEvents : Adding contextual data (user, session, geo)
+        EnrichingEvents --> StoringRaw : Persisting raw event data
+        StoringRaw --> SendingToProcessing : Forwarding events to processors
+        SendingToProcessing --> ReceivingEvents : Ready for next event
+    }
+    
+    state "Data Processing" as DataProcessing {
+        [*] --> EventQueued : Event received by processing pipeline
+        EventQueued --> StreamProcessing : Processing for real-time metrics, alerts
+        StreamProcessing --> BatchProcessing : Aggregating for historical reports, long-term storage
+        BatchProcessing --> StoringAggregated : Persisting summarized/aggregated data
+        StoringAggregated --> EventQueued : Ready for next processing task
+    }
+    
+    state "Reporting State" as Reporting {
+        [*] --> AwaitingReportRequest : Waiting for user/system request
+        AwaitingReportRequest --> GeneratingReport : Fetching data, applying calculations
+        GeneratingReport --> FormattingReport : Creating visualizations, setting layout
+        FormattingReport --> DeliveringReport : Sending to dashboard, export, email
+        DeliveringReport --> AwaitingReportRequest : Report delivered
+    }
+    
+    Idle --> DataCollection : An event occurs (track call)
+    DataCollection --> DataProcessing : Raw event collected
+    DataProcessing --> Reporting : Aggregated data available for reports
+    Reporting --> Idle : Report completed, system returns to idle
+    
+    DataCollection --> ErrorState : Collection error
+    DataProcessing --> ErrorState : Processing error
+    Reporting --> ErrorState : Report generation/delivery error
+    
+    ErrorState --> Idle : Error handled, system recovers
+}
+
+@enduml

@@ -1,0 +1,51 @@
+@startuml
+!theme toy
+
+start
+:Job Scheduled / Triggered;
+:Job Received by Worker;
+
+:Initialize Execution (Register with Monitoring, Reserve Resources);
+if (Initialization Successful?) then (no)
+  :Record Failure;
+  stop
+endif
+
+:Execute Before Execution Hook;
+
+:Validate Security (Enabled, Environment, Authentication, Permissions);
+if (Security Valid?) then (no)
+  :Record Failure (Security Error);
+  :Send Failure Alert;
+  stop
+endif
+
+:Check Resource Availability;
+if (Resources Available?) then (no)
+  :Record Failure (Resource Error);
+  :Send Failure Alert;
+  stop
+endif
+
+:Execute Job Logic;
+if (Job Logic Successful?) then (yes)
+  :Record Success;
+  :Execute After Execution Hook;
+  stop
+else (no)
+  :Handle Execution Error;
+  if (Retries Left?) then (yes)
+    :Calculate Retry Delay;
+    :Schedule Retry;
+    stop
+  else (no)
+    :Record Failure (Permanent Error);
+    :Send Failure Alert;
+    stop
+  endif
+endif
+
+:Perform Cleanup (Release Resources, Abort Controller, Unregister Execution);
+stop
+
+@enduml

@@ -1,0 +1,65 @@
+@startuml
+!theme toy
+
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Platform User" as User
+actor "Custom Page Developer" as Developer
+actor "Platform Administrator" as Admin
+actor "External System" as ExternalSystem
+actor "AI Assistant" as AI
+
+rectangle "Custom Page System" {
+  usecase "View Custom Page Content" as ViewContent
+  usecase "Interact with Custom UI" as InteractCustomUI
+  usecase "Utilize Custom Logic" as UseCustomLogic
+  usecase "Access Platform Services" as AccessPlatformServices
+  usecase "Integrate with External APIs" as IntegrateExternalAPIs
+  usecase "Manage Local State" as ManageLocalState
+  usecase "Manage Global State" as ManageGlobalState
+  usecase "Manage Persistent State" as ManagePersistentState
+  usecase "Apply Custom Styling" as ApplyCustomStyling
+  usecase "Optimize Performance" as OptimizePerformance
+  usecase "Define Page Metadata" as DefinePageMetadata
+  usecase "Deploy Custom Page" as DeployCustomPage
+  usecase "Configure Security Policies" as ConfigSecurity
+  usecase "Interact with Page via AI" as InteractAI
+  usecase "Monitor Page Performance" as MonitorPerformance
+  usecase "Report Errors" as ReportErrors
+}
+
+User --> ViewContent
+User --> InteractCustomUI
+User --> UseCustomLogic
+User --> ManageLocalState
+User --> ManageGlobalState
+
+Developer --> DefinePageMetadata
+Developer --> DeployCustomPage
+Developer --> ApplyCustomStyling
+Developer --> UseCustomLogic
+Developer --> InteractCustomUI
+Developer --> IntegrateExternalAPIs
+Developer --> MonitorPerformance
+Developer --> ReportErrors
+
+Admin --> DeployCustomPage
+Admin --> ConfigSecurity
+Admin --> MonitorPerformance
+Admin --> ReportErrors
+
+ExternalSystem --> IntegrateExternalAPIs
+ExternalSystem --> AccessPlatformServices
+
+AI --> InteractAI
+AI --> InteractCustomUI
+AI --> UseCustomLogic
+
+ViewContent <.. AccessPlatformServices : include
+InteractCustomUI <.. IntegrateExternalAPIs : include
+UseCustomLogic <.. AccessPlatformServices : include
+UseCustomLogic <.. IntegrateExternalAPIs : include
+OptimizePerformance <.. MonitorPerformance : include
+
+@enduml

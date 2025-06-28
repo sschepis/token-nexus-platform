@@ -1,0 +1,50 @@
+@startuml
+!theme toy
+
+rectangle "Visual Page System" {
+  component "Visual Page Container" as Container
+  component "Page Layout Manager" as LayoutMgr
+  component "Page Header Component" as Header
+  component "Page Content Area" as ContentArea
+  component "Page Sidebar Component" as Sidebar
+  component "Page Footer Component" as Footer
+  component "Data Visualization Components" as DataViz
+  component "Interactive Forms Components" as InteractiveForms
+  component "Action Panels Components" as ActionPanels
+  component "Data Services" as DataServices
+  component "Platform API" as PlatformAPI
+  component "Design System Library" as DesignSystem
+  component "State Management (Redux/Context)" as StateMgr
+  component "Authentication & Authorization Services" as AuthServices
+  component "Error Handling (ErrorBoundary)" as ErrorHandling
+  component "AI Assistant Integration" as AI
+
+  Container --> LayoutMgr : coordinates
+  LayoutMgr --> Header : organizes
+  LayoutMgr --> ContentArea : organizes
+  LayoutMgr --> Sidebar : organizes
+  LayoutMgr --> Footer : organizes
+
+  ContentArea --> DataViz : displays
+  ContentArea --> InteractiveForms : hosts
+  ContentArea --> ActionPanels : hosts
+
+  DataViz --> DataServices : fetches data
+  InteractiveForms --> DataServices : submits data
+  ActionPanels --> DataServices : triggers actions
+
+  DataServices --> PlatformAPI : interacts with
+  PlatformAPI --> DesignSystem : consumes styles
+  StateMgr --> DataServices : provides state
+  AuthServices --> DataServices : performs auth checks
+  ErrorHandling --> Container : catches errors
+
+  LayoutMgr --> DesignSystem : consumes styles
+  Header --> DesignSystem : consumes styles
+  Footer --> DesignSystem : consumes styles
+  Sidebar --> DesignSystem : consumes styles
+
+  AI --> PlatformAPI : interacts with
+}
+
+@enduml

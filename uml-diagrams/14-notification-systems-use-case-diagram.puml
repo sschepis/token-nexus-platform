@@ -1,0 +1,55 @@
+@startuml
+!theme toy
+
+left to right direction
+skinparam packageStyle rectangle
+
+actor "User" as User
+actor "Platform Service" as PlatformService
+actor "Platform Administrator" as Admin
+actor "External System" as ExternalSystem
+actor "Analytics System" as AnalyticsSystem
+
+rectangle "Notification System" {
+  usecase "Send Notification" as SendNotification
+  usecase "Receive In-App Notification" as ReceiveInApp
+  usecase "Receive Email Notification" as ReceiveEmail
+  usecase "Receive SMS Notification" as ReceiveSMS
+  usecase "Receive Push Notification" as ReceivePush
+  usecase "Receive Webhook Notification" as ReceiveWebhook
+  usecase "Manage Notification Preferences" as ManagePreferences
+  usecase "Track Notification Delivery/Engagement" as TrackDelivery
+  usecase "Schedule Notification" as ScheduleNotification
+  usecase "Cancel Notification" as CancelNotification
+  usecase "Get Notification Status" as GetStatus
+  usecase "Configure Notification Categories/Channels" as ConfigSettings
+  usecase "Generate Notification Reports" as GenerateReports
+  usecase "Ensure Compliance" as EnsureCompliance
+}
+
+User --> ReceiveInApp
+User --> ReceiveEmail
+User --> ReceiveSMS
+User --> ReceivePush
+User --> ManagePreferences
+
+PlatformService --> SendNotification
+PlatformService --> ScheduleNotification
+PlatformService --> CancelNotification
+PlatformService --> GetStatus
+
+Admin --> ConfigSettings
+Admin --> GenerateReports
+Admin --> TrackDelivery
+Admin --> EnsureCompliance
+
+ExternalSystem --> SendNotification : (e.g., via webhook)
+ExternalSystem --> ReceiveWebhook
+
+AnalyticsSystem <-- TrackDelivery : consumes data
+
+SendNotification <.. TrackDelivery : include
+SendNotification <.. ManagePreferences : include (for routing)
+ScheduleNotification <.. SendNotification : include (async trigger)
+
+@enduml

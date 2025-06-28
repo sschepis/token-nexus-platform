@@ -1,0 +1,38 @@
+@startuml
+!theme toy
+
+partition "Analytics Event Tracking Workflow" {
+    start
+    :Trigger Analytics Event (e.g., Page View, User Action);
+    :Collect Event Data (Properties, Context);
+    :Validate Event Schema and Required Properties;
+    :Apply Privacy Filters (Anonymization, PII Redaction);
+    :Enrich Event Data (Geolocation, User Agent, Session Info);
+    :Queue Event for Ingestion;
+    :Ingest Event to Raw Data Storage;
+    if (Real-time Processing Configured?) then (Yes)
+        :Process Event in Stream Processor;
+        :Update Real-time Metrics and Dashboards;
+        :Check for Alerts;
+    else (No)
+        :Mark Event for Batch Processing;
+    endif
+    :Send Tracking Confirmation;
+    stop
+}
+
+partition "Scheduled Report Generation Workflow" {
+    start
+    :Report Generation Schedule Triggered;
+    :Retrieve Report Configuration;
+    :Fetch Aggregated Data from Metric Store;
+    :Apply Data Transformations and Calculations;
+    :Generate Visualizations (Charts, Graphs);
+    :Assemble Report Document (PDF, HTML);
+    :Apply Privacy Filters to Report Content;
+    :Store Generated Report;
+    :Distribute Report (Email, Portal, Export);
+    stop
+}
+
+@enduml

@@ -1,0 +1,44 @@
+@startuml
+!theme toy
+
+start
+:Database Event Occurs;
+:Parse Server Receives Event;
+
+:Forward to Trigger Router;
+
+:Retrieve Trigger Metadata;
+
+:Check if Trigger Should Execute (based on conditions and enabled state);
+if (Should Execute?) then (no)
+  :Return Skipped Response;
+  stop
+endif
+
+:Validate Organization Context (if organizationScoped);
+if (Organization Context Valid?) then (no)
+  :Log Error (Invalid Organization Context);
+  :Handle Final Error (e.g., Throw Error);
+  stop
+endif
+
+:Execute Trigger Logic;
+if (Trigger Logic Successful?) then (yes)
+  :Log Successful Execution;
+  :Return Success Response;
+  stop
+else (no)
+  :Handle Error;
+  if (Retries Left?) then (yes)
+    :Calculate Backoff Time;
+    :Delay;
+    :Increment Retry Count;
+    -repeat-> :Execute Trigger Logic;
+  else (no)
+    :Log Error (Permanent Failure);
+    :Handle Final Error (e.g., Ignore, Log, Throw);
+    stop
+  endif
+endif
+
+@enduml

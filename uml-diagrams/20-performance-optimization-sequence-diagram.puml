@@ -1,0 +1,111 @@
+@startuml
+!theme toy
+
+autonumber
+
+actor "Client Application" as Client
+participant "PerformanceManager" as PM
+participant "MonitoringEngine" as ME
+participant "OptimizationEngine" as OE
+participant "CacheManager" as CM
+participant "ResourceManager" as RM
+participant "AlertService" as AS
+participant "AnalyticsService" as AnS
+database "Metrics Store" as MS
+database "Resource Allocator" as RA
+
+Client -> PM: startMonitoring(configId)
+activate PM
+PM -> PM: getConfiguration(configId)
+PM -> ME: startSession(config)
+activate ME
+ME --> PM: MonitoringSession
+deactivate ME
+PM -> PM: setupRealTimeMonitoring(session)
+PM -> PM: setupPerformanceAlerts(config, session)
+PM --> Client: MonitoringSession
+deactivate PM
+
+loop Continuous Metrics Collection
+    Client -> PM: recordMetric(metric)
+    activate PM
+    PM -> PM: validateMetric(metric)
+    PM -> ME: recordMetric(metric)
+    activate ME
+    ME --> MS: store metric
+    MS --> ME:
+    deactivate ME
+    PM -> PM: checkPerformanceThresholds(metric)
+    alt If Threshold Exceeded
+        PM -> AS: triggerAlert(metric, config.alerts)
+        activate AS
+        AS --> PM:
+        deactivate AS
+        PM -> PM: triggerOptimizationIfNeeded(metric)
+        alt If auto-optimization enabled and needed
+            PM -> OE: analyzePerformance(metric.scope)
+            activate OE
+            OE --> PM: PerformanceAnalysis
+            deactivate OE
+            PM -> OE: generateOptimizationPlan(analysis)
+            activate OE
+            OE --> PM: OptimizationPlan
+            deactivate OE
+            PM -> OE: executeOptimizations(plan)
+            activate OE
+            OE --> PM: OptimizationResult
+            deactivate OE
+            PM -> PM: measureOptimizationImpact(result)
+        end
+    end
+    PM --> Client: Metric Recorded Acknowledgment
+    deactivate PM
+end
+
+Client -> PM: getMetrics(query)
+activate PM
+PM -> PM: validatePerformanceQuery(query)
+PM -> ME: queryMetrics(query)
+activate ME
+ME --> MS: fetch metrics
+MS --> ME: rawMetrics
+deactivate ME
+PM -> PM: calculateAggregations(rawMetrics, query)
+PM -> PM: generatePerformanceInsights(metrics, aggregations)
+PM --> Client: PerformanceMetricsResult
+deactivate PM
+
+Client -> PM: cacheData(key, data, options)
+activate PM
+PM -> PM: validateCacheRequest(key, data, options)
+PM -> PM: determineCacheStrategy(key, data, options)
+PM -> CM: set(key, data, strategy, options)
+activate CM
+CM --> PM: CacheResult
+deactivate CM
+PM -> AnS: trackCacheMetric('cache_set', key, result)
+activate AnS
+AnS --> PM:
+deactivate AnS
+PM --> Client: CacheResult
+deactivate PM
+
+Client -> PM: manageResources(request)
+activate PM
+PM -> RM: analyzeUsage(request)
+activate RM
+RM --> PM: ResourceUsage
+deactivate RM
+PM -> RM: optimize(usage)
+activate RM
+RM --> PM: Optimization
+deactivate RM
+PM -> RM: applyLimits(optimization.limits)
+activate RM
+RM --> RA: set resource quotas
+RA --> RM:
+deactivate RM
+PM --> Client: ResourceManagementResult
+deactivate PM
+
+@enduml

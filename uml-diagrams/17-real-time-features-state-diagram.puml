@@ -1,0 +1,34 @@
+@startuml
+!theme toy
+
+state "Real-time Connection State" {
+    [*] --> Disconnected : Initial state or after close
+    Disconnected --> Connecting : User/Client initiates connection
+    Connecting --> Authenticating : Connection established, waiting auth
+    Authenticating --> Authorizing : Authentication successful, checking permissions
+    Authorizing --> Connected : Authorization successful, ready for messaging/sync
+    
+    Connected --> Disconnected : Explicit close / Network drop
+    Authenticating --> Disconnected : Authentication failed
+    Authorizing --> Disconnected : Authorization failed
+    Connecting --> Disconnected : Connection failed during establishment
+    
+    state Connected {
+        [*] --> Idle : No active data transfer
+        Idle --> Sending : Sending messages/updates
+        Sending --> Receiving : Waiting for acknowledgment/response
+        Receiving --> Idle : Message processed
+        
+        Idle --> Synchronizing : Initiating data synchronization (e.g., on reconnect)
+        Synchronizing --> Idle : Data synchronized
+        
+        Sending --> ErrorState : Message send failure
+        Receiving --> ErrorState : Message receive failure
+        Synchronizing --> ErrorState : Synchronization failure
+        
+        ErrorState --> Idle : Error handled, recovering
+        ErrorState --> Disconnected : Unrecoverable error
+    }
+}
+
+@enduml

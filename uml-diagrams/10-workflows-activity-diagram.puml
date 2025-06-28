@@ -1,0 +1,57 @@
+@startuml
+!theme toy
+
+start
+:Workflow Triggered;
+
+:Initialize Workflow Execution (Create State, Register Monitoring);
+if (Initialization Successful?) then (no)
+  :Record Workflow Failure;
+  stop
+endif
+
+:Execute Before Workflow Hook;
+
+:Validate Workflow Security (Enabled, Permissions, Org Context, Specific Security);
+if (Security Valid?) then (no)
+  :Record Workflow Failure (Security Error);
+  stop
+endif
+
+:Define Workflow Steps;
+:Find Initial Steps;
+
+ repeat while steps remain
+  :Execute Current Steps;
+  fork
+    :Retrieve Step Metadata;
+    :Update Workflow State (Current Step);
+    if (Step Conditions Met?) then (no)
+      :Skip Step;
+      :Determine Next Step (Skipped Path);
+    else (yes)
+      :Execute Step Action;
+      if (Step Action Successful?) then (yes)
+        :Record Step Completion;
+        :Determine Next Step (Success Path);
+      else (no)
+        :Handle Step Error;
+        if (Step Retriable?) then (yes)
+          :Retry Step;
+        else (no)
+          :Propagate Error to Workflow;
+          break
+        endif
+      endif
+    endif notation
+    -> next iteration
+  fork again
+  end fork
+:Collect Next Steps for Parallel Execution;
+end repeat
+
+:Record Workflow Completion;
+:Execute After Workflow Hook;
+stop
+
+@enduml

@@ -1,0 +1,124 @@
+@startuml
+!theme toy
+
+' Enums
+enum CloudFunctionCategory {
+    DATA_PROCESSING
+    AUTHENTICATION
+    BUSINESS_LOGIC
+    INTEGRATION
+    NOTIFICATION
+    ANALYTICS
+    WORKFLOW
+    UTILITY
+}
+
+enum CloudFunctionType {
+    TRIGGER
+    ENDPOINT
+    JOB
+    WEBHOOK
+    SCHEDULED
+}
+
+' Interfaces/Types
+interface CloudFunctionRequest
+interface CloudFunctionResponse
+interface AuthenticationService
+interface PermissionService
+interface AuditService
+interface ValidationService
+class Parse_User
+class Parse_Query
+class Parse_Cloud
+class Parse_Cloud_TriggerRequest
+
+' CloudFunctionMetadata Interface
+interface CloudFunctionMetadata {
+    +name: string
+    +category: CloudFunctionCategory
+    +type: CloudFunctionType
+    +description: string
+    +version: string
+    +permissions: string[]
+    +organizationScoped: boolean
+    +rateLimit?: { requests: number; window: number; }
+    +timeout?: number
+    +retryPolicy?: { maxRetries: number; backoffMultiplier: number; }
+    +dependencies?: string[]
+    +tags: string[]
+}
+
+' BaseCloudFunction Abstract Class
+abstract class BaseCloudFunction {
+    #authService: AuthenticationService
+    #permissionService: PermissionService
+    #auditService: AuditService
+    #validationService: ValidationService
+    #metadata: CloudFunctionMetadata
+
+    +constructor(metadata: CloudFunctionMetadata)
+    +execute(request: CloudFunctionRequest): Promise<CloudFunctionResponse>
+    #{abstract} validateRequest(request: CloudFunctionRequest): Promise<void>
+    #{abstract} executeBusinessLogic(request: CloudFunctionRequest, user: Parse_User, organizationId: string): Promise<any>
+    #authenticateUser(request: CloudFunctionRequest): Promise<Parse_User>
+    #validatePermissions(user: Parse_User, request: CloudFunctionRequest): Promise<void>
+    #validateOrganizationContext(user: Parse_User, request: CloudFunctionRequest): Promise<string>
+    #createAuditContext(request: CloudFunctionRequest): any
+    #sanitizeParameters(params: any): any
+    #formatError(error: any): string
+}
+
+' Concrete Cloud Function Example
+class UserDataProcessor {
+    +constructor()
+    #validateRequest(request: CloudFunctionRequest): Promise<void>
+    #executeBusinessLogic(request: CloudFunctionRequest, user: Parse_User, organizationId: string): Promise<any>
+    -fetchUser(userId: string, organizationId: string): Promise<Parse_User>
+    -validateDataChanges(targetUser: Parse_User, userData: any, requestingUser: Parse_User): Promise<void>
+    -processDataTransformations(userData: any): Promise<any>
+    -updateUserRecord(user: Parse_User, processedData: any, updatingUser: Parse_User): Promise<Parse_User>
+    -triggerPostProcessingWorkflows(user: Parse_User, originalData: any): Promise<void>
+    -checkEmailExists(email: string, organizationId: string): Promise<boolean>
+    -formatPhoneNumber(phone: string): string
+    -capitalizeString(str: string): string
+}
+
+' Database Trigger Example
+class UserTriggers {
+    +static beforeSaveUser(request: Parse_Cloud_TriggerRequest): Promise<void>
+}
+
+
+' Relationships
+
+' BaseCloudFunction composition of CloudFunctionMetadata
+BaseCloudFunction *-- CloudFunctionMetadata
+
+' Enums relationships
+CloudFunctionMetadata --> CloudFunctionCategory
+CloudFunctionMetadata --> CloudFunctionType
+
+' Service and Request/Response dependencies for BaseCloudFunction
+BaseCloudFunction ..> CloudFunctionRequest
+BaseCloudFunction ..> CloudFunctionResponse
+BaseCloudFunction ..> AuthenticationService
+BaseCloudFunction ..> PermissionService
+BaseCloudFunction ..> AuditService
+BaseCloudFunction ..> ValidationService
+BaseCloudFunction ..> Parse_User
+
+' Inheritance
+UserDataProcessor --|> BaseCloudFunction
+
+' UserDataProcessor dependencies
+UserDataProcessor ..> Parse_Query
+UserDataProcessor ..> Parse_Cloud
+
+' UserTriggers dependencies
+UserTriggers ..> Parse_Cloud_TriggerRequest
+
+' Registration of UserDataProcessor
+Parse_Cloud ..> UserDataProcessor : "Registers"
+
+@enduml

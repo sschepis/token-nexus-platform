@@ -1,0 +1,83 @@
+@startuml
+!theme toy
+
+package "Token Nexus Platform" {
+
+    component [Performance API Gateway] as PerformanceAPI
+
+    folder "Performance Optimization System" {
+        rectangle "Performance Manager" {
+            component [Monitoring Engine] as MonitoringEngine
+            component [Optimization Engine] as OptimizationEngine
+            component [Cache Manager] as CacheManager
+            component [Resource Manager] as ResourceManager
+        }
+
+        component [Metrics Collector] as MetricsCollector
+        component [APM Agent] as APMAgent
+        component [Real-time Monitor] as RealTimeMonitor
+        component [Alert Engine] as AlertEngine
+
+        component [Query Optimizer] as QueryOptimizer
+        component [Code Optimizer] as CodeOptimizer
+        component [Asset Optimizer] as AssetOptimizer
+        component [Network Optimizer] as NetworkOptimizer
+
+        component [Memory Cache] as MemoryCache
+        component [Redis Cache] as RedisCache
+        component [CDN Cache Interface] as CDNCache
+        component [Database Cache] as DatabaseCache
+
+        component [CPU Manager] as CPUManager
+        component [Memory Manager] as MemoryManager
+        component [I/O Manager] as IOManager
+        component [Network Manager] as NetworkManager
+    }
+
+    database "Metrics Database" as MetricsDB
+    database "Application Database" as AppDB // Represents data optimized by QueryOptimizer, DatabaseCache
+    
+    PerformanceAPI --> MonitoringEngine : "collect metrics"
+    PerformanceAPI --> OptimizationEngine : "optimization requests"
+    PerformanceAPI --> CacheManager : "cache operations"
+    PerformanceAPI --> ResourceManager : "resource control"
+
+    MonitoringEngine --> MetricsCollector
+    MonitoringEngine --> APMAgent
+    MonitoringEngine --> RealTimeMonitor
+    MonitoringEngine --> AlertEngine
+    MonitoringEngine --> MetricsDB : "stores metrics"
+    
+    OptimizationEngine --> QueryOptimizer
+    OptimizationEngine --> CodeOptimizer
+    OptimizationEngine --> AssetOptimizer
+    OptimizationEngine --> NetworkOptimizer
+
+    CacheManager --> MemoryCache
+    CacheManager --> RedisCache
+    CacheManager --> CDNCache
+    CacheManager --> DatabaseCache
+    
+    ResourceManager --> CPUManager
+    ResourceManager --> MemoryManager
+    ResourceManager --> IOManager
+    ResourceManager --> NetworkManager
+    
+    QueryOptimizer --> AppDB : "optimizes queries"
+    DatabaseCache --> AppDB : "caches data"
+    
+    MonitoringEngine ..> [Analytics Service] as AnalyticsService
+    AlertEngine ..> [Notification Systems] as NotificationSystem
+    
+    PerformanceAPI ..> [User Management] as UserManagement
+}
+
+cloud "External CDN Provider" as ExternalCDN
+cloud "Prometheus/Grafana" as ExtPrometheus
+cloud "New Relic/DataDog" as ExtAPM
+
+CDNCache <--> ExternalCDN : "content delivery"
+MetricsCollector <--> ExtPrometheus : "monitoring data"
+APMAgent <--> ExtAPM : "application performance"
+
+@enduml

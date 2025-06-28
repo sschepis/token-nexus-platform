@@ -1,0 +1,283 @@
+@startuml
+!theme toy
+
+' Enums
+enum FileCategory {
+    DOCUMENT
+    IMAGE
+    VIDEO
+    AUDIO
+    ARCHIVE
+    CODE
+    DATA
+    TEMPLATE
+    ASSET
+    BACKUP
+}
+
+enum FileScope {
+    PUBLIC
+    ORGANIZATION
+    PRIVATE
+    SYSTEM
+}
+
+enum FileStatus {
+    UPLOADING
+    PROCESSING
+    AVAILABLE
+    ARCHIVED
+    DELETED
+    QUARANTINED
+}
+
+enum StorageProvider {
+    LOCAL
+    AWS_S3
+    GOOGLE_CLOUD
+    AZURE_BLOB
+    IPFS
+    CDN
+}
+
+enum ProcessingStatus {
+    PENDING
+    PROCESSING
+    COMPLETED
+    FAILED
+    SKIPPED
+}
+
+enum AccessLevel {
+    READ_ONLY
+    READ_WRITE
+    FULL_ACCESS
+    NO_ACCESS
+}
+
+' Interfaces/Types
+interface FileMetadata {
+    +id: string
+    +name: string
+    +originalName: string
+    +category: FileCategory
+    +mimeType: string
+    +size: number
+    +hash: string
+    +scope: FileScope
+    +status: FileStatus
+    +storage: StorageConfig
+    +processing: ProcessingConfig
+    +security: SecurityConfig
+    +versioning: VersioningConfig
+    +lifecycle: LifecycleConfig
+    +access: AccessConfig
+    +metadata: ExtractedMetadata
+    +tags: string[]
+    +organizationId?: string
+    +userId: string
+    +applicationId?: string
+    +parentId?: string
+    +createdAt: Date
+    +updatedAt: Date
+    +expiresAt?: Date
+}
+
+
+interface StorageConfig {
+    +provider: StorageProvider
+    +bucket: string
+    +key: string
+    +region?: string
+    +endpoint?: string
+    +cdn?: CDNConfig
+    +backup?: BackupConfig
+}
+
+interface ProcessingConfig {
+    +enabled: boolean
+    +pipeline: ProcessingStep[]
+    +status: ProcessingStatus
+    +results: ProcessingResult[]
+    +retryCount: number
+    +maxRetries: number
+}
+
+interface SecurityConfig {
+    +encrypted: boolean
+    +encryptionKey?: string
+    +virusScanned: boolean
+    +scanResult?: ScanResult
+    +accessLevel: AccessLevel
+    +permissions: FilePermission[]
+}
+
+interface VersioningConfig {
+    +enabled: boolean
+    +version: number
+    +previousVersions: VersionInfo[]
+    +maxVersions: number
+    +retentionDays: number
+}
+
+interface LifecycleConfig {
+    +rules: LifecycleRule[]
+    +archiveAfter?: number
+    +deleteAfter?: number
+    +autoCleanup: boolean
+}
+
+interface AccessConfig {
+    +publicUrl?: string
+    +signedUrl?: string
+    +downloadCount: number
+    +lastAccessed?: Date
+    +accessLog: AccessLogEntry[]
+}
+
+interface ExtractedMetadata {
+    +dimensions?: ImageDimensions
+    +duration?: number
+    +pages?: number
+    +encoding?: string
+    +format?: string
+    +exif?: ExifData
+    +custom: Record<string, any>
+}
+
+interface FileUploadRequest
+interface FileUploadResult
+interface FileContext
+interface FileDownloadResult
+interface FileUpdateRequest
+interface FileSearchQuery
+interface FileSearchResult
+interface ProcessingOptions
+interface ProcessingResult
+interface BatchOperation
+interface BatchOperationResult
+interface OperationResult
+interface CDNConfig
+interface BackupConfig
+interface ProcessingStep
+interface ScanResult
+interface FilePermission
+interface VersionInfo
+interface LifecycleRule
+interface AccessLogEntry
+interface ImageDimensions
+interface ExifData
+
+' Services and Managers
+class StorageProviderInterface
+class ProcessingPipeline
+class SecurityService
+class MetadataExtractor
+class AccessController
+class VersionManager
+class FileError
+class LocalStorageProvider
+class AWSS3StorageProvider
+class GoogleCloudStorageProvider
+class AzureBlobStorageProvider
+class IPFSStorageProvider
+class VirusScanner
+class ImageProcessor
+class DocumentConverter
+class VideoTranscoder
+class AudioProcessor
+
+' FileManager Class
+class FileManager {
+    -storageProviders: Map<StorageProvider, StorageProviderInterface>
+    -processingPipeline: ProcessingPipeline
+    -securityService: SecurityService
+    -metadataExtractor: MetadataExtractor
+    -accessController: AccessController
+    -versionManager: VersionManager
+
+    +constructor()
+    +upload(request: FileUploadRequest): Promise<FileUploadResult>
+    +uploadMultiple(requests: FileUploadRequest[]): Promise<FileUploadResult[]>
+    +getFile(fileId: string, context?: FileContext): Promise<FileMetadata>
+    +downloadFile(fileId: string, context?: FileContext): Promise<FileDownloadResult>
+    +updateFile(fileId: string, updates: FileUpdateRequest, context?: FileContext): Promise<FileMetadata>
+    +deleteFile(fileId: string, context?: FileContext): Promise<void>
+    +searchFiles(query: FileSearchQuery, context?: FileContext): Promise<FileSearchResult>
+    +processFile(fileId: string, processingOptions?: ProcessingOptions): Promise<ProcessingResult>
+    +batchOperation(operation: BatchOperation, fileIds: string[], context?: FileContext): Promise<BatchOperationResult>
+    -initializeStorageProviders(): void
+    -validateUploadRequest(request: FileUploadRequest): Promise<void>
+    -createFileMetadata(request: FileUploadRequest): Promise<FileMetadata>
+    -performSecurityScan(fileMetadata: FileMetadata, buffer: Buffer): Promise<void>
+    -extractMetadata(fileMetadata: FileMetadata, buffer: Buffer): Promise<ExtractedMetadata>
+    -selectStorageProvider(fileMetadata: FileMetadata): StorageProviderInterface
+    -uploadToStorage(provider: StorageProviderInterface, fileMetadata: FileMetadata, buffer: Buffer): Promise<StorageConfig>
+    -saveFileMetadata(fileMetadata: FileMetadata): Promise<void>
+    -queueForProcessing(fileMetadata: FileMetadata): Promise<void>
+    -generateAccessUrls(fileMetadata: FileMetadata): Promise<any>
+    -getFileMetadata(fileId: string): Promise<FileMetadata>
+    -logFileAccess(fileMetadata: FileMetadata, context?: FileContext, action?: string): Promise<void>
+    -updateDownloadStats(fileMetadata: FileMetadata, context?: FileContext): Promise<void>
+    -getStorageProvider(providerName: StorageProvider): StorageProviderInterface
+    -applyFileUpdates(fileMetadata: FileMetadata, updates: FileUpdateRequest): Promise<FileMetadata>
+    -softDeleteFile(fileMetadata: FileMetadata): Promise<void>
+    -hardDeleteFile(fileMetadata: FileMetadata): Promise<void>
+    -buildSearchCriteria(query: FileSearchQuery, context?: FileContext): Promise<any>
+    -executeFileSearch(searchCriteria: any): Promise<FileMetadata[]>
+    -filterByPermissions(results: FileMetadata[], context?: FileContext): Promise<FileMetadata[]>
+    -generateSearchFacets(results: FileMetadata[]): Promise<any>
+    -configurePipeline(fileMetadata: FileMetadata, processingOptions?: ProcessingOptions): Promise<any>
+    -updateProcessingResults(fileMetadata: FileMetadata, result: ProcessingResult): Promise<void>
+    -chunkArray<T>(array: T[], chunkSize: number): T[][]
+    -copyFile(fileId: string, destination: any, context?: FileContext): Promise<FileMetadata>
+    -moveFile(fileId: string, destination: any, context?: FileContext): Promise<FileMetadata>
+}
+
+' Relationships
+
+FileManager "1" o-- "N" StorageProviderInterface
+FileManager "1" *-- "1" ProcessingPipeline
+FileManager --> SecurityService
+FileManager --> MetadataExtractor
+FileManager --> AccessController
+FileManager --> VersionManager
+FileManager "1" *-- "1" FileMetadata
+
+FileMetadata --> FileCategory
+FileMetadata --> FileScope
+FileMetadata --> FileStatus
+FileMetadata *-- StorageConfig
+FileMetadata *-- ProcessingConfig
+FileMetadata *-- SecurityConfig
+FileMetadata *-- VersioningConfig
+FileMetadata *-- LifecycleConfig
+FileMetadata *-- AccessConfig
+FileMetadata *-- ExtractedMetadata
+
+StorageConfig --> StorageProvider
+ProcessingConfig --> ProcessingStatus
+ProcessingConfig *-- ProcessingStep
+SecurityConfig --> AccessLevel
+SecurityConfig *-- ScanResult
+VersioningConfig *-- VersionInfo
+LifecycleConfig *-- LifecycleRule
+AccessConfig *-- AccessLogEntry
+ExtractedMetadata *-- ImageDimensions
+ExtractedMetadata *-- ExifData
+
+LocalStorageProvider --|> StorageProviderInterface
+AWSS3StorageProvider --|> StorageProviderInterface
+GoogleCloudStorageProvider --|> StorageProviderInterface
+AzureBlobStorageProvider --|> StorageProviderInterface
+IPFSStorageProvider --|> StorageProviderInterface
+
+ProcessingPipeline ..> ImageProcessor
+ProcessingPipeline ..> DocumentConverter
+ProcessingPipeline ..> VideoTranscoder
+ProcessingPipeline ..> AudioProcessor
+ProcessingPipeline ..> VirusScanner
+
+FileError --|> Error
+
+@enduml

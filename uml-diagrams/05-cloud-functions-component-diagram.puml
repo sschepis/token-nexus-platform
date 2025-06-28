@@ -1,0 +1,29 @@
+@startuml
+!theme toy
+
+rectangle "Token Nexus Platform" {
+  [Client Application] as Client
+  [Parse Server] as ParseServer
+  [Cloud Function Router] as Router
+  [Authentication Layer] as Auth
+  [Permission Validation Layer] as Perm
+  [Cloud Functions Business Logic] as Functions
+  [Data Layer] as Data
+  [Database] as DB
+  [External APIs] as ExtAPIs
+  [Audit Logger] as Audit
+  [AI Assistant Integration] as AI
+
+  Client --> ParseServer : "Requests"
+  ParseServer --> Router : "Routes"
+  Router --> Auth : "Authenticates"
+  Auth --> Perm : "Authorizes"
+  Perm --> Functions : "Invokes"
+  Functions --> Data : "Accesses"
+  Data --> DB : "Persists/Retrieves"
+  Functions --> ExtAPIs : "Integrates with"
+  Functions --> Audit : "Logs to"
+  Functions --> AI : "Interacts with"
+}
+
+@enduml

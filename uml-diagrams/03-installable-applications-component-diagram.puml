@@ -1,0 +1,207 @@
+@startuml Installable Applications - Component Diagram
+!theme plain
+title Installable Applications - Architecture Components
+
+package "Application Store" {
+    component [Application Catalog] as AC
+    component [Package Validator] as PV
+    component [Installation Manager] as IM
+    component [Version Manager] as VM
+    
+    AC --> PV : validates packages
+    AC --> IM : manages installations
+    IM --> VM : handles versions
+}
+
+package "Application Runtime" {
+    component [Application Loader] as AL
+    component [Runtime Engine] as RE
+    component [Execution Context] as EC
+    component [Lifecycle Manager] as LM
+    
+    AL --> RE : loads applications
+    RE --> EC : creates contexts
+    RE --> LM : manages lifecycle
+}
+
+package "Security & Isolation" {
+    component [Security Context] as SC
+    component [Permission Engine] as PE
+    component [Access Control] as ACL
+    component [Data Isolation] as DI
+    
+    SC --> PE : validates permissions
+    PE --> ACL : enforces access
+    SC --> DI : isolates data
+}
+
+package "Application Package" {
+    component [Application Manifest] as AM
+    component [Frontend Components] as FC
+    component [Backend Services] as BS
+    component [Database Schema] as DS
+    component [Configuration Schema] as CS
+    
+    AM --> FC : defines components
+    AM --> BS : defines services
+    AM --> DS : defines schema
+    AM --> CS : defines config
+}
+
+package "Component Registry" {
+    component [Page Registry] as PR
+    component [Widget Registry] as WR
+    component [Function Registry] as FR
+    component [Route Registry] as RR
+    
+    PR --> WR : shares registry
+    WR --> FR : registers functions
+    FR --> RR : handles routes
+}
+
+package "Data Management" {
+    component [Database Manager] as DM
+    component [Schema Manager] as SM
+    component [Query Engine] as QE
+    component [Migration Engine] as ME
+    
+    DM --> SM : manages schemas
+    SM --> QE : executes queries
+    DM --> ME : runs migrations
+}
+
+package "API Integration" {
+    component [Platform API Client] as PAC
+    component [External API Client] as EAC
+    component [Rate Limiter] as RL
+    component [Request Router] as RRouter
+    
+    PAC --> RL : rate limits
+    EAC --> RL : rate limits
+    RRouter --> PAC : routes platform calls
+    RRouter --> EAC : routes external calls
+}
+
+package "Configuration Management" {
+    component [Config Manager] as CM
+    component [Schema Validator] as SV
+    component [Default Provider] as DP
+    component [UI Generator] as UG
+    
+    CM --> SV : validates config
+    CM --> DP : provides defaults
+    CM --> UG : generates UI
+}
+
+package "UI Framework" {
+    component [Component Wrapper] as CW
+    component [Permission Provider] as PP
+    component [Application Provider] as AP
+    component [Theme Provider] as TP
+    
+    CW --> PP : provides permissions
+    CW --> AP : provides context
+    CW --> TP : provides theming
+}
+
+package "Platform Services" {
+    component [Authentication Service] as AS
+    component [Organization Service] as OS
+    component [Notification Service] as NS
+    component [Audit Service] as AuS
+    
+    AS --> OS : validates org access
+    OS --> NS : sends notifications
+    AS --> AuS : logs auth events
+}
+
+package "External Systems" {
+    component [Package Repository] as Repo
+    component [CDN] as CDN
+    component [Monitoring] as Mon
+    component [Analytics] as Ana
+    
+    Repo --> CDN : distributes packages
+    Mon --> Ana : sends metrics
+}
+
+' Application Installation Flow
+IM --> PV : validates before install
+IM --> SC : creates security context
+IM --> DM : installs database schema
+IM --> PR : registers components
+IM --> CM : sets up configuration
+
+' Application Runtime Flow
+AL --> AM : loads manifest
+RE --> SC : validates security
+EC --> PE : checks permissions
+EC --> DI : enforces isolation
+
+' Component Registration Flow
+FC --> PR : registers pages
+FC --> WR : registers widgets
+BS --> FR : registers functions
+BS --> RR : registers routes
+
+' Data Access Flow
+QE --> DI : applies isolation
+QE --> ACL : enforces access
+SM --> ME : handles migrations
+
+' API Integration Flow
+PAC --> AS : authenticates
+EAC --> RL : rate limits
+RRouter --> AuS : logs requests
+
+' Configuration Flow
+CM --> AM : reads schema
+SV --> CS : validates against schema
+UG --> CS : generates forms
+
+' UI Integration Flow
+CW --> FC : wraps components
+AP --> SC : provides security context
+PP --> PE : provides permissions
+
+' Platform Integration Flow
+RE --> AS : authenticates users
+RE --> OS : validates organization
+RE --> NS : sends notifications
+RE --> AuS : logs activities
+
+' External Integration Flow
+IM --> Repo : downloads packages
+AL --> CDN : loads assets
+RE --> Mon : reports health
+RE --> Ana : tracks usage
+
+' Security Boundaries
+rectangle "Application Isolation Boundary" {
+    SC
+    DI
+    ACL
+    EC
+}
+
+rectangle "Data Security Boundary" {
+    DM
+    SM
+    QE
+    DI
+}
+
+rectangle "API Security Boundary" {
+    RL
+    RRouter
+    PAC
+    EAC
+}
+
+' Notes
+note right of SC : Security context ensures\napplications run in\nisolated environments
+note right of DI : Data isolation prevents\napplications from accessing\neach other's data
+note right of RL : Rate limiting prevents\napplications from\nabusing external APIs
+note right of CM : Configuration management\nallows safe customization\nof application behavior
+
+@enduml

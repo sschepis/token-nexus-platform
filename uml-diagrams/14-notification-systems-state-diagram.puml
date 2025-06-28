@@ -1,0 +1,59 @@
+@startuml
+!theme toy
+
+state "Notification Lifecycle" as NotificationLifecycle {
+  राज्य PENDING <<start>>
+  state PROCESSING
+  state SENT
+  state DELIVERED
+  state READ
+  state FAILED
+  state CANCELLED <<end>>
+
+  [*] --> PENDING : notification created / scheduled
+
+  PENDING --> PROCESSING : delivery initiated
+  PROCESSING --> SENT : sent to channel provider
+  SENT --> DELIVERED : successfully delivered by provider
+  DELIVERED --> READ : recipient interacted / opened
+
+  PENDING --> FAILED : validation failed / send error (immediate)
+  PROCESSING --> FAILED : delivery failed
+  SENT --> FAILED : delivery not confirmed / bounced
+
+  PENDING --> CANCELLED : manual cancellation
+  PROCESSING --> CANCELLED : manual cancellation
+  SENT --> CANCELLED : manual cancellation
+
+  state "Delivery Retry Process" as DeliveryRetry {
+    state "Attempting Send" as AttemptingSend
+    state "Delay for Retry" as DelayRetry
+  }
+
+  FAILED --> DeliveryRetry : retryable error
+  DeliveryRetry --> AttemptingSend : retry initiated
+  AttemptingSend --> DelayRetry : temporary failure
+  DelayRetry --> AttemptingSend : after delay
+  AttemptingSend --> SENT : successful on retry
+  AttemptingSend --> FAILED : max retries exhausted
+
+  state "Batching Progress" as Batching {
+      state "Waiting in Batch" as InBatch
+      state "Processed for Batch" as BatchProcessed
+  }
+  PROCESSING --> Batching : batched delivery
+  Batching --> InBatch : added to batch
+  InBatch --> BatchProcessed : batch processed
+  BatchProcessed --> SENT : notification sent as part of batch
+  BatchProcessed --> FAILED : batch send failed
+
+  state "Digest Aggregation" as Digest {
+    state "Aggregating" as Aggregating
+    state "Digest Sent" as DigestSent
+  }
+  PROCESSING --> Digest : digest delivery
+  Aggregating --> DigestSent : digest compiled and sent
+  DigestSent --> DELIVERED : digest delivered
+
+}
+@enduml

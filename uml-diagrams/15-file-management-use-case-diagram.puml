@@ -1,0 +1,68 @@
+@startuml
+!theme toy
+
+left to right direction
+
+actor "System User" as User
+actor "System Admin" as Admin
+actor "External System" as External
+
+rectangle "File Management System" {
+  usecase "Upload File" as UC1
+  usecase "Download File" as UC2
+  usecase "View File Details" as UC3
+  usecase "Update File Metadata" as UC4
+  usecase "Delete File" as UC5
+  usecase "Search Files" as UC6
+  usecase "Process File (Async)" as UC7
+  usecase "Manage File Versions" as UC8
+  usecase "Configure Storage Providers" as UC9
+  usecase "Monitor File Usage" as UC10
+  usecase "Manage Lifecycle Rules" as UC11
+  usecase "Audit File Access" as UC12
+  usecase "Perform Batch Operations" as UC13
+  usecase "Initiate Security Scan" as UC14
+  usecase "Restore Archived File" as UC15
+}
+
+User -- UC1
+User -- UC2
+User -- UC3
+User -- UC4
+User -- UC5
+User -- UC6
+User -- UC13
+
+Admin -- UC1
+Admin -- UC2
+Admin -- UC3
+Admin -- UC4
+Admin -- UC5
+Admin -- UC6
+Admin -- UC7
+Admin -- UC8
+Admin -- UC9
+Admin -- UC10
+Admin -- UC11
+Admin -- UC12
+Admin -- UC13
+Admin -- UC14
+Admin -- UC15
+
+External -- UC1
+External -- UC2
+External -- UC3
+External -- UC7
+External -- UC14
+
+UC1 .> UC7 : includes
+UC4 .> UC7 : includes
+UC7 .> UC14 : includes
+UC5 .> UC8 : includes
+
+UC9 -- Admin
+UC10 -- Admin
+UC11 -- Admin
+UC12 -- Admin
+
+@enduml

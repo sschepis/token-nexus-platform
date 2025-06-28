@@ -1,0 +1,88 @@
+@startuml Dashboard Widgets - State Diagram
+!theme plain
+title Dashboard Widgets - Widget Lifecycle States
+
+[*] --> Uninitialized : Widget not yet rendered
+
+state Uninitialized {
+    stateDefinition "OnMount" as onmount_uninitialized
+    stateDefinition "OnComponentDidMount" as oncomponentdidmount_uninitialized
+    Uninitialized --> Initializing : Component mounts
+    
+    Initializing --> InitialLoading : Start initial data load
+    InitialLoading --> DataLoaded : Data fetched successfully
+    InitialLoading --> ErrorLoading : Data fetch failed
+    
+    DataLoaded --> Ready : Widget is ready and displayed
+    ErrorLoading --> ErrorState : Widget in error state
+}
+
+state Ready {
+    [*] --> Idle : Widget displayed, awaiting interaction or refresh
+    
+    state Idle {
+        Idle --> RefreshingData : Configured auto-refresh interval or manual refresh
+        RefreshingData --> DataFetched : Data fetched (success/fail)
+        DataFetched --> Idle : Update widget content / display error
+        
+        Idle --> Configuring : User clicks settings icon
+        Configuring --> ValidatingConfig : User modifies config, validation occurs
+        ValidatingConfig --> ConfigValid : Configuration valid
+        ValidatingConfig --> ConfigInvalid : Configuration invalid
+        ConfigValid --> ApplyingConfig : Apply new configuration
+        ConfigInvalid --> Configuring : Display validation errors, allow corrections
+        ApplyingConfig --> Idle : Configuration saved, widget re-renders
+        
+        Idle --> Resizing : User drags widget to resize
+        Resizing --> ValidatingSize : Validate new size against min/max
+        ValidatingSize --> SizeValid : Size within limits
+        ValidatingSize --> SizeInvalid : Size outside limits
+        SizeValid --> ApplyingSize : Apply new size
+        SizeInvalid --> Resizing : Display constraints, allow corrections
+        ApplyingSize --> Idle : Size saved, widget re-renders
+        
+        Idle --> Removing : User requests widget removal
+        Removing --> Removed : Widget unmounts
+        Removed --> [*] : Widget removed from dashboard
+        
+        Idle --> RealTimeStreaming : Widget subscribed to real-time data
+        RealTimeStreaming --> RealTimeUpdate : New data received
+        RealTimeUpdate --> Idle : Update widget content
+        RealTimeStreaming --> RealTimeError : Real-time connection error
+        RealTimeError --> Idle : Re-attempt connection or display error
+    }
+}
+
+state ErrorState {
+    [*] --> DisplayError : Show error message
+    DisplayError --> Idle : User clicks retry OR after time (decay)
+    DisplayError --> Removed : Widget removed due to persistent error
+}
+
+state Removed : Widget permanently removed from dashboard
+
+' Transitions from any active state to ErrorState
+Ready --> ErrorState : Critical data fetch error
+Ready --> ErrorState : Widget rendering error (componentDidCatch)
+RefreshingData --> ErrorState : Refresh operation critical error
+
+' Loop for auto-refresh
+Idle --> RefreshingData : after(refreshInterval)
+
+' Usage of AbortController during data fetching
+RefreshingData --> Idle : on(fetchAborted)
+
+' Example of configuration validation failure
+Configuring --> Configuring : on(validationFailed)
+
+' Example of size validation failure
+Resizing --> Resizing : on(validationFailed)
+
+' Widget unmount behavior
+DisplayError --> Removed : on(userRemovesWidget)
+Idle --> Removed : on(userRemovesWidget)
+RefreshingData --> Removed : on(userRemovesWidget)
+Configuring --> Removed : on(userRemovesWidget)
+RealTimeStreaming --> Removed : on(userRemovesWidget)
+
+@enduml

@@ -1,0 +1,48 @@
+@startuml
+!theme toy
+
+state "Cloud Function Execution Lifecycle" as CFExecution {
+  state "Idle" as Idle
+  state "Request Received" as Received
+  state "Authenticating" as Authenticating
+  state "Validating Permissions" as ValidatingPerms
+  state "Validating Org Context" as ValidatingOrg
+  state "Processing Business Logic" as ProcessingLogic
+  state "Logging Success" as LoggingSuccess
+  state "Logging Error" as LoggingError
+  state "Responded" as Responded
+
+  [*] --> Idle
+  Idle --> Received : client request
+  Received --> Authenticating : request parsed
+  Authenticating --> ValidatingPerms : authentication success
+  Authenticating --> LoggingError : authentication failed
+
+  ValidatingPerms --> ValidatingOrg : permissions valid
+  ValidatingPerms --> LoggingError : permissions invalid
+
+  ValidatingOrg --> ProcessingLogic : org context valid
+  ValidatingOrg --> LoggingError : org context invalid
+
+  ProcessingLogic --> LoggingSuccess : logic successful
+  ProcessingLogic --> LoggingError : logic error
+
+  LoggingSuccess --> Responded : audit logged
+  LoggingError --> Responded : error logged
+
+  Responded --> Idle : response sent
+
+  state "Error Handling" as ErrorHandling {
+    state "Error Caught" as ErrorCaught
+    state "Error Logged" as ErrorLogged
+    state "Error Response Formatted" as ErrorFormatted
+  }
+
+  LoggingError --> ErrorHandling
+  ErrorHandling --> ErrorCaught : error occurred
+  ErrorCaught --> ErrorLogged : log error
+  ErrorLogged --> ErrorFormatted : format error response
+  ErrorFormatted --> Responded : send error response
+
+}
+@enduml

@@ -1,0 +1,360 @@
+@startuml
+!theme toy
+
+' Enums
+enum AnalyticsCategory {
+    USER_BEHAVIOR
+    PERFORMANCE
+    BUSINESS
+    TECHNICAL
+    SECURITY
+    ENGAGEMENT
+    CONVERSION
+    RETENTION
+    REVENUE
+    OPERATIONAL
+}
+
+enum EventType {
+    PAGE_VIEW
+    USER_ACTION
+    API_CALL
+    ERROR
+    PERFORMANCE
+    BUSINESS_EVENT
+    SYSTEM_EVENT
+    SECURITY_EVENT
+    CUSTOM
+}
+
+enum MetricType {
+    COUNTER
+    GAUGE
+    HISTOGRAM
+    TIMER
+    RATE
+    PERCENTAGE
+    RATIO
+}
+
+enum ReportType {
+    DASHBOARD
+    SCHEDULED
+    AD_HOC
+    ALERT
+    EXPORT
+    REAL_TIME
+}
+
+enum DataRetention {
+    REAL_TIME
+    SHORT_TERM
+    MEDIUM_TERM
+    LONG_TERM
+    ARCHIVE
+}
+
+enum PropertyType {
+    STRING
+    NUMBER
+    BOOLEAN
+    DATE
+    OBJECT
+    ARRAY
+}
+
+' Interfaces/Types
+interface AnalyticsConfiguration {
+    +id: string
+    +name: string
+    +category: AnalyticsCategory
+    +enabled: boolean
+    +collection: CollectionConfig
+    +processing: ProcessingConfig
+    +storage: StorageConfig
+    +reporting: ReportingConfig
+    +privacy: PrivacyConfig
+    +performance: PerformanceConfig
+    +alerts: AlertConfig[]
+    +organizationId?: string
+    +applicationId?: string
+}
+
+interface CollectionConfig {
+    +events: EventConfig[]
+    +sampling: SamplingConfig
+    +filtering: FilterConfig
+    +enrichment: EnrichmentConfig
+    +validation: ValidationConfig
+    +batching: BatchingConfig
+}
+
+interface EventConfig {
+    +type: EventType
+    +name: string
+    +properties: PropertyConfig[]
+    +required: boolean
+    +sampling: number
+    +retention: DataRetention
+    +pii: boolean
+}
+
+interface PropertyConfig {
+    +name: string
+    +type: PropertyType
+    +required: boolean
+    +validation: PropertyValidation
+    +transformation: PropertyTransformation
+    +privacy: PropertyPrivacy
+}
+
+interface ProcessingConfig {
+    +realTime: RealTimeProcessingConfig
+    +batch: BatchProcessingConfig
+    +aggregation: AggregationConfig
+    +enrichment: EnrichmentConfig
+}
+
+interface StorageConfig {
+    +primary: StorageBackend
+    +backup: StorageBackend
+    +retention: RetentionConfig
+    +compression: CompressionConfig
+    +partitioning: PartitioningConfig
+}
+
+interface ReportingConfig {
+    +dashboards: DashboardConfig[]
+    +scheduledReports: ScheduledReportConfig[]
+    +exports: ExportConfig[]
+    +visualizations: VisualizationConfig[]
+}
+
+interface PrivacyConfig {
+    +anonymization: AnonymizationConfig
+    +consent: ConsentConfig
+    +dataSubjectRights: DataSubjectRightsConfig
+    +retention: RetentionConfig
+    +encryption: EncryptionConfig
+}
+
+interface PerformanceConfig {
+    +maxEventsPerSecond: number
+    +maxBatchSize: number
+    +processingTimeout: number
+    +caching: CachingConfig
+    +optimization: OptimizationConfig
+}
+
+interface AlertConfig {
+    +id: string
+    +name: string
+    +metric: string
+    +condition: AlertCondition
+    +threshold: number
+    +channels: NotificationChannel[]
+    +enabled: boolean
+}
+
+interface AnalyticsEvent
+interface MetricDefinition
+interface TrackingResult
+interface BatchTrackingResult
+interface MetricRecord
+interface MetricsQuery
+interface MetricsResult
+interface ReportRequest
+interface ReportResult
+interface ReportSchedule
+interface ScheduleResult
+interface DashboardRequest
+interface DashboardData
+interface ExportRequest
+interface ExportResult
+interface RealtimeQuery
+interface RealtimeMetrics
+interface SamplingConfig
+interface FilterConfig
+interface EnrichmentConfig
+interface ValidationConfig
+interface BatchingConfig
+interface PropertyValidation
+interface PropertyTransformation
+interface PropertyPrivacy
+interface RealTimeProcessingConfig
+interface BatchProcessingConfig
+interface AggregationConfig
+interface StorageBackend
+interface RetentionConfig
+interface CompressionConfig
+interface PartitioningConfig
+interface DashboardConfig
+interface ScheduledReportConfig
+interface ExportConfig
+interface VisualizationConfig
+interface AnonymizationConfig
+interface ConsentConfig
+interface DataSubjectRightsConfig
+interface CachingConfig
+interface OptimizationConfig
+interface AlertCondition
+interface NotificationChannel
+
+' Services and Managers
+class DataCollector
+class EventProcessor
+class MetricsEngine
+class ReportGenerator
+class PrivacyService
+class StorageService
+class AnalyticsError
+class ClientTracking
+class ServerEvents
+class APIMetrics
+class SystemMetrics
+class EventQueue
+class StreamProcessor
+class BatchProcessor
+class DataValidator
+class TimeSeriesDB
+class AggregationEngine
+class KPICalculator
+class AlertEngine
+class DashboardEngine
+class ExportEngine
+class VisualizationEngine
+class Scheduler
+
+
+' AnalyticsManager Class
+class AnalyticsManager {
+    -configurations: Map<string, AnalyticsConfiguration>
+    -dataCollector: DataCollector
+    -eventProcessor: EventProcessor
+    -metricsEngine: MetricsEngine
+    -reportGenerator: ReportGenerator
+    -privacyService: PrivacyService
+    -storageService: StorageService
+
+    +constructor()
+    +registerConfiguration(config: AnalyticsConfiguration): void
+    +track(event: AnalyticsEvent): Promise<TrackingResult>
+    +trackBatch(events: AnalyticsEvent[]): Promise<BatchTrackingResult>
+    +recordMetric(metric: MetricRecord): Promise<void>
+    +getMetrics(query: MetricsQuery): Promise<MetricsResult>
+    +generateReport(request: ReportRequest): Promise<ReportResult>
+    +scheduleReport(schedule: ReportSchedule): Promise<ScheduleResult>
+    +getDashboardData(request: DashboardRequest): Promise<DashboardData>
+    +exportData(request: ExportRequest): Promise<ExportResult>
+    +getRealtimeMetrics(query: RealtimeQuery): Promise<RealtimeMetrics>
+    -initializeEventHandlers(): void
+    -validateConfiguration(config: AnalyticsConfiguration): void
+    -initializeConfiguration(config: AnalyticsConfiguration): void
+    -validateEvent(event: AnalyticsEvent): Promise<void>
+    -applyPrivacyFilters(event: AnalyticsEvent): Promise<AnalyticsEvent>
+    -enrichEvent(event: AnalyticsEvent): Promise<AnalyticsEvent>
+    -shouldProcessRealTime(event: AnalyticsEvent): boolean
+    -validateMetric(metric: MetricRecord): Promise<void>
+    -checkAlerts(metric: MetricRecord): Promise<void>
+    -validateMetricsQuery(query: MetricsQuery): Promise<void>
+    -applyPrivacyFiltersToResult(result: MetricsResult, context: any): Promise<MetricsResult>
+    -validateReportRequest(request: ReportRequest): Promise<void>
+    -checkReportPermissions(request: ReportRequest): Promise<void>
+    -applyPrivacyFiltersToReport(report: ReportResult, context: any): Promise<ReportResult>
+    -validateReportSchedule(schedule: ReportSchedule): Promise<void>
+    -validateDashboardRequest(request: DashboardRequest): Promise<void>
+    -getDashboardConfig(dashboardId: string): Promise<DashboardConfig>
+    -collectWidgetData(widgets: any[], context: any): Promise<any[]>
+    -validateExportRequest(request: ExportRequest): Promise<void>
+    -checkExportPermissions(request: ExportRequest): Promise<void>
+    -getConfigurationForEvent(event: AnalyticsEvent): AnalyticsConfiguration
+    -validateEventProperties(event: AnalyticsEvent, config: AnalyticsConfiguration): Promise<void>
+    -chunkArray<T>(array: T[], chunkSize: number): T[][]
+}
+
+' Relationships
+
+AnalyticsManager "1" o-- "1" DataCollector
+AnalyticsManager "1" o-- "1" EventProcessor
+AnalyticsManager "1" o-- "1" MetricsEngine
+AnalyticsManager "1" o-- "1" ReportGenerator
+AnalyticsManager "1" o-- "1" PrivacyService
+AnalyticsManager "1" o-- "1" StorageService
+
+AnalyticsConfiguration "1" --> AnalyticsCategory
+AnalyticsConfiguration "1" *-- "1" CollectionConfig
+AnalyticsConfiguration "1" *-- "1" ProcessingConfig
+AnalyticsConfiguration "1" *-- "1" StorageConfig
+AnalyticsConfiguration "1" *-- "1" ReportingConfig
+AnalyticsConfiguration "1" *-- "1" PrivacyConfig
+AnalyticsConfiguration "1" *-- "1" PerformanceConfig
+AnalyticsConfiguration "1" *-- "N" AlertConfig
+
+CollectionConfig *-- EventConfig
+CollectionConfig *-- SamplingConfig
+CollectionConfig *-- FilterConfig
+CollectionConfig *-- EnrichmentConfig
+CollectionConfig *-- ValidationConfig
+CollectionConfig *-- BatchingConfig
+
+EventConfig "1" --> EventType
+EventConfig "1" --> DataRetention
+EventConfig *-- PropertyConfig
+
+PropertyConfig "1" --> PropertyType
+PropertyConfig "1" *-- "1" PropertyValidation
+PropertyConfig "1" *-- "1" PropertyTransformation
+PropertyConfig "1" *-- "1" PropertyPrivacy
+
+ProcessingConfig *-- RealTimeProcessingConfig
+ProcessingConfig *-- BatchProcessingConfig
+ProcessingConfig *-- AggregationConfig
+ProcessingConfig *-- EnrichmentConfig
+
+StorageConfig *-- StorageBackend
+StorageConfig *-- RetentionConfig
+StorageConfig *-- CompressionConfig
+StorageConfig *-- PartitioningConfig
+
+ReportingConfig *-- DashboardConfig
+ReportingConfig *-- ScheduledReportConfig
+ReportingConfig *-- ExportConfig
+ReportingConfig *-- VisualizationConfig
+ReportingConfig "1" --> ReportType
+
+PrivacyConfig *-- AnonymizationConfig
+PrivacyConfig *-- ConsentConfig
+PrivacyConfig *-- DataSubjectRightsConfig
+PrivacyConfig *-- RetentionConfig
+PrivacyConfig *-- EncryptionConfig
+
+PerformanceConfig *-- CachingConfig
+PerformanceConfig *-- OptimizationConfig
+
+AlertConfig "1" --> NotificationChannel
+AlertConfig "1" *-- "1" AlertCondition
+
+DataCollector --> ClientTracking
+DataCollector --> ServerEvents
+DataCollector --> APIMetrics
+DataCollector --> SystemMetrics
+
+EventProcessor --> EventQueue
+EventProcessor --> StreamProcessor
+EventProcessor --> BatchProcessor
+EventProcessor --> DataValidator
+
+MetricsEngine --> TimeSeriesDB
+MetricsEngine --> AggregationEngine
+MetricsEngine --> KPICalculator
+MetricsEngine --> AlertEngine
+MetricsEngine "1" --> MetricType
+
+ReportGenerator --> DashboardEngine
+ReportGenerator --> ExportEngine
+ReportGenerator --> VisualizationEngine
+ReportGenerator --> Scheduler
+
+AnalyticsError --|> Error
+
+@enduml

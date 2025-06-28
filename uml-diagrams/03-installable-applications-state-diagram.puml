@@ -1,0 +1,227 @@
+@startuml Installable Applications - State Diagram
+!theme plain
+title Installable Applications - Lifecycle State Management
+
+[*] --> PackageValidation : Upload application package
+
+state PackageValidation {
+    [*] --> ValidatingManifest : Check manifest.json
+    ValidatingManifest --> ManifestInvalid : Validation failed
+    ValidatingManifest --> ValidatingPackage : Manifest valid
+    ManifestInvalid --> [*] : Reject package
+    
+    ValidatingPackage --> PackageInvalid : Package validation failed
+    ValidatingPackage --> CheckingDependencies : Package valid
+    PackageInvalid --> [*] : Reject package
+    
+    CheckingDependencies --> DependenciesMissing : Dependencies not met
+    CheckingDependencies --> ValidatingPermissions : Dependencies satisfied
+    DependenciesMissing --> [*] : Reject package
+    
+    ValidatingPermissions --> PermissionConflict : Permission conflicts
+    ValidatingPermissions --> PackageReady : Permissions valid
+    PermissionConflict --> [*] : Reject package
+}
+
+state PackageReady {
+    [*] --> AwaitingInstallation : Package validated
+    AwaitingInstallation --> Installing : User initiates install
+    AwaitingInstallation --> [*] : Package removed
+}
+
+state Installing {
+    [*] --> RunningPreInstallHooks : Start installation
+    RunningPreInstallHooks --> PreInstallFailed : Hook execution failed
+    RunningPreInstallHooks --> InstallingDatabase : Pre-install hooks completed
+    PreInstallFailed --> InstallationFailed : Installation aborted
+    
+    InstallingDatabase --> DatabaseInstallFailed : Schema creation failed
+    InstallingDatabase --> RegisteringComponents : Database schema installed
+    DatabaseInstallFailed --> InstallationFailed : Installation aborted
+    
+    RegisteringComponents --> ComponentRegistrationFailed : Component registration failed
+    RegisteringComponents --> SettingUpPermissions : Components registered
+    ComponentRegistrationFailed --> InstallationFailed : Installation aborted
+    
+    SettingUpPermissions --> PermissionSetupFailed : Permission setup failed
+    SettingUpPermissions --> RunningPostInstallHooks : Permissions configured
+    PermissionSetupFailed --> InstallationFailed : Installation aborted
+    
+    RunningPostInstallHooks --> PostInstallFailed : Hook execution failed
+    RunningPostInstallHooks --> CreatingInstallationRecord : Post-install hooks completed
+    PostInstallFailed --> InstallationFailed : Installation aborted
+    
+    CreatingInstallationRecord --> RecordCreationFailed : Record creation failed
+    CreatingInstallationRecord --> Installed : Installation record created
+    RecordCreationFailed --> InstallationFailed : Installation aborted
+}
+
+state InstallationFailed {
+    [*] --> CleaningUpFailedInstall : Clean up partial installation
+    CleaningUpFailedInstall --> [*] : Cleanup completed
+}
+
+state Installed {
+    [*] --> Active : Application ready
+    
+    state Active {
+        [*] --> Idle : Ready for use
+        
+        Idle --> LoadingApplication : User accesses application
+        LoadingApplication --> LoadingFailed : Application load failed
+        LoadingApplication --> Running : Application loaded
+        LoadingFailed --> Idle : Show error message
+        
+        state Running {
+            [*] --> ValidatingContext : Create execution context
+            ValidatingContext --> ContextInvalid : Context validation failed
+            ValidatingContext --> ExecutingAction : Context valid
+            ContextInvalid --> Idle : Return to idle
+            
+            ExecutingAction --> ActionFailed : Action execution failed
+            ExecutingAction --> ActionCompleted : Action successful
+            ActionFailed --> Idle : Show error
+            ActionCompleted --> Idle : Update UI
+            
+            -- Data Operations --
+            Idle --> CreatingData : User creates data
+            CreatingData --> DataCreationFailed : Creation failed
+            CreatingData --> DataCreated : Data created successfully
+            DataCreationFailed --> Idle : Show error
+            DataCreated --> Idle : Update UI
+            
+            Idle --> ReadingData : User reads data
+            ReadingData --> DataReadFailed : Read failed
+            ReadingData --> DataRead : Data read successfully
+            DataReadFailed --> Idle : Show error
+            DataRead --> Idle : Display data
+            
+            Idle --> UpdatingData : User updates data
+            UpdatingData --> DataUpdateFailed : Update failed
+            UpdatingData --> DataUpdated : Data updated successfully
+            DataUpdateFailed --> Idle : Show error
+            DataUpdated --> Idle : Update UI
+            
+            Idle --> DeletingData : User deletes data
+            DeletingData --> DataDeletionFailed : Deletion failed
+            DeletingData --> DataDeleted : Data deleted successfully
+            DataDeletionFailed --> Idle : Show error
+            DataDeleted --> Idle : Update UI
+            
+            -- Configuration Management --
+            Idle --> ConfiguringApplication : User accesses settings
+            ConfiguringApplication --> ConfigurationFailed : Configuration failed
+            ConfiguringApplication --> ConfigurationUpdated : Configuration saved
+            ConfigurationFailed --> Idle : Show error
+            ConfigurationUpdated --> Idle : Apply new settings
+        }
+        
+        Running --> Idle : User exits application
+        
+        -- Application Management --
+        Idle --> Updating : Update available
+        Idle --> Uninstalling : User requests uninstall
+        Idle --> Disabling : Admin disables application
+        Idle --> Maintenance : Maintenance mode
+    }
+    
+    Active --> Disabled : Application disabled
+    Active --> Updating : Update initiated
+    Active --> Uninstalling : Uninstall initiated
+}
+
+state Updating {
+    [*] --> BackingUpData : Backup existing data
+    BackingUpData --> BackupFailed : Backup failed
+    BackingUpData --> RunningPreUpdateHooks : Backup completed
+    BackupFailed --> UpdateFailed : Update aborted
+    
+    RunningPreUpdateHooks --> PreUpdateFailed : Hook execution failed
+    RunningPreUpdateHooks --> UpdatingDatabase : Pre-update hooks completed
+    PreUpdateFailed --> UpdateFailed : Update aborted
+    
+    UpdatingDatabase --> DatabaseUpdateFailed : Database update failed
+    UpdatingDatabase --> UpdatingComponents : Database updated
+    DatabaseUpdateFailed --> UpdateFailed : Update aborted
+    
+    UpdatingComponents --> ComponentUpdateFailed : Component update failed
+    UpdatingComponents --> RunningPostUpdateHooks : Components updated
+    ComponentUpdateFailed --> UpdateFailed : Update aborted
+    
+    RunningPostUpdateHooks --> PostUpdateFailed : Hook execution failed
+    RunningPostUpdateHooks --> UpdatingInstallationRecord : Post-update hooks completed
+    PostUpdateFailed --> UpdateFailed : Update aborted
+    
+    UpdatingInstallationRecord --> UpdateRecordFailed : Record update failed
+    UpdatingInstallationRecord --> Installed : Update completed
+    UpdateRecordFailed --> UpdateFailed : Update aborted
+}
+
+state UpdateFailed {
+    [*] --> RestoringFromBackup : Restore previous version
+    RestoringFromBackup --> RestoreFailed : Restore failed
+    RestoringFromBackup --> Installed : Restore completed
+    RestoreFailed --> Disabled : Application disabled
+}
+
+state Uninstalling {
+    [*] --> RunningPreUninstallHooks : Start uninstallation
+    RunningPreUninstallHooks --> PreUninstallFailed : Hook execution failed
+    RunningPreUninstallHooks --> UnregisteringComponents : Pre-uninstall hooks completed
+    PreUninstallFailed --> UninstallFailed : Uninstall aborted
+    
+    UnregisteringComponents --> ComponentUnregistrationFailed : Component removal failed
+    UnregisteringComponents --> RemovingPermissions : Components unregistered
+    ComponentUnregistrationFailed --> UninstallFailed : Uninstall aborted
+    
+    RemovingPermissions --> PermissionRemovalFailed : Permission removal failed
+    RemovingPermissions --> RemovingDatabase : Permissions removed
+    PermissionRemovalFailed --> UninstallFailed : Uninstall aborted
+    
+    RemovingDatabase --> DatabaseRemovalFailed : Database removal failed
+    RemovingDatabase --> RunningPostUninstallHooks : Database removed
+    DatabaseRemovalFailed --> UninstallFailed : Uninstall aborted
+    
+    RunningPostUninstallHooks --> PostUninstallFailed : Hook execution failed
+    RunningPostUninstallHooks --> UpdatingUninstallRecord : Post-uninstall hooks completed
+    PostUninstallFailed --> UninstallFailed : Uninstall aborted
+    
+    UpdatingUninstallRecord --> UninstallRecordFailed : Record update failed
+    UpdatingUninstallRecord --> Uninstalled : Uninstall completed
+    UninstallRecordFailed --> UninstallFailed : Uninstall aborted
+}
+
+state UninstallFailed {
+    [*] --> CleaningUpFailedUninstall : Clean up partial uninstall
+    CleaningUpFailedUninstall --> Disabled : Cleanup completed
+}
+
+state Disabled {
+    [*] --> Idle : Application disabled
+    Idle --> Enabling : Admin enables application
+    Idle --> Uninstalling : Admin uninstalls application
+    Enabling --> Active : Application enabled
+}
+
+state Uninstalled {
+    [*] --> [*] : Application removed
+}
+
+state Maintenance {
+    [*] --> MaintenanceMode : Application in maintenance
+    MaintenanceMode --> Active : Maintenance completed
+    MaintenanceMode --> Disabled : Maintenance failed
+}
+
+' Global error transitions
+Running --> Disabled : Critical error detected
+ExecutingAction --> Disabled : Security violation
+CreatingData --> Disabled : Data corruption detected
+UpdatingData --> Disabled : Data corruption detected
+
+' Notes
+note right of ValidatingContext : Security context validation\nensures proper isolation\nand permission enforcement
+note right of BackingUpData : Data backup ensures\nsafe rollback in case\nof update failures
+note right of MaintenanceMode : Maintenance mode allows\nsafe application updates\nwithout user disruption
+
+@enduml

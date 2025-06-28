@@ -1,0 +1,59 @@
+@startuml
+!theme toy
+
+start
+:HTTP Request Received;
+
+:Route Request;
+
+:Check if Route Enabled;
+if (Route Enabled?) then (no)
+  :Return 503 Disabled Route Error;
+  stop
+endif
+
+:Check Rate Limit;
+if (Rate Limit Exceeded?) then (yes)
+  :Return 429 Rate Limit Error;
+  stop
+endif
+
+:Check Cache;
+if (Cached Response Found?) then (yes)
+  :Return Cached Response;
+  stop
+endif
+
+:Authenticate Request;
+if (Authentication Failed?) then (yes)
+  :Return 401 Unauthorized Error;
+  stop
+endif
+
+:Authorize Request;
+if (Authorization Failed?) then (yes)
+  :Return 403 Forbidden Error;
+  stop
+endif
+
+:Validate Request (Schema Validation, Sanitization);
+if (Validation Failed?) then (yes)
+  :Return 400 Bad Request Error;
+  stop
+endif
+
+:Execute Route Logic;
+if (Route Logic Successful?) then (yes)
+  :Create Success Response;
+  :Cache Response (if applicable);
+  :Log Route Access;
+  :Return Success Response;
+  stop
+else (no)
+  :Handle Route Logic Error;
+  :Log Route Error;
+  :Return Error Response;
+  stop
+endif
+
+@enduml

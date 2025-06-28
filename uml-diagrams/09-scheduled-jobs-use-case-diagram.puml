@@ -1,0 +1,48 @@
+@startuml
+!theme toy
+
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Platform Administrator" as Admin
+actor "Job Scheduler" as Scheduler
+actor "Job Worker" as Worker
+actor "Monitoring System" as Monitoring
+actor "Alert System" as Alert
+
+rectangle "Scheduled Job System" {
+  usecase "Define Job Schedule" as DefineSchedule
+  usecase "Trigger Job Manually" as TriggerManual
+  usecase "Queue Job for Execution" as QueueJob
+  usecase "Execute Job Logic" as ExecuteLogic
+  usecase "Handle Job Errors" as HandleErrors
+  usecase "Manage Job Retries" as ManageRetries
+  usecase "Monitor Job Progress" as MonitorProgress
+  usecase "Receive Job Alerts" as ReceiveAlerts
+  usecase "Allocate Job Resources" as AllocateResources
+  usecase "Perform Job Cleanup" as PerformCleanup
+  usecase "Configure Job Metadata" as ConfigMetadata
+  usecase "Access Job Logs" as AccessLogs
+}
+
+Admin --> DefineSchedule
+Admin --> TriggerManual
+Admin --> ConfigMetadata
+Admin --> AccessLogs
+
+Scheduler --> QueueJob
+Scheduler --> TriggerManual
+
+Worker --> ExecuteLogic
+Worker --> HandleErrors
+Worker --> MonitorProgress
+Worker --> AllocateResources
+Worker --> PerformCleanup
+
+HandleErrors <.. ManageRetries : include
+ManageRetries ..> QueueJob : extends
+
+MonitorProgress --> Monitoring : sends data
+HandleErrors --> Alert : sends alerts
+
+@enduml

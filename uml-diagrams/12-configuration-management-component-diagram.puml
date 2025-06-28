@@ -1,0 +1,45 @@
+@startuml
+!theme toy
+
+rectangle "Configuration Management System" {
+  component "Configuration Manager" as ConfigManager
+  folder "Configuration Sources" {
+    component "Environment Variables" as EnvVars
+    component "Configuration Files (e.g., YAML, JSON)" as ConfigFiles
+    component "Database Config" as DBConfig
+    component "External Config Services" as ExternalServices
+  }
+  component "Configuration Cache" as ConfigCache
+  component "Validation Engine" as ValidationEngine
+  component "Encryption Service" as EncryptionService
+  component "Change Tracking Module" as ChangeTracking
+
+  ConfigManager --> EnvVars : reads/writes
+  ConfigManager --> ConfigFiles : reads/writes
+  ConfigManager --> DBConfig : reads/writes
+  ConfigManager --> ExternalServices : reads/writes
+
+  ConfigManager --> ConfigCache : uses
+  ConfigCache --> MemoryCache : uses
+  ConfigCache --> RedisCache : uses
+
+  ConfigManager --> ValidationEngine : uses
+  ValidationEngine --> SchemaValidator : uses
+
+  ConfigManager --> EncryptionService : uses
+  EncryptionService --> SecretManager : uses
+
+  ConfigManager --> ChangeTracking : uses
+  ChangeTracking --> AuditLog : writes to
+
+  ConfigManager --> ClientApplication : provides config to
+}
+
+component "Memory Cache" as MemoryCache
+component "Redis Cache" as RedisCache
+component "Schema Validator" as SchemaValidator
+component "Secret Manager" as SecretManager
+component "Audit Log" as AuditLog
+component "Client Application" as ClientApplication
+
+@enduml

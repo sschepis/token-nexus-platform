@@ -1,0 +1,68 @@
+@startuml
+!theme toy
+
+partition "Performance Monitoring Workflow" {
+    start
+    :Start Monitoring Session;
+    fork
+        :Collect Metrics (Response Time, Throughput, Errors, Resources);
+        :Stream Real-time Data;
+        :Check against Performance Thresholds;
+        if (Threshold Exceeded?) then (Yes)
+            :Trigger Alert;
+            :Notify Stakeholders;
+            :Initiate Optimization Process;
+        else (No)
+            :Continue Monitoring;
+        endif
+    fork again
+        :Record APM Traces and Logs;
+        :Store Historical Metrics for Analysis;
+    end fork
+    :Generate Performance Reports (Daily/Weekly);
+    stop
+}
+
+partition "Performance Optimization Workflow" {
+    start
+    :Identify Performance Bottleneck (e.g., slow query, high CPU);
+    :Analyze Root Cause;
+    :Develop Optimization Plan (e.g., add index, cache data, compress assets);
+    :Implement Optimization;
+    :Deploy Changes;
+    :Measure Impact;
+    if (Performance Improved?) then (Yes)
+        :Document Optimization;
+    else (No)
+        :Re-evaluate Bottleneck;
+        :Revise Optimization Plan;
+    endif
+    stop
+}
+
+partition "Caching Strategy Workflow" {
+    start
+    :Request Data;
+    :Check Cache;
+    if (Cache Hit?) then (Yes)
+        :Return Cached Data;
+    else (No)
+        :Fetch Data from Origin;
+        :Store Fresh Data in Cache;
+        :Return Data;
+    endif
+    :Invalidate Cache (on data change or TTL expiration);
+    stop
+}
+
+partition "Resource Management Workflow" {
+    start
+    :Monitor Resource Utilization (CPU, Memory, I/O, Network);
+    :Analyze Resource Scalability Requirements;
+    :Adjust Resource Limits (Dynamic Scaling, Throttling);
+    :Apply Resource Policies;
+    :Monitor Impact on Performance;
+    stop
+}
+
+@enduml

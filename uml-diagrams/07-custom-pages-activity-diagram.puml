@@ -1,0 +1,68 @@
+@startuml
+!theme toy
+
+start
+:Mount Component;
+:Set Initial State (loading: true);
+
+:Call Base Class Constructor;
+
+:Initialize Page;
+:Validate Page Security;
+if (Security Valid?) then (no)
+  :Display Security Error;
+  stop
+endif
+
+:Initialize Platform Integration;
+if (Platform Integrated?) then (no)
+  :Display Integration Error;
+  stop
+endif
+
+:Initialize Custom Page Logic;
+if (Custom Logic Initialized?) then (no)
+  :Display Initialization Error;
+  stop
+endif
+
+:Setup Custom Event Listeners;
+
+:Set Page State (initialized: true, loading: false);
+
+:Render Page;
+if (Page State is Error) then (yes)
+  :Display Error UI;
+  stop
+endif
+if (Page State is Loading) then (yes)
+  :Display Loading Spinner;
+  :Wait for State Update;
+else (no)
+  :Render Custom Content;
+  :Render Platform Integration Overlay;
+endif
+
+partition "Data Loading Workflow" {
+  :Initiate Data Load (loadData method);
+  :Check Cache for Data;
+  if (Data in Cache and Valid?) then (yes)
+    :Return Cached Data;
+  else (no)
+    :Fetch Latest Data from API;
+    if (Fetch Successful?) then (yes)
+      :Store Data in Cache;
+    else (no)
+      :Handle Data Fetch Error;
+      :Display Data Error;
+      stop
+    endif
+  endif
+  :Update Component State with Data;
+}
+
+:Unmount Component;
+:Cleanup Resources (abort controllers, disconnect observers, custom cleanup);
+stop
+
+@enduml

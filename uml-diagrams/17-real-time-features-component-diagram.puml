@@ -1,0 +1,83 @@
+@startuml
+!theme toy
+
+package "Token Nexus Platform" {
+
+    component [Real-time API Gateway] as RT_Gateway
+    
+    folder "Real-time System Backend" {
+        rectangle "Real-time Manager Core" {
+            component [Connection Manager] as Connection_Manager
+            component [Message Router] as Message_Router
+            component [Sync Engine] as Sync_Engine
+            component [Conflict Resolver] as Conflict_Resolver
+            component [Presence Manager] as Presence_Manager
+        }
+
+        component [Connection Pool] as Connection_Pool
+        component [WebSocket Server] as WebSocket_Server
+        component [SSE Server] as SSE_Server
+        component [Socket.IO Server] as SocketIO_Server
+
+        component [Message Queue] as Message_Queue
+        component [Event Bus] as Event_Bus
+        component [Broadcast Engine] as Broadcast_Engine
+        component [Filter Engine] as Filter_Engine
+
+        component [State Manager] as State_Manager
+        component [Delta Engine] as Delta_Engine
+        component [Snapshot Manager] as Snapshot_Manager
+        component [Version Control] as Version_Control
+
+        component [CRDT Engine] as CRDT_Engine
+        component [OT Engine] as OT_Engine
+        component [Merge Resolver] as Merge_Resolver
+        component [Conflict Logger] as Conflict_Logger
+    }
+
+    database "Shared State Store" as DB_State
+    database "Audit Log" as Audit_Log
+    queue "External Message Broker" as External_Broker // e.g., Redis Pub/Sub, RabbitMQ
+    
+    RT_Gateway --> Connection_Manager
+    RT_Gateway --> Message_Router
+
+    Connection_Manager --> Connection_Pool
+    Connection_Manager --> WebSocket_Server
+    Connection_Manager --> SSE_Server
+    Connection_Manager --> SocketIO_Server
+
+    Message_Router --> Message_Queue
+    Message_Router --> Event_Bus
+    Message_Router --> Broadcast_Engine
+    Message_Router --> Filter_Engine
+
+    Sync_Engine --> State_Manager
+    Sync_Engine --> Delta_Engine
+    Sync_Engine --> Snapshot_Manager
+    Sync_Engine --> Version_Control
+
+    Conflict_Resolver --> CRDT_Engine
+    Conflict_Resolver --> OT_Engine
+    Conflict_Resolver --> Merge_Resolver
+    Conflict_Resolver --> Conflict_Logger
+
+    Connection_Manager ..> [Security Service] as Security_Service
+    Message_Router ..> [Analytics Service] as Analytics_Service
+    Sync_Engine ..> [Persistence Service] as Persistence_Service
+    Presence_Manager ..> [User Management] as User_Management
+
+    State_Manager <--> DB_State
+    Audit_Log <-- Conflict_Logger
+    Message_Queue --> External_Broker : "pub/sub"
+    Event_Bus --> External_Broker : "events"
+}
+
+cloud "Client Applications" as Clients
+
+Clients --> RT_Gateway : "WebSockets, SSE, Socket.IO"
+Clients --> WebSocket_Server : "Direct WebSocket"
+Clients --> SSE_Server : "Direct SSE"
+Clients --> SocketIO_Server : "Direct Socket.IO"
+
+@enduml

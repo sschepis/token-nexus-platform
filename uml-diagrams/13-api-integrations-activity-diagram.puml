@@ -1,0 +1,65 @@
+@startuml
+!theme toy
+
+start
+:Receive Integration Request;
+
+:Get Integration Metadata;
+:Perform Pre-Execution Validation;
+if (Pre-Execution Validation Failed?) then (yes)
+  :Handle Error;
+  stop
+endif
+
+:Check Cache;
+if (Cached Response Found?) then (yes)
+  :Record Cache Hit Metrics;
+  :Return Cached Response;
+  stop
+endif
+
+:Check Rate Limit;
+if (Rate Limit Exceeded?) then (yes)
+  :Handle Rate Limit Error;
+  stop
+endif
+
+:Authenticate Request;
+if (Authentication Failed?) then (yes)
+  :Handle Authentication Error;
+  stop
+endif
+
+:Transform Request (pre-send);
+
+repeat
+  :Execute HTTP Request (to External API);
+  if (Request Successful?) then (yes)
+    break
+  else (no)
+    :Check if Error is Retryable;
+    if (Retryable and Retries Left?) then (yes)
+      :Calculate Backoff Delay;
+      :Sleep for Delay;
+      :Increment Retry Count;
+    else (no)
+      :Handle Final Request Error;
+      stop
+    endif
+  endif
+repeat while (true)
+
+:Transform Response (post-receive);
+
+:Validate Response;
+if (Response Validation Failed?) then (yes)
+  :Handle Validation Error;
+  stop
+endif
+
+:Cache Response (if applicable);
+:Record Success Metrics;
+:Return Transformed Response;
+stop
+
+@enduml

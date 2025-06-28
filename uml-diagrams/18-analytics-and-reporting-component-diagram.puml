@@ -1,0 +1,87 @@
+@startuml
+!theme toy
+
+package "Token Nexus Platform" {
+
+    component [Analytics API Gateway] as AnalyticsAPI
+
+    folder "Analytics and Reporting System" {
+        rectangle "Analytics Manager" {
+            component [Data Collector] as DataCollector
+            component [Event Processor] as EventProcessor
+            component [Metrics Engine] as MetricsEngine
+            component [Report Generator] as ReportGenerator
+        }
+
+        component [Client Tracking Module] as ClientTracking
+        component [Server Events Module] as ServerEvents
+        component [API Metrics Module] as APIMetrics
+        component [System Metrics Module] as SystemMetrics
+
+        component [Event Queue] as EventQueue
+        component [Stream Processor] as StreamProcessor
+        component [Batch Processor] as BatchProcessor
+        component [Data Validator] as DataValidator
+
+        component [Time Series DB Interface] as TimeSeriesDB
+        component [Aggregation Engine] as AggregationEngine
+        component [KPI Calculator] as KPICalculator
+        component [Alert Engine] as AlertEngine
+
+        component [Dashboard Engine] as DashboardEngine
+        component [Export Engine] as ExportEngine
+        component [Visualization Engine] as VisualizationEngine
+        component [Scheduler] as Scheduler
+    }
+
+    database "Raw Data Storage" as RawDataDB
+    database "Aggregated Metrics Storage" as AggregatedDataDB
+    database "Report Storage" as ReportStorageDB
+
+    AnalyticsAPI --> DataCollector : "events, metrics"
+    DataCollector --> ClientTracking
+    DataCollector --> ServerEvents
+    DataCollector --> APIMetrics
+    DataCollector --> SystemMetrics
+
+    DataCollector --> EventProcessor : "raw events"
+    EventProcessor --> EventQueue
+    EventProcessor --> StreamProcessor
+    EventProcessor --> BatchProcessor
+    EventProcessor --> DataValidator
+
+    EventProcessor --> RawDataDB : "stores raw events"
+
+    EventProcessor --> MetricsEngine : "processed events"
+    MetricsEngine --> TimeSeriesDB
+    MetricsEngine --> AggregationEngine
+    MetricsEngine --> KPICalculator
+    MetricsEngine --> AlertEngine
+    MetricsEngine --> AggregatedDataDB : "stores aggregated metrics"
+
+    AnalyticsAPI --> ReportGenerator : "report requests"
+    ReportGenerator --> DashboardEngine
+    ReportGenerator --> ExportEngine
+    ReportGenerator --> VisualizationEngine
+    ReportGenerator --> Scheduler
+    ReportGenerator --> AggregatedDataDB : "reads for reports"
+    ReportGenerator --> ReportStorageDB : "stores generated reports"
+    
+    MetricsEngine ..> [Privacy Service] as PrivacyService
+    ReportGenerator ..> PrivacyService
+    EventProcessor ..> PrivacyService
+
+    AlertEngine ..> [Notification Systems] as NotificationSystem
+
+    AnalyticsAPI ..> [Security Service] as SecurityService
+    AnalyticsAPI ..> [User Management] as UserManagement
+
+}
+
+cloud "External Business Intelligence Tools" as ExternalBI
+cloud "External Visualization Libraries" as ExternalViz
+
+DashboardEngine --> ExternalViz : "renders charts"
+ExportEngine --> ExternalBI : "data export"
+
+@enduml

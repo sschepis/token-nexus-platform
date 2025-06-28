@@ -1,0 +1,51 @@
+@startuml
+!theme toy
+
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Platform Administrator" as Admin
+actor "Developer" as Developer
+actor "Client Application / Service" as Client
+actor "Audit Log System" as AuditLogSystem
+actor "Secret Manager" as SecretManager
+
+rectangle "Configuration Management System" {
+  usecase "Retrieve Configuration Value" as GetConfig
+  usecase "Set Configuration Value" as SetConfig
+  usecase "Register Configuration Metadata" as RegisterMetadata
+  usecase "Manage Configuration Sources" as ManageSources
+  usecase "Encrypt Sensitive Data" as EncryptData
+  usecase "Validate Configuration Schema" as ValidateSchema
+  usecase "Cache Configuration" as CacheConfig
+  usecase "Track Configuration Changes" as TrackChanges
+  usecase "Access Configuration Audit Log" as AccessAuditLog
+  usecase "Override Environment-Specific Settings" as OverrideEnv
+
+}
+
+Client --> GetConfig
+Client --> SetConfig
+
+Admin --> SetConfig
+Admin --> RegisterMetadata
+Admin --> ManageSources
+Admin --> AccessAuditLog
+Admin --> OverrideEnv
+
+Developer --> RegisterMetadata
+Developer --> OverrideEnv
+Developer --> GetConfig
+
+GetConfig <.. ValidateSchema : include
+GetConfig <.. CacheConfig : include
+GetConfig <.. EncryptData : include
+SetConfig <.. ValidateSchema : include
+SetConfig <.. EncryptData : include
+SetConfig <.. TrackChanges : include
+SetConfig <.. CacheConfig : include (invalidate)
+
+EncryptData --> SecretManager : uses
+TrackChanges --> AuditLogSystem : sends data
+
+@enduml

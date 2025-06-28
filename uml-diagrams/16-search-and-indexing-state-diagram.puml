@@ -1,0 +1,50 @@
+@startuml
+!theme toy
+
+state "Indexing State" {
+    state Idle <<Ready for input>>
+    state Indexing {
+        [*] --> Initializing : Start indexing process
+        Initializing --> FetchingData : Setup index, connect to sources
+        FetchingData --> Transforming : Retrieve documents from source systems
+        Transforming --> IndexWriting : Apply mappings, enrich data
+        IndexWriting --> Optimizing : Write to search engine
+        Optimizing --> Idle : Consolidate, merge indices
+        
+        Indexing --> Failed : Indexing error
+    }
+    state Failed <<Error>>
+    state Degraded <<Partial functionality>>
+    
+    Idle --> Indexing : New content change / Scheduled job
+    Failed --> Idle : Manual recovery / Retry
+    Failed --> Degraded : Recovered partially
+    Degraded --> Idle : Full recovery
+}
+
+state "Search State" {
+    state AwaitingQuery <<Ready for search>>
+    state QueryProcessing {
+        [*] --> ParsingQuery : Parse user query
+        ParsingQuery --> ApplyingFilters : Apply security, contextual filters
+        ApplyingFilters --> ExecutingSearch : Send query to search engine(s)
+        ExecutingSearch --> AggregatingResults : Collect results from engines
+        AggregatingResults --> RankingResults : Calculate relevance, sort
+        RankingResults --> FormattingResults : Apply highlighting, create snippets
+        FormattingResults --> AwaitingQuery : Return query results
+        
+        QueryProcessing --> ErrorState : Search error
+    }
+    state ErrorState <<Error>>
+    
+    AwaitingQuery --> QueryProcessing : User submits query
+    ErrorState --> AwaitingQuery : User retries / Admin intervenes
+}
+
+' Relations between main states
+Indexing --> SearchState : Indexing complete, data immediately available for search
+SearchState --> Indexing : New data needs to be indexed for search
+ErrorState --> Indexing : Fix data inconsistencies before re-indexing
+ErrorState --> Failed : Search errors may lead to indexing failure
+
+@enduml

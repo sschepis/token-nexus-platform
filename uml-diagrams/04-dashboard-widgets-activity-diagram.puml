@@ -1,0 +1,118 @@
+@startuml Dashboard Widgets - Activity Diagram
+!theme plain
+title Dashboard Widgets - Workflow Activities
+
+|Dashboard Container|
+start
+:Load Dashboard;
+:Retrieve Widget Configurations;
+:Check User Permissions for Widgets;
+
+fork
+    |Widget Rendering|
+    :Render Each Authorized Widget;
+    :Instantiate Widget Component;
+    :Pass Widget Props (ID, Size, Config, Permissions, Context);
+    
+    |Base Widget (Abstract)|
+    :ComponentDidMount;
+    :Start Initial Data Load (fetchData());
+    :Set Up Auto-Refresh Interval;
+    
+    |Widget Data Service|
+    :Fetch Data from API;
+    if (Cached Data Available?) then (yes)
+        :Return Cached Data;
+    else (no)
+        :Make API Call (Platform API Client);
+        :Apply Caching Strategy (Local Cache);
+    endif
+    
+    if (Data Fetch Successful?) then (yes)
+        :Set Widget State to DataLoaded;
+        :Render Widget Content;
+    else (no)
+        :Set Widget State to Error;
+        :Render Error State (with Retry Option);
+    endif
+    
+fork again
+    |User Interaction|
+    repeat
+        :User Interacts with Widget;
+        
+        fork
+            :Refresh Widget Data (Manual or Auto);
+            :Call loadData() (skips cache if manual);
+            :Update Widget Display;
+        fork again
+            :Open Widget Configuration;
+            :Generate Configuration UI (ConfigMgr);
+            :Edit Configuration in Form;
+            :Validate Configuration;
+            if (Configuration Valid?) then (no)
+                :Display Validation Errors;
+            else (yes)
+                :Update Widget Configuration;
+                :Persist Configuration (ConfigStore);
+                :Re-render Widget (triggers componentDidUpdate);
+            endif
+        fork again
+            :Resize Widget;
+            :Determine New Widget Size (LayoutMgr);
+            :Validate Size Constraints (min/max);
+            if (Size Valid?) then (yes)
+                :Update Widget Size;
+                :Persist Layout (LayoutMgr);
+                :Re-render Widget Container;
+            else (no)
+                :Display Size Constraints Error;
+            endif
+        fork again
+            :Remove Widget;
+            :Confirm Removal;
+            :Remove Widget Instance;
+            :Update Dashboard Layout;
+            :Persist Layout (ConfigStore);
+        fork again
+            :Subscribe to Real-time Updates;
+            :Establish SSE Connection (Data Service);
+            repeat
+                :Receive Real-time Data;
+                :Update Widget State;
+                :Re-render Widget Content;
+            repeat while (Connection Active) is (yes)
+            :Handle Connection Errors;
+        fork again
+            :Interact with Widget Content (e.g., click on chart, submit form);
+            :Trigger Widget-specific Logic;
+        end fork
+    repeat while (User Continues Interaction) is (yes)
+end fork
+
+|Dashboard Container|
+:ComponentWillUnmount;
+:Cleanup Widget Resources;
+stop
+
+note right of "Retrieve Widget Configurations"
+    Configurations are dynamic and can be per-user/per-organization.
+    Includes metadata like default size, permissions, and initial settings.
+end note
+
+note right of "Start Initial Data Load (fetchData())"
+    Widgets are designed for independent data fetching.
+    Uses AbortController for managing ongoing requests on unmount.
+end note
+
+note right of "Generate Configuration UI (ConfigMgr)"
+    UI is dynamically generated based on JSON schema defined in widget metadata.
+    Ensures consistency and simplifies widget development.
+end note
+
+note right of "Subscribe to Real-time Updates"
+    Widgets can stream data using Server-Sent Events (SSE).
+    Ensures dashboards display up-to-date information without frequent polling.
+end note
+
+@enduml

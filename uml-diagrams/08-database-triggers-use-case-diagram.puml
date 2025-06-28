@@ -1,0 +1,52 @@
+@startuml
+!theme toy
+
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Client Application" as ClientApp
+actor "Parse Server Internal Modules" as ParseInternal
+actor "Database Administrator" as DBA
+actor "Audit System" as AuditSystem
+actor "Notification System" as NotificationSystem
+
+rectangle "Database Trigger System" {
+  usecase "Enforce Data Integrity" as EnforceIntegrity
+  usecase "Automate Business Rules" as AutomateRules
+  usecase "Maintain Audit Trails" as MaintainAudit
+  usecase "Publish Events" as PublishEvents
+  usecase "Validate Data Before Save" as ValidateBeforeSave
+  usecase "Process Data After Save" as ProcessAfterSave
+  usecase "Handle Object Deletion" as HandleDeletion
+  usecase "Optimize Data Retrieval" as OptimizeRetrieval
+  usecase "Manage Trigger Configuration" as ManageConfig
+  usecase "Monitor Trigger Performance" as MonitorPerformance
+  usecase "Handle Trigger Errors" as HandleErrors
+}
+
+ClientApp --> EnforceIntegrity
+ClientApp --> AutomateRules
+
+ParseInternal --> EnforceIntegrity
+ParseInternal --> AutomateRules
+ParseInternal --> MaintainAudit
+ParseInternal --> PublishEvents
+ParseInternal --> ValidateBeforeSave
+ParseInternal --> ProcessAfterSave
+ParseInternal --> HandleDeletion
+ParseInternal --> OptimizeRetrieval
+
+DBA --> ManageConfig
+DBA --> MonitorPerformance
+DBA --> HandleErrors
+
+AuditSystem <-- MaintainAudit : receives logs
+NotificationSystem <-- PublishEvents : receives events
+
+EnforceIntegrity <.. ValidateBeforeSave : include
+EnforceIntegrity <.. ProcessAfterSave : include
+AutomateRules <.. ProcessAfterSave : include
+HandleDeletion <.. ValidateBeforeSave : include
+HandleDeletion <.. ProcessAfterSave : include
+
+@enduml

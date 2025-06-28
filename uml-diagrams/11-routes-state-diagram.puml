@@ -1,0 +1,35 @@
+@startuml
+!theme toy
+
+state "Request Processing Lifecycle" as RequestProcessing {
+  [*] --> Received : HTTP Request Received
+  Received --> Authenticating : request routed
+  Authenticating --> Authorizing : authentication success
+  Authenticating --> ErrorResponse : authentication failed (401)
+
+  Authorizing --> Validating : authorization success
+  Authorizing --> ErrorResponse : authorization failed (403)
+
+  Validating --> RateLimiting : validation success
+  Validating --> ErrorResponse : validation failed (400)
+
+  RateLimiting --> ExecutingRoute : rate limit allowed
+  RateLimiting --> ErrorResponse : rate limit exceeded (429)
+
+  ExecutingRoute --> CachingResponse : route logic executed
+  ExecutingRoute --> ErrorResponse : route logic failed (500)
+
+  CachingResponse --> Responded : response cached
+  Responded --> Auditing : response sent
+
+  Auditing --> [*] : audit logged
+
+  state "Error Handling" as ErrorHandling {
+    ErrorResponse --> ResponseFormatted : error details gathered
+    ResponseFormatted --> SentErrorResponse : error response created
+    SentErrorResponse --> Auditing : error response sent
+  }
+
+  ErrorResponse --> ErrorHandling
+}
+@enduml

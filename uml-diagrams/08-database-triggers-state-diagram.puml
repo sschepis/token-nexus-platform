@@ -1,0 +1,52 @@
+@startuml
+!theme toy
+
+state "Trigger Execution Lifecycle" as TriggerLifecycle {
+  state "Idle" as Idle
+  state "Trigger Event Received" as Received
+  state "Checking Execution Conditions" as CheckConditions
+  state "Validating Organization Context" as ValidateOrgContext
+  state "Executing Trigger Logic" as ExecuteLogic
+  state "Logging Success" as LogSuccess
+  state "Handling Error" as HandleError
+  state "Retrying" as Retrying
+  state "Logging Error" as LogError
+  state "Final Error Handling" as FinalError
+  state "Completed" as Completed
+
+  [*] --> Idle
+  Idle --> Received : database event
+  Received --> CheckConditions : on event
+  CheckConditions --> ExecuteLogic : conditions met
+  CheckConditions --> Completed : conditions not met (skipped)
+
+  ExecuteLogic --> LogSuccess : logic successful
+  ExecuteLogic --> HandleError : logic failed
+
+  LogSuccess --> Completed : audit logged
+
+  HandleError --> Retrying : retries left
+  Retrying --> ExecuteLogic : retry execution
+
+  HandleError --> LogError : no retries left / permanent error
+  LogError --> FinalError : error logged
+
+  FinalError --> Completed : fallback action taken (ignore/log/throw)
+
+  ValidateOrgContext --> ExecuteLogic : context valid
+  ValidateOrgContext --> LogError : context invalid
+
+  CheckConditions --> ValidateOrgContext : conditions met AND orgScoped
+  Received --> ValidateOrgContext : orgScoped
+
+  state "Retry Process" as RetryProcess {
+    state "Calculate Backoff" as CalculateBackoff
+    state "Delay" as Delay
+  }
+
+  Retrying --> RetryProcess
+  RetryProcess --> CalculateBackoff : on retry
+  CalculateBackoff --> Delay : backoff calculated
+  Delay --> ExecuteLogic : after delay
+}
+@enduml

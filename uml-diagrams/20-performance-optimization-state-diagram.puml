@@ -1,0 +1,64 @@
+@startuml
+!theme toy
+
+state "Performance Management System State" {
+    [*] --> Initialized : System is up and running
+    
+    state "Monitoring State" as Monitoring {
+        [*] --> MetricsCollection : Gathering performance data (metrics, logs, traces)
+        MetricsCollection --> ThresholdEvaluation : Comparing current metrics against defined thresholds
+        ThresholdEvaluation --> Alerting : Notifying stakeholders if thresholds are breached
+        Alerting --> MetricsCollection : Continuous monitoring
+    }
+    
+    state "Optimization State" as Optimization {
+        [*] --> AnalysisRequired : Triggered by alerts or scheduled tasks
+        AnalysisRequired --> BottleneckIdentification : Pinpointing performance bottlenecks
+        BottleneckIdentification --> PlanGeneration : Creating an optimization plan
+        PlanGeneration --> Implementation : Applying code changes, config updates, resource adjustments
+        Implementation --> Verification : Measuring impact of optimizations
+        Verification --> Optimization : Iterate if further improvement needed
+    }
+    
+    state "Caching State" as Caching {
+        [*] --> CacheWarm : Cache is populated and serving requests
+        CacheWarm --> CacheHit : Data retrieved from cache
+        CacheMiss --> DataFetchFromSource : Data not in cache, fetching from origin
+        DataFetchFromSource --> CachePopulate : Store fetched data in cache
+        CachePopulate --> CacheHit : Data now in cache
+        
+        CacheWarm --> CacheInvalidation : Cache entries become stale or explicitly invalidated
+        CacheInvalidation --> CacheWarm : Cache warmed up again
+    }
+    
+    Initialized --> Monitoring : Start collecting performance data
+    Monitoring --> Optimization : If performance degrades or bottlenecks are identified
+    Optimization --> Monitoring : After optimizations are implemented and verified
+    
+    Optimization --> ResourceManagement : Optimizations may involve resource adjustments
+    ResourceManagement --> Optimization : Resource changes applied, return to optimization flow
+    
+    Initialized --> Caching : Cache system enabled
+    Caching --> Monitoring : Cache performance is monitored
+    Monitoring --> Caching : Cache optimizations are triggered
+    
+    MetricsCollection --> CacheMiss : If data is not in cache, a miss occurs
+    
+    Optimization --> PerformanceTesting : Run tests to validate optimizations
+    PerformanceTesting --> Optimization : Test results feedback into optimization
+    
+    Initialized --> PerformanceTesting : Directly initiate performance tests
+    
+    state "Resource Management State" as ResourceManagement {
+        [*] --> ResourceIdle : Resources are allocated and stable
+        ResourceIdle --> ResourceScaling : Scaling up/down based on demand
+        ResourceScaling --> ResourceMonitoring : Monitoring resource utilization after scaling
+        ResourceMonitoring --> ResourceIdle : Resources stable again
+    }
+    
+    Monitoring --> ResourceManagement : Metrics from monitoring trigger resource management
+    ResourceManagement --> Monitoring : Resource actions affect observed metrics
+
+    Initialized --> [*] : System shutdown
+}
+@enduml

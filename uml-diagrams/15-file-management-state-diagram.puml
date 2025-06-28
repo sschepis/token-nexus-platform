@@ -1,0 +1,53 @@
+@startuml
+!theme toy
+
+state "File Status Management" {
+    state UPLOADING {
+        UPLOADING --> PROCESSING : upload complete
+        UPLOADING --> DELETED : upload cancelled
+        UPLOADING --> QUARANTINED : security scan failed
+    }
+
+    state PROCESSING {
+        state "Initial Processing" as InitProc
+        state "Content Processing" as ContentProc
+        state "Indexing" as Index
+
+        InitProc --> ContentProc : metadata extracted
+        ContentProc --> Index : processing complete
+        Index --> AVAILABLE : indexed, ready for access
+
+        PROCESSING --> QUARANTINED : processing error
+    }
+
+    state AVAILABLE {
+        AVAILABLE --> ARCHIVED : lifecycle rule / manual archive
+        AVAILABLE --> DELETED : delete request / lifecycle rule
+        AVAILABLE --> UPDATING : update request
+    }
+
+    state ARCHIVED {
+        ARCHIVED --> DELETED : lifecycle rule / manual delete
+        ARCHIVED --> AVAILABLE : restore
+    }
+
+    state DELETED {
+        DELETED --> [*] : permanent deletion
+    }
+
+    state QUARANTINED {
+        QUARANTINED --> DELETED : manual deletion / admin review
+        QUARANTINED --> UPLOADING : re-upload / remediation
+        QUARANTINED --> AVAILABLE : remediation successful
+    }
+
+    state UPDATING {
+        UPDATING --> PROCESSING : new content uploaded
+        UPDATING --> AVAILABLE : metadata updated (no content change)
+        UPDATING --> DELETED : update failed, original deleted
+    }
+
+    [*] --> UPLOADING : new file upload
+}
+
+@enduml

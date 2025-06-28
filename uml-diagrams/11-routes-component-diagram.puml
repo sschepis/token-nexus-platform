@@ -1,0 +1,29 @@
+@startuml
+!theme toy
+
+rectangle "Custom Routing System" {
+  component "HTTP Request Interface" as HTTPRequest
+  component "Route Router" as Router
+  component "Authentication Middleware" as AuthMiddleware
+  component "Authorization Middleware" as AuthzMiddleware
+  component "Validation Middleware" as ValidationMiddleware
+  component "Rate Limiting Middleware" as RateLimitMiddleware
+  component "Route Handler (Business Logic)" as RouteHandler
+  component "Data Access Layer" as DataAccess
+  component "Response Formatter" as ResponseFormatter
+  component "Database / External APIs" as DataSources
+
+  HTTPRequest --> Router : sends request
+  Router --> AuthMiddleware : routes request
+  AuthMiddleware --> AuthzMiddleware : authenticates
+  AuthzMiddleware --> ValidationMiddleware : authorizes
+  ValidationMiddleware --> RateLimitMiddleware : validates
+  RateLimitMiddleware --> RouteHandler : rate limits
+
+  RouteHandler --> DataAccess : requests data
+  DataAccess --> DataSources : interacts with
+
+  RouteHandler --> ResponseFormatter : provides result
+  ResponseFormatter --> HTTPRequest : sends response
+}
+@enduml

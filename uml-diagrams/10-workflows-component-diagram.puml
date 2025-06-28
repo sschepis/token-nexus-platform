@@ -1,0 +1,39 @@
+@startuml
+!theme toy
+
+rectangle "Workflow Orchestration Engine" {
+  component "Workflow Orchestrator" as Orchestrator
+  component "Step Executor" as StepExecutor
+  component "Decision Engine" as DecisionEngine
+  component "State Manager" as StateManager
+  component "Workflow Engine Core" as EngineCore
+
+  component "Action Handlers" as ActionHandlers
+  component "Integration Services" as IntegrationServices
+  component "Rule Engine" as RuleEngine
+  component "Condition Evaluator" as ConditionEvaluator
+  component "Workflow State Store" as StateStore
+  component "Execution History Log" as HistoryLog
+
+  component "Platform Services" as PlatformServices
+  component "External APIs" as ExternalAPIs
+
+  EngineCore --> Orchestrator : orchestrates workflows
+  Orchestrator --> StepExecutor : dispatches steps
+  Orchestrator --> DecisionEngine : evaluates decisions
+  Orchestrator --> StateManager : manages state
+
+  StepExecutor --> ActionHandlers : invokes actions
+  StepExecutor --> IntegrationServices : performs integrations
+
+  DecisionEngine --> RuleEngine : applies rules
+  DecisionEngine --> ConditionEvaluator : evaluates conditions
+
+  StateManager --> StateStore : persists state
+  StateManager --> HistoryLog : records history
+
+  ActionHandlers --> PlatformServices : uses
+  IntegrationServices --> ExternalAPIs : interacts with
+}
+
+@enduml

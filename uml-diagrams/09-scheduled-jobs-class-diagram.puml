@@ -1,0 +1,170 @@
+@startuml
+!theme toy
+
+' Enums
+enum JobCategory {
+    MAINTENANCE
+    DATA_PROCESSING
+    NOTIFICATION
+    ANALYTICS
+    INTEGRATION
+    CLEANUP
+    BACKUP
+    MONITORING
+}
+
+enum JobPriority {
+    LOW
+    NORMAL
+    HIGH
+    CRITICAL
+}
+
+enum JobExecutionMode {
+    SINGLE_INSTANCE
+    MULTIPLE_INSTANCES
+    ORGANIZATION_SCOPED
+    DISTRIBUTED
+}
+
+' Interfaces/Types
+interface ScheduledJobMetadata {
+    +id: string
+    +name: string
+    +description: string
+    +category: JobCategory
+    +priority: JobPriority
+    +executionMode: JobExecutionMode
+    +version: string
+    +enabled: boolean
+    +schedule: ScheduleConfig
+    +timeout: number
+    +retryPolicy: RetryPolicy
+    +resources: ResourceConfig
+    +monitoring: MonitoringConfig
+    +security: SecurityConfig
+    +dependencies?: string[]
+    +tags: string[]
+}
+
+interface ScheduleConfig {
+    +type: 'cron' | 'interval' | 'once'
+    +expression: string
+    +timezone?: string
+    +startDate?: Date
+    +endDate?: Date
+    +maxExecutions?: number
+}
+
+interface RetryPolicy {
+    +maxRetries: number
+    +backoffStrategy: 'fixed' | 'exponential' | 'linear'
+    +initialDelay: number
+    +maxDelay: number
+    +backoffMultiplier?: number
+}
+
+interface ResourceConfig {
+    +maxMemory: number
+    +maxCpuTime: number
+    +maxDiskSpace: number
+    +concurrencyLimit: number
+    +queueLimit: number
+}
+
+interface MonitoringConfig {
+    +alertOnFailure: boolean
+    +alertOnTimeout: boolean
+    +alertOnResourceExceeded: boolean
+    +successThreshold: number
+    +performanceThreshold: number
+    +retentionDays: number
+}
+
+interface SecurityConfig {
+    +requiresAuthentication: boolean
+    +permissions: string[]
+    +organizationScoped: boolean
+    +allowedEnvironments: string[]
+}
+
+interface JobExecutionContext
+interface JobResult
+class JobMonitoringService
+class JobSecurityService
+class JobResourceManager
+class NotificationService
+class AbortController
+class Parse_User
+class Parse_Object
+class Parse_Query
+
+' BaseScheduledJob Abstract Class
+abstract class BaseScheduledJob {
+    protected monitoringService: JobMonitoringService
+    protected securityService: JobSecurityService
+    protected resourceManager: JobResourceManager
+    protected notificationService: NotificationService
+    protected abortController?: AbortController
+    protected metadata: ScheduledJobMetadata
+
+    +constructor(metadata: ScheduledJobMetadata)
+    +execute(context: JobExecutionContext): Promise<JobResult>
+    #abstract executeJobLogic(context: JobExecutionContext): Promise<any>
+    #abstract validateJobSpecificSecurity(context: JobExecutionContext): Promise<void>
+    #beforeExecution(context: JobExecutionContext): Promise<void>
+    #afterExecution(context: JobExecutionContext, result: any): Promise<void>
+    #onExecutionError(error: any, context: JobExecutionContext): Promise<void>
+    -initializeExecution(context: JobExecutionContext, executionId: string): Promise<void>
+    -validateSecurity(context: JobExecutionContext): Promise<void>
+    -checkResourceAvailability(): Promise<void>
+    -handleExecutionError(error: any, context: JobExecutionContext, executionId: string): Promise<boolean>
+    -scheduleRetry(context: JobExecutionContext, executionId: string, error: any): Promise<JobResult>
+    -calculateRetryDelay(retryCount: number): number
+    -recordSuccess(executionId: string, result: any, executionTime: number): Promise<void>
+    -recordFailure(executionId: string, error: any, executionTime: number): Promise<void>
+    -cleanup(executionId: string): Promise<void>
+    #generateExecutionId(): string
+    #sleep(ms: number): Promise<void>
+    #checkAborted(): void
+    #processInBatches<T, R>(items: T[], batchSize: number, processor: (batch: T[]) => Promise<R[]>): Promise<R[]>
+}
+
+' Concrete Job Implementation Example
+class UserDataCleanupJob {
+    +constructor()
+    #executeJobLogic(context: JobExecutionContext): Promise<any>
+    #validateJobSpecificSecurity(context: JobExecutionContext): Promise<void>
+    -findInactiveUsers(): Promise<Parse_User[]>
+    -deactivateInactiveUser(user: Parse_User): Promise<void>
+    -notifyUserOfDeactivation(user: Parse_User): Promise<void>
+    -archiveUserData(user: Parse_User): Promise<void>
+    -logCleanupMetrics(cleanedCount: number, errorCount: number): Promise<void>
+}
+
+' Relationships
+
+ScheduledJobMetadata --> JobCategory
+ScheduledJobMetadata --> JobPriority
+ScheduledJobMetadata --> JobExecutionMode
+ScheduledJobMetadata *-- ScheduleConfig
+ScheduledJobMetadata *-- RetryPolicy
+ScheduledJobMetadata *-- ResourceConfig
+ScheduledJobMetadata *-- MonitoringConfig
+ScheduledJobMetadata *-- SecurityConfig
+
+BaseScheduledJob *-- ScheduledJobMetadata
+BaseScheduledJob ..> JobExecutionContext
+BaseScheduledJob ..> JobResult
+BaseScheduledJob ..> JobMonitoringService
+BaseScheduledJob ..> JobSecurityService
+BaseScheduledJob ..> JobResourceManager
+BaseScheduledJob ..> NotificationService
+BaseScheduledJob ..> AbortController
+
+UserDataCleanupJob --|> BaseScheduledJob
+UserDataCleanupJob ..> Parse_User
+UserDataCleanupJob ..> Parse_Object
+UserDataCleanupJob ..> Parse_Query
+
+@enduml

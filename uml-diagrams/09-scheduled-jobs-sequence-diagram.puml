@@ -1,0 +1,142 @@
+@startuml
+!theme toy
+
+autonumber
+
+participant "Job Scheduler" as Scheduler
+participant "Job Queue" as Queue
+participant "Job Worker Pool" as WorkerPool
+participant "BaseScheduledJob Instance" as ScheduledJob
+participant "JobMonitoringService" as Monitoring
+participant "JobSecurityService" as Security
+participant "JobResourceManager" as ResourceManager
+participant "NotificationService" as Notification
+participant "Platform Services" as PlatformServices
+participant "External APIs" as ExternalAPIs
+participant "Database" as DB
+
+Scheduler -> Queue: Submit Job (ScheduledJobMetadata)
+activate Queue
+
+Queue -> WorkerPool: Job Available
+activate WorkerPool
+
+WorkerPool -> ScheduledJob: execute(context)
+activate ScheduledJob
+
+ScheduledJob -> ScheduledJob: generateExecutionId()
+ScheduledJob -> Monitoring: registerExecution(jobId, executionId, startTime, context)
+activate Monitoring
+Monitoring --> ScheduledJob: Registration Confirmation
+deactivate Monitoring
+
+ScheduledJob -> ResourceManager: reserveResources(metadata.resources)
+activate ResourceManager
+ResourceManager --> ScheduledJob: Resources Reserved
+deactivate ResourceManager
+
+ScheduledJob -> ScheduledJob: beforeExecution(context)
+activate ScheduledJob
+ScheduledJob --> ScheduledJob: Pre-execution Logic Complete
+deactivate ScheduledJob
+
+ScheduledJob -> ScheduledJob: validateSecurity(context)
+activate ScheduledJob
+ScheduledJob -> Security: validateAuthentication(context) (if requiresAuthentication)
+activate Security
+Security --> ScheduledJob: Auth Validation Result
+deactivate Security
+ScheduledJob -> Security: checkPermission(permission, context) (for each permission)
+activate Security
+Security --> ScheduledJob: Permission Check Result
+deactivate Security
+ScheduledJob -> ScheduledJob: validateJobSpecificSecurity(context)
+ScheduledJob --> ScheduledJob: Security Validated
+deactivate ScheduledJob
+
+ScheduledJob -> ResourceManager: checkAvailability(metadata.resources)
+activate ResourceManager
+ResourceManager --> ScheduledJob: Resource Availability
+deactivate ResourceManager
+
+ScheduledJob -> ScheduledJob: executeJobLogic(context)
+activate ScheduledJob
+ScheduledJob -> PlatformServices: Perform Business Logic
+activate PlatformServices
+PlatformServices -> DB: Data Operations
+activate DB
+DB --> PlatformServices: Data Result
+deactivate DB
+PlatformServices --> ScheduledJob: Business Logic Result
+deactivate PlatformServices
+opt External API Interaction
+    ScheduledJob -> ExternalAPIs: Call External Service
+    activate ExternalAPIs
+    ExternalAPIs --> ScheduledJob: External Service Response
+    deactivate ExternalAPIs
+end
+ScheduledJob --> ScheduledJob: Job Logic Execution Complete
+deactivate ScheduledJob
+
+ScheduledJob -> Monitoring: recordSuccess(executionId, result, executionTime)
+activate Monitoring
+Monitoring --> ScheduledJob: Success Recorded
+deactivate Monitoring
+
+ScheduledJob -> ScheduledJob: afterExecution(context, result)
+activate ScheduledJob
+ScheduledJob --> ScheduledJob: Post-execution Logic Complete
+deactivate ScheduledJob
+
+ScheduledJob --> WorkerPool: JobResult (Success)
+deactivate ScheduledJob
+
+alt Execution Failure
+    ScheduledJob -> Monitoring: logError(jobId, executionId, error, context)
+    activate Monitoring
+    Monitoring --> ScheduledJob: Error Logged
+    deactivate Monitoring
+
+    ScheduledJob -> ScheduledJob: onExecutionError(error, context)
+    activate ScheduledJob
+    ScheduledJob --> ScheduledJob: Custom Error Handling
+    deactivate ScheduledJob
+
+    alt Retries Left
+        ScheduledJob -> ScheduledJob: calculateRetryDelay()
+        ScheduledJob -> ScheduledJob: scheduleRetry(context, executionId, error)
+        ScheduledJob --> WorkerPool: JobResult (Retry Scheduled)
+    else No Retries Left / Max Retries Reached
+        opt Alert on Failure
+            ScheduledJob -> Notification: sendJobFailureAlert(jobName, error, executionId)
+            activate Notification
+            Notification --> ScheduledJob: Alert Sent
+            deactivate Notification
+        end
+        ScheduledJob -> Monitoring: recordFailure(executionId, error, executionTime)
+        activate Monitoring
+        Monitoring --> ScheduledJob: Failure Recorded
+        deactivate Monitoring
+
+        ScheduledJob --> WorkerPool: JobResult (Failure)
+    end
+end
+
+ScheduledJob -> ResourceManager: releaseResources(metadata.resources)
+activate ResourceManager
+ResourceManager --> ScheduledJob: Resources Released
+deactivate ResourceManager
+
+ScheduledJob -> ScheduledJob: cleanup()
+activate ScheduledJob
+ScheduledJob -> Monitoring: unregisterExecution(executionId)
+activate Monitoring
+Monitoring --> ScheduledJob: Execution Unregistered
+deactivate Monitoring
+ScheduledJob --> ScheduledJob: Cleanup Complete
+deactivate ScheduledJob
+
+deactivate WorkerPool
+deactivate Queue
+
+@enduml

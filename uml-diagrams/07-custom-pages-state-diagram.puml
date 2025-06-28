@@ -1,0 +1,72 @@
+@startuml
+!theme toy
+
+state "Custom Page Lifecycle" as PageLifecycle {
+  state "Unmounted" as Unmounted
+  state "Mounting" as Mounting {
+    state "Initializing Security" as InitSecurity
+    state "Initializing Platform Integration" as InitPlatform
+    state "Initializing Custom Page Logic" as InitCustomLogic
+  }
+  state "Mounted (Ready)" as MountedReady
+  state "Active" as Active {
+    state "Loading Data" as LoadingData
+    state "Interacting" as Interacting
+    state "Updating Content" as UpdatingContent
+  }
+  state "Error Display" as ErrorDisplay
+  state "Unmounting" as UnmountingState
+
+  [*] --> Unmounted
+  Unmounted --> Mounting : mount component
+  Mounting --> InitSecurity : constructor
+  InitSecurity --> InitPlatform : security validated
+  InitSecurity --> ErrorDisplay : security validation failed
+
+  InitPlatform --> InitCustomLogic : platform integrated
+  InitPlatform --> ErrorDisplay : platform integration failed
+
+  InitCustomLogic --> MountedReady : custom logic initialized
+  InitCustomLogic --> ErrorDisplay : custom logic initialization failed
+
+  MountedReady --> Active : page becomes interactive
+  Active --> MountedReady : page goes idle
+  Active --> UpdatingContent : data or state change
+  UpdatingContent --> Active : content updated
+  Active --> LoadingData : initiate data load
+  LoadingData --> Active : data loaded
+  LoadingData --> ErrorDisplay : data load failed
+
+  MountedReady --> UnmountingState : unmount component
+  Active --> UnmountingState : unmount component
+  ErrorDisplay --> UnmountingState : unmount component
+  UnmountingState --> Unmounted : cleanup complete
+
+  state "Error Handling" as ErrorHandling {
+    state "Error Caught" as ErrorCaught
+    state "Error Reported" as ErrorReported
+  }
+  
+  ErrorDisplay --> ErrorHandling
+  ErrorHandling --> ErrorCaught : error occurred
+  ErrorCaught --> ErrorReported : error reported to platform
+  ErrorReported --> ErrorDisplay : display error message
+
+  ' Transitions for data loading with cache
+  state "Data Loading Flow" as DataLoader {
+    state "Request Data" as RequestData
+    state "Check Cache" as CheckCache
+    state "Fetch From API" as FetchAPI
+    state "Update Cache" as UpdateCache
+    state "Data Available" as DataAvailable
+    
+    RequestData --> CheckCache : initiate load
+    CheckCache --> DataAvailable : cache hit
+    CheckCache --> FetchAPI : cache miss
+    FetchAPI --> UpdateCache : data fetched
+    UpdateCache --> DataAvailable : cache updated
+    DataAvailable --> [*] : return data
+  }
+  LoadingData --> DataLoader
+}
+@enduml

@@ -1,0 +1,54 @@
+@startuml
+!theme toy
+
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Client Application" as Client
+actor "Platform Administrator" as Admin
+actor "External Webhook Sender" as WebhookSender
+actor "API Gateway" as Gateway
+
+rectangle "Custom Routing System" {
+  usecase "Send HTTP Request" as SendRequest
+  usecase "Authenticate Request" as Authenticate
+  usecase "Authorize Request" as Authorize
+  usecase "Validate Request Data" as ValidateData
+  usecase "Apply Rate Limiting" as ApplyRateLimit
+  usecase "Handle API Endpoint" as HandleAPI
+  usecase "Handle Webhook Endpoint" as HandleWebhook
+  usecase "Access Data Store" as AccessData
+  usecase "Format Response" as FormatResponse
+  usecase "Log Route Access" as LogAccess
+  usecase "Handle Route Errors" as HandleErrors
+  usecase "Configure Route Metadata" as ConfigMetadata
+  usecase "Manage Route Caching" as ManageCaching
+  usecase "Manage Route Security Policies" as ManageSecurity
+}
+
+Client --> SendRequest
+SendRequest <.. Authenticate : include
+SendRequest <.. Authorize : include
+SendRequest <.. ValidateData : include
+SendRequest <.. ApplyRateLimit : include
+SendRequest <.. LogAccess : include
+
+SendRequest --> HandleAPI : uses
+
+WebhookSender --> SendRequest : sends webhook request
+SendRequest --> HandleWebhook : uses
+
+HandleAPI <.. AccessData : include
+HandleAPI <.. FormatResponse : include
+HandleWebhook <.. AccessData : include
+HandleWebhook <.. FormatResponse : include
+
+Admin --> ConfigMetadata
+Admin --> ManageCaching
+Admin --> ManageSecurity
+Admin --> LogAccess
+Admin --> HandleErrors
+
+Gateway <.. SendRequest : mediates
+
+@enduml

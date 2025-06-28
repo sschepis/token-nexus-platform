@@ -1,0 +1,56 @@
+@startuml
+!theme toy
+
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Platform User" as User
+actor "Platform Administrator" as Admin
+actor "AI Assistant" as AI
+actor "External Data Source" as ExternalData
+
+rectangle "Visual Page System" {
+  usecase "View Page Content" as ViewContent
+  usecase "Interact with Forms" as InteractForms
+  usecase "Filter and Sort Data" as FilterSort
+  usecase "Generate Reports/Visualizations" as GenerateReports
+  usecase "Export Data" as ExportData
+  usecase "Access Page History" as AccessHistory
+  usecase "Receive Real-time Updates" as RealtimeUpdates
+  usecase "Configure Page Layout" as ConfigLayout
+  usecase "Manage Page Access Permissions" as ManagePermissions
+  usecase "Integrate External Data" as IntegrateData
+  usecase "Optimize Page Performance" as OptimizePerformance
+  usecase "Ensure Accessibility Compliance" as Accessibility
+  usecase "Define Page Metadata" as DefineMetadata
+  usecase "Interact with Page via AI" as InteractAI
+}
+
+User --> ViewContent
+User --> InteractForms
+User --> FilterSort
+User --> GenerateReports
+User --> ExportData
+User --> AccessHistory
+User --> RealtimeUpdates
+
+Admin --> ConfigLayout
+Admin --> ManagePermissions
+Admin --> DefineMetadata
+Admin --> OptimizePerformance
+Admin --> Accessibility
+
+AI --> InteractAI
+AI --> ViewContent
+AI --> InteractForms
+AI --> FilterSort
+AI --> GenerateReports
+
+ExternalData --> IntegrateData
+
+ViewContent <.. IntegrateData : include
+ViewContent <.. RealtimeUpdates : include
+ViewContent <.. OptimizePerformance : include
+ViewContent <.. Accessibility : include
+
+@enduml

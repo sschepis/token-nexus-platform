@@ -1,0 +1,66 @@
+@startuml
+!theme toy
+
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Client Application User" as User
+actor "External System" as ExternalSystem
+actor "Platform Administrator" as Admin
+actor "AI Assistant" as AI
+
+
+rectangle "Cloud Function System" {
+  usecase "Invoke Cloud Function" as InvokeCF
+  usecase "Process Data" as ProcessData
+  usecase "Perform Authentication" as Auth
+  usecase "Validate Permissions" as Perm
+  usecase "Manage User Data" as ManageUser
+  usecase "Fetch/Update Records in Database" as DBops
+  usecase "Integrate with External APIs" as ExternalAPI
+  usecase "Log Function Execution" as LogExecution
+  usecase "Configure Cloud Function Metadata" as ConfigMetadata
+  usecase "Deploy/Version Cloud Functions" as DeployCF
+  usecase "Trigger Background Job" as TriggerJob
+  usecase "Handle Webhook Event" as HandleWebhook
+  usecase "Execute Scheduled Task" as ScheduledTask
+  usecase "Interact via AI Assistant" as InteractAI
+  usecase "Access Audit Logs" as AccessLogs
+  usecase "Define Database Trigger Logic" as DBTriggerLogic
+}
+
+User --> InvokeCF
+User --> ProcessData
+User --> ManageUser
+
+ExternalSystem --> InvokeCF
+ExternalSystem --> ExternalAPI
+ExternalSystem --> HandleWebhook
+
+Admin --> ConfigMetadata
+Admin --> DeployCF
+Admin --> AccessLogs
+
+Parse_Cloud --> InvokeCF
+Parse_Cloud --> TriggerJob
+Parse_Cloud --> HandleWebhook
+Parse_Cloud --> ScheduledTask
+Parse_Query --> DBops
+
+AI --> InteractAI
+AI --> InvokeCF
+
+InvokeCF <.. ProcessData : include
+InvokeCF <.. Auth : include
+InvokeCF <.. Perm : include
+ProcessData <.. ManageUser : include
+ProcessData <.. DBops : include
+ProcessData <.. ExternalAPI : include
+InvokeCF <.. LogExecution : include
+
+Auth <.. AI : include
+Perm <.. AI : include
+
+DBTriggerLogic --> DBops : extends
+
+@enduml

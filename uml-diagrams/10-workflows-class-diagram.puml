@@ -1,0 +1,221 @@
+@startuml
+!theme toy
+
+' Enums
+enum WorkflowCategory {
+    APPROVAL
+    DATA_PROCESSING
+    INTEGRATION
+    NOTIFICATION
+    ONBOARDING
+    MAINTENANCE
+    COMPLIANCE
+    CUSTOM
+}
+
+enum WorkflowTrigger {
+    MANUAL
+    SCHEDULED
+    EVENT_DRIVEN
+    API_CALL
+    WEBHOOK
+}
+
+enum WorkflowExecutionMode {
+    SYNCHRONOUS
+    ASYNCHRONOUS
+    HYBRID
+}
+
+enum StepType {
+    API_CALL
+    EMAIL
+    DATABASE
+    APPROVAL
+    CONDITION
+    DELAY
+    INTEGRATION
+    CUSTOM
+}
+
+' Interfaces/Types
+interface WorkflowMetadata {
+    +id: string
+    +name: string
+    +description: string
+    +category: WorkflowCategory
+    +version: string
+    +enabled: boolean
+    +trigger: WorkflowTriggerConfig
+    +executionMode: WorkflowExecutionMode
+    +timeout: number
+    +maxRetries: number
+    +permissions: string[]
+    +organizationScoped: boolean
+    +steps: WorkflowStep[]
+    +variables: WorkflowVariable[]
+    +conditions: WorkflowCondition[]
+    +integrations: IntegrationConfig[]
+    +monitoring: WorkflowMonitoringConfig
+    +tags: string[]
+}
+
+interface WorkflowTriggerConfig {
+    +type: WorkflowTrigger
+    +configuration: {}
+}
+
+interface WorkflowStep {
+    +id: string
+    +name: string
+    +type: StepType
+    +action: string
+    +parameters: Record<string, any>
+    +conditions?: StepCondition[]
+    +retryPolicy?: StepRetryPolicy
+    +timeout?: number
+    +nextSteps: string[]
+    +errorHandling?: ErrorHandlingConfig
+}
+
+interface WorkflowVariable {
+    +name: string
+    +type: 'string' | 'number' | 'boolean' | 'object' | 'array'
+    +defaultValue?: any
+    +required: boolean
+    +description: string
+}
+
+interface WorkflowCondition {
+    +id: string
+    +name: string
+    +expression: string
+    +description: string
+}
+
+interface WorkflowExecutionContext
+interface WorkflowResult
+interface StepCondition
+interface StepRetryPolicy
+interface ErrorHandlingConfig
+interface IntegrationConfig
+interface WorkflowMonitoringConfig
+interface AuthorInfo
+interface DocumentationConfig
+interface WebhookConfig
+interface ManualTriggerConfig
+interface ActionHandler
+
+class WorkflowStateManager
+class WorkflowSecurityService
+class WorkflowMonitoringService
+class WorkflowIntegrationService
+class ApiCallActionHandler
+class EmailActionHandler
+class DatabaseActionHandler
+class ApprovalActionHandler
+class ConditionActionHandler
+class DelayActionHandler
+class IntegrationActionHandler
+class CustomActionHandler
+class Parse_User
+class Parse_Object
+class Parse_Role
+class Parse_Query
+
+' BaseWorkflow Abstract Class
+abstract class BaseWorkflow {
+    protected stateManager: WorkflowStateManager
+    protected securityService: WorkflowSecurityService
+    protected monitoringService: WorkflowMonitoringService
+    protected integrationService: WorkflowIntegrationService
+    protected metadata: WorkflowMetadata
+
+    +constructor(metadata: WorkflowMetadata)
+    +execute(context: WorkflowExecutionContext): Promise<WorkflowResult>
+    #abstract defineWorkflowSteps(): WorkflowStep[]
+    #abstract validateWorkflowSpecificSecurity(context: WorkflowExecutionContext): Promise<void>
+    #beforeWorkflowExecution(context: WorkflowExecutionContext): Promise<void>
+    #afterWorkflowExecution(context: WorkflowExecutionContext, result: any): Promise<void>
+    #onWorkflowError(error: any, context: WorkflowExecutionContext): Promise<void>
+    -initializeExecution(context: WorkflowExecutionContext, executionId: string): Promise<void>
+    -validateSecurity(context: WorkflowExecutionContext): Promise<void>
+    -executeWorkflowSteps(context: WorkflowExecutionContext, executionId: string): Promise<any>
+    -executeStep(step: WorkflowStep, context: WorkflowExecutionContext, executionId: string): Promise<any>
+    -executeStepAction(step: WorkflowStep, context: WorkflowExecutionContext, executionId: string): Promise<any>
+    -getActionHandler(stepType: StepType): ActionHandler | null
+    -initializeVariables(context: WorkflowExecutionContext): Record<string, any>
+    -substituteVariables(parameters: Record<string, any>, context: WorkflowExecutionContext, executionId: string): Promise<Record<string, any>>
+    -replaceVariablePlaceholders(template: string, variables: Record<string, any>, context: WorkflowExecutionContext): string
+    -evaluateStepConditions(conditions: StepCondition[], context: WorkflowExecutionContext): Promise<boolean>
+    -evaluateCondition(condition: StepCondition, context: WorkflowExecutionContext): Promise<boolean>
+    -getFieldValue(field: string, context: WorkflowExecutionContext): any
+    -handleStepError(error: any, step: WorkflowStep, context: WorkflowExecutionContext, executionId: string): Promise<boolean>
+    -retryStep(step: WorkflowStep, context: WorkflowExecutionContext, executionId: string): Promise<any>
+    -recordCompletion(executionId: string, result: any, duration: number): Promise<void>
+    -handleWorkflowError(error: any, context: WorkflowExecutionContext, executionId: string): Promise<void>
+    -generateExecutionId(): string
+    -findInitialSteps(steps: WorkflowStep[]): string[]
+    -determineNextSteps(step: WorkflowStep, stepResult: any, context: WorkflowExecutionContext): Promise<string[]>
+    ' Helper methods for UserOnboardingWorkflow example
+    -getUserData(userId: string): Promise<any>
+    -sendWelcomeEmail(email: string, firstName: string): Promise<void>
+    -assignDefaultRole(userId: string): Promise<void>
+    -createInitialDashboard(userId: string): Promise<void>
+    -notifyAdmin(message: string): Promise<void>
+}
+
+' Concrete Workflow Example
+class UserOnboardingWorkflow {
+    +constructor()
+    #defineWorkflowSteps(): WorkflowStep[]
+    #validateWorkflowSpecificSecurity(context: WorkflowExecutionContext): Promise<void>
+    -checkUserExists(userId: string): Promise<boolean>
+    -registerUser(userData: any): Promise<{ userId: string; userObjectId: string; }>
+    -validateEmail(email: string): Promise<boolean>
+    -generateUserName(firstName: string, lastName: string): string
+    -createDefaultUserProfile(userId: string, userObjectId: string, username: string): Promise<void>
+}
+
+' Relationships
+
+WorkflowMetadata --> WorkflowCategory
+WorkflowMetadata --> WorkflowExecutionMode
+WorkflowMetadata *-- WorkflowTriggerConfig
+WorkflowMetadata *-- "N" WorkflowStep
+WorkflowMetadata *-- "N" WorkflowVariable
+WorkflowMetadata *-- "N" WorkflowCondition
+WorkflowMetadata *-- "N" IntegrationConfig
+WorkflowMetadata *-- WorkflowMonitoringConfig
+
+WorkflowTriggerConfig --> WorkflowTrigger
+
+WorkflowStep --> StepType
+WorkflowStep *-- "N" StepCondition
+WorkflowStep *-- StepRetryPolicy
+WorkflowStep *-- ErrorHandlingConfig
+
+BaseWorkflow *-- WorkflowMetadata
+BaseWorkflow ..> WorkflowExecutionContext
+BaseWorkflow ..> WorkflowResult
+BaseWorkflow ..> WorkflowStateManager
+BaseWorkflow ..> WorkflowSecurityService
+BaseWorkflow ..> WorkflowMonitoringService
+BaseWorkflow ..> WorkflowIntegrationService
+
+BaseWorkflow ..> ApiCallActionHandler
+BaseWorkflow ..> EmailActionHandler
+BaseWorkflow ..> DatabaseActionHandler
+BaseWorkflow ..> ApprovalActionHandler
+BaseWorkflow ..> ConditionActionHandler
+BaseWorkflow ..> DelayActionHandler
+BaseWorkflow ..> IntegrationActionHandler
+BaseWorkflow ..> CustomActionHandler
+
+UserOnboardingWorkflow --|> BaseWorkflow
+UserOnboardingWorkflow ..> Parse_User
+UserOnboardingWorkflow ..> Parse_Object
+UserOnboardingWorkflow ..> Parse_Role
+UserOnboardingWorkflow ..> Parse_Query
+
+@enduml

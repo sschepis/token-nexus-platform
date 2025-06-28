@@ -1,0 +1,41 @@
+@startuml
+!theme toy
+
+rectangle "Custom Page System" {
+  component "Custom Page Container" as Container
+  component "Custom Page Framework" as Framework
+  component "Platform Integration Layer" as PlatformIntegration
+  component "Custom Component System" as CustomComponents
+  component "Custom State Management" as CustomState
+
+  component "Authentication Service" as AuthService
+  component "Permission Service" as PermService
+  component "Data Service" as DataService
+  component "AI Assistant Service" as AIService
+  component "External APIs" as ExtAPIs
+  component "Third-party Libraries" as ThirdPartyLibs
+
+  component "Local State Modules" as LocalState
+  component "Global State Modules" as GlobalState
+  component "Persistent State Modules" as PersistentState
+
+  Container --> Framework : hosts
+  Framework --> PlatformIntegration : integrates with
+  Framework --> CustomComponents : uses
+  Framework --> CustomState : manages
+
+  PlatformIntegration --> AuthService : uses
+  PlatformIntegration --> PermService : uses
+  PlatformIntegration --> DataService : uses
+  PlatformIntegration --> AIService : uses
+
+  CustomComponents --> ThirdPartyLibs : integrates
+  CustomComponents --> ExtAPIs : interacts with
+
+  CustomState --> LocalState : manages
+  CustomState --> GlobalState : manages
+  CustomState --> PersistentState : manages (e.g. browser storage)
+
+  DataService <--> ExtAPIs : consumes
+}
+@enduml

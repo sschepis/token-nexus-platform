@@ -1,0 +1,352 @@
+@startuml
+!theme toy
+
+' Enums
+enum SearchType {
+    FULL_TEXT
+    SEMANTIC
+    FACETED
+    AUTOCOMPLETE
+    FUZZY
+    EXACT
+    RANGE
+    GEOSPATIAL
+    VECTOR
+}
+
+enum ContentType {
+    DOCUMENT
+    FILE
+    WORKFLOW
+    USER
+    ORGANIZATION
+    APPLICATION
+    WIDGET
+    PAGE
+    COMMENT
+    ACTIVITY
+}
+
+enum IndexType {
+    PRIMARY
+    SECONDARY
+    ANALYTICS
+    SUGGESTION
+    VECTOR
+}
+
+enum SearchScope {
+    GLOBAL
+    ORGANIZATION
+    APPLICATION
+    USER
+    CUSTOM
+}
+
+enum IndexingStrategy {
+    REAL_TIME
+    BATCH
+    INCREMENTAL
+    FULL_REBUILD
+}
+
+enum SearchEngine {
+    ELASTICSEARCH
+    SOLR
+    DATABASE_FTS
+    VECTOR_STORE
+}
+
+enum QueryOperator {
+    AND
+    OR
+}
+
+enum RankingAlgorithm {
+    TF_IDF
+    BM25
+    LEARN_TO_RANK
+    PERSONALIZED
+}
+
+enum SuggestionType {
+    QUERY
+    DOCUMENT
+    CATEGORY
+}
+
+enum SuggestionSource {
+    RECENT_QUERIES
+    POPULAR_QUERIES
+    CONTENT_TITLES
+    RELATED_TERMS
+}
+
+' Interfaces/Types
+interface SearchConfiguration {
+    +id: string
+    +name: string
+    +type: SearchType
+    +contentTypes: ContentType[]
+    +scope: SearchScope
+    +indexing: IndexingConfig
+    +query: QueryConfig
+    +ranking: RankingConfig
+    +filtering: FilterConfig
+    +faceting: FacetConfig
+    +highlighting: HighlightConfig
+    +suggestions: SuggestionConfig
+    +analytics: AnalyticsConfig
+    +security: SecurityConfig
+    +performance: PerformanceConfig
+    +enabled: boolean
+    +organizationId?: string
+    +applicationId?: string
+}
+
+interface IndexingConfig {
+    +strategy: IndexingStrategy
+    +engine: SearchEngine
+    +index: IndexConfig
+    +mapping: MappingConfig
+    +pipeline: ProcessingPipeline
+    +schedule: ScheduleConfig
+    +realTime: RealTimeConfig
+}
+
+interface QueryConfig {
+    +defaultOperator: QueryOperator
+    +fields: SearchField[]
+    +boosts: FieldBoost[]
+    +analyzers: AnalyzerConfig[]
+    +filters: DefaultFilter[]
+    +sorts: SortConfig[]
+    +pagination: PaginationConfig
+}
+
+interface RankingConfig {
+    +algorithm: RankingAlgorithm
+    +factors: RankingFactor[]
+    +personalization: PersonalizationConfig
+    +freshness: FreshnessConfig
+    +popularity: PopularityConfig
+    +relevance: RelevanceConfig
+}
+
+interface FilterConfig {
+    +available: FilterDefinition[]
+    +defaults: DefaultFilter[]
+    +dynamic: boolean
+    +faceted: boolean
+}
+
+interface FacetConfig {
+    +enabled: boolean
+    +fields: FacetField[]
+    +maxValues: number
+    +minCount: number
+    +sorting: FacetSorting
+}
+
+interface HighlightConfig {
+    +enabled: boolean
+    +fields: string[]
+    +fragmentSize: number
+    +maxFragments: number
+    +preTag: string
+    +postTag: string
+}
+
+interface SuggestionConfig {
+    +enabled: boolean
+    +types: SuggestionType[]
+    +sources: SuggestionSource[]
+    +maxSuggestions: number
+    +minQueryLength: number
+}
+
+interface AnalyticsConfig {
+    +enabled: boolean
+    +trackQueries: boolean
+    +trackResults: boolean
+    +trackClicks: boolean
+    +trackConversions: boolean
+    +retention: number
+}
+
+interface SecurityConfig {
+    +enforcePermissions: boolean
+    +fieldSecurity: FieldSecurityConfig[]
+    +documentSecurity: DocumentSecurityConfig
+    +auditLogging: boolean
+}
+
+interface PerformanceConfig {
+    +caching: CacheConfig
+    +timeout: number
+    +maxResults: number
+    +sharding: ShardingConfig
+    +replication: ReplicationConfig
+}
+
+interface SearchRequest
+interface SearchResult
+interface MultiSearchRequest
+interface MultiSearchResult
+interface SuggestionRequest
+interface SuggestionResult
+interface SearchDocument
+interface IndexResult
+interface IndexOperationResult
+interface RemoveResult
+interface RemoveOperationResult
+interface BatchIndexOperation
+interface BatchIndexResult
+interface SearchEngineInterface
+interface IndexConfig
+interface MappingConfig
+interface ProcessingPipeline // From file-management, assuming it's a shared concept
+interface ScheduleConfig
+interface RealTimeConfig
+interface SearchField
+interface FieldBoost
+interface AnalyzerConfig
+interface DefaultFilter
+interface SortConfig
+interface PaginationConfig
+interface RankingFactor
+interface PersonalizationConfig
+interface FreshnessConfig
+interface PopularityConfig
+interface RelevanceConfig
+interface FilterDefinition
+interface FacetField
+interface FacetSorting
+interface FieldSecurityConfig
+interface DocumentSecurityConfig
+interface CacheConfig
+interface ShardingConfig
+interface ReplicationConfig
+interface ElasticsearchClient // Example concrete SearchEngineInterface
+
+' Services and Managers
+class IndexManager
+class QueryProcessor
+class ResultAggregator
+class AnalyticsService
+class SecurityService
+class CacheService
+class SearchError
+class QueryParser
+class QueryOptimizer
+class FilterEngine
+class FacetEngine
+class DocumentIndexer
+class RealtimeIndexer
+class BatchIndexer
+class IndexOptimizer
+class ResultRanker
+class ResultFormatter
+class HighlightEngine
+class SuggestionEngine
+class SearchAnalytics
+class PerformanceMetrics
+class UserBehaviorAnalytics
+class ContentInsights
+
+' SearchManager Class
+class SearchManager {
+    -configurations: Map<string, SearchConfiguration>
+    -engines: Map<SearchEngine, SearchEngineInterface>
+    -indexManager: IndexManager
+    -queryProcessor: QueryProcessor
+    -resultAggregator: ResultAggregator
+    -analytics: AnalyticsService
+    -security: SecurityService
+    -cache: CacheService
+
+    +constructor()
+    +registerConfiguration(config: SearchConfiguration): void
+    +search(request: SearchRequest): Promise<SearchResult>
+    +multiSearch(requests: MultiSearchRequest[]): Promise<MultiSearchResult>
+    +suggest(request: SuggestionRequest): Promise<SuggestionResult>
+    +indexDocument(document: SearchDocument, configId?: string): Promise<IndexResult>
+    +updateDocument(document: SearchDocument, configId?: string): Promise<IndexResult>
+    +removeDocument(documentId: string, configId?: string): Promise<RemoveResult>
+    +batchIndex(operations: BatchIndexOperation[]): Promise<BatchIndexResult>
+    -initializeSearchEngines(): void
+    -validateConfiguration(config: SearchConfiguration): void
+    -getConfiguration(configId: string): SearchConfiguration
+    -validateSearchRequest(request: SearchRequest, config: SearchConfiguration): Promise<void>
+    -getCachedResult(request: SearchRequest, config: SearchConfiguration): Promise<SearchResult | null>
+    -trackSearchEvent(request: SearchRequest, result: SearchResult | null, eventType: string, error?: Error): Promise<void>
+    -applySecurityFilters(query: any, context: any): Promise<any>
+    -executeSearch(query: any, config: SearchConfiguration): Promise<any>
+    -formatResults(results: any, config: SearchConfiguration): Promise<any>
+    -cacheResults(request: SearchRequest, results: SearchResult, config: SearchConfiguration): Promise<void>
+    -recordPerformanceMetrics(request: SearchRequest, duration: number): Promise<void>
+    -processSuggestionQuery(request: SuggestionRequest, config: SearchConfiguration): Promise<any>
+    -getSuggestions(query: any, config: SearchConfiguration): Promise<any[]>
+    -rankSuggestions(suggestions: any[], request: SuggestionRequest): Promise<any[]>
+    -trackSuggestionEvent(request: SuggestionRequest, suggestions: any[]): Promise<void>
+    -getConfigurationsForDocument(document: SearchDocument): SearchConfiguration[]
+    -chunkArray<T>(array: T[], chunkSize: number): T[][]
+}
+
+' Relationships
+
+SearchManager "1" o-- "1" IndexManager
+SearchManager "1" o-- "1" QueryProcessor
+SearchManager "1" o-- "1" ResultAggregator
+SearchManager "1" o-- "1" AnalyticsService
+SearchManager "1" o-- "1" SecurityService
+SearchManager "1" o-- "1" CacheService
+
+SearchConfiguration "1" *-- "1" IndexingConfig
+SearchConfiguration "1" *-- "1" QueryConfig
+SearchConfiguration "1" *-- "1" RankingConfig
+SearchConfiguration "1" *-- "1" FilterConfig
+SearchConfiguration "1" *-- "1" FacetConfig
+SearchConfiguration "1" *-- "1" HighlightConfig
+SearchConfiguration "1" *-- "1" SuggestionConfig
+SearchConfiguration "1" *-- "1" AnalyticsConfig
+SearchConfiguration "1" *-- "1" SecurityConfig
+SearchConfiguration "1" *-- "1" PerformanceConfig
+SearchConfiguration "1" --> SearchType
+SearchConfiguration "1" --> ContentType
+SearchConfiguration "1" --> SearchScope
+
+IndexingConfig "1" --> IndexingStrategy
+IndexingConfig "1" --> SearchEngine
+
+QueryConfig "1" --> QueryOperator
+
+RankingConfig "1" --> RankingAlgorithm
+
+SuggestionConfig "1" --> SuggestionType
+SuggestionConfig "1" --> SuggestionSource
+
+QueryProcessor ..> QueryParser
+QueryProcessor ..> QueryOptimizer
+QueryProcessor ..> FilterEngine
+QueryProcessor ..> FacetEngine
+
+IndexManager ..> DocumentIndexer
+IndexManager ..> RealtimeIndexer
+IndexManager ..> BatchIndexer
+IndexManager ..> IndexOptimizer
+
+ResultAggregator ..> ResultRanker
+ResultAggregator ..> ResultFormatter
+ResultAggregator ..> HighlightEngine
+ResultAggregator ..> SuggestionEngine
+
+AnalyticsService ..> SearchAnalytics
+AnalyticsService ..> PerformanceMetrics
+AnalyticsService ..> UserBehaviorAnalytics
+AnalyticsService ..> ContentInsights
+
+ElasticsearchClient --|> SearchEngineInterface
+
+SearchError --|> Error
+@enduml

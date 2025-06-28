@@ -1,0 +1,121 @@
+@startuml
+!theme toy
+
+autonumber
+
+participant "Client (Browser/App)" as Client
+participant "Route Router" as Router
+participant "BaseRouteHandler Instance" as RouteHandler
+participant "AuthenticationService" as AuthService
+participant "AuthorizationService" as AuthzService
+participant "ValidationService" as ValidationService
+participant "RateLimitService" as RateLimitService
+participant "CacheService" as CacheService
+participant "AuditService" as AuditService
+participant "Database/APIs" as DataStore
+
+Client -> Router: HTTP Request (GET /products/123)
+activate Router
+
+Router -> RouteHandler: handle(request)
+activate RouteHandler
+
+RouteHandler -> RouteHandler: check if route enabled
+alt Route Disabled
+    RouteHandler --> Client: Error Response (503)
+    deactivate RouteHandler
+    deactivate Router
+    stop
+end
+
+opt Rate Limiting Enabled
+    RouteHandler -> RateLimitService: checkLimit(identifier, requests, window)
+    activate RateLimitService
+    RateLimitService --> RouteHandler: Allowed/Denied
+    deactivate RateLimitService
+    alt Denied
+        RouteHandler --> Client: Error Response (429)
+        deactivate RouteHandler
+        deactivate Router
+        stop
+    end
+end
+
+opt Caching Enabled & GET Request
+    RouteHandler -> CacheService: get(cacheKey)
+    activate CacheService
+    CacheService --> RouteHandler: Cached Response / null
+    deactivate CacheService
+    alt Cached Response Found
+        RouteHandler --> Client: Cached Response
+        deactivate RouteHandler
+        deactivate Router
+        stop
+    end
+end
+
+RouteHandler -> AuthService: authenticate(request, methods)
+activate AuthService
+AuthService --> RouteHandler: Authenticated User (or null)
+deactivate AuthService
+
+RouteHandler -> AuthzService: checkPermission()\ncheckOrganizationAccess()\ncheckRole() (if applicable)
+activate AuthzService
+AuthzService --> RouteHandler: Authorization Result
+deactivate AuthzService
+alt Not Authorized
+    RouteHandler --> Client: Error Response (401/403)
+    deactivate RouteHandler
+    deactivate Router
+    stop
+end
+
+RouteHandler -> ValidationService: validate(request.body/query, schema)
+activate ValidationService
+ValidationService --> RouteHandler: Validation Result
+deactivate ValidationService
+alt Validation Failed
+    RouteHandler --> Client: Error Response (400)
+    deactivate RouteHandler
+    deactivate Router
+    stop
+end
+
+RouteHandler -> RouteHandler: executeRouteLogic(request, user) (abstract method)
+activate RouteHandler
+opt Data Operations
+    RouteHandler -> DataStore: Query/Update Data
+    activate DataStore
+    DataStore --> RouteHandler: Data Result
+    deactivate DataStore
+end
+RouteHandler --> RouteHandler: Route Logic Result
+deactivate RouteHandler
+
+RouteHandler -> RouteHandler: createSuccessResponse(result)
+
+opt Caching Enabled & GET Request
+    RouteHandler -> CacheService: set(cacheKey, response, ttl)
+    activate CacheService
+    CacheService --> RouteHandler: Response Cached
+    deactivate CacheService
+end
+
+RouteHandler -> AuditService: logRouteAccess()
+activate AuditService
+AuditService --> RouteHandler: Audit Logged
+deactivate AuditService
+
+RouteHandler --> Client: HTTP Response (Success)
+deactivate RouteHandler
+deactivate Router
+
+alt Error Occurs (during any step)
+    RouteHandler -> RouteHandler: handleError(error, request, requestId)
+    RouteHandler -> AuditService: logRouteError()
+    RouteHandler --> Client: HTTP Response (Error)
+    deactivate RouteHandler
+    deactivate Router
+end
+
+@enduml

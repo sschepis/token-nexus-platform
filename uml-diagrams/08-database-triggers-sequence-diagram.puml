@@ -1,0 +1,87 @@
+@startuml
+!theme toy
+
+autonumber
+
+participant "Database" as DB
+participant "Parse Server" as ParseServer
+participant "Parse Trigger Router" as Router
+participant "BaseTrigger Instance" as Trigger
+participant "UserValidationTrigger Instance" as UserValidationTrigger
+participant "AuditService" as Audit
+participant "ValidationService" as Validation
+participant "NotificationService" as Notification
+participant "PerformanceService" as Performance
+
+DB -> ParseServer: Database Operation (e.g., Save User)
+activate ParseServer
+
+ParseServer -> Router: Forward Database Event
+activate Router
+
+Router -> Trigger: execute(request)
+activate Trigger
+
+Trigger -> Trigger: shouldExecute(request)
+activate Trigger
+Trigger --> Trigger: Condition Check Result
+deactivate Trigger
+
+alt Trigger should execute
+    Trigger -> Trigger: validateOrganizationContext(request)
+    activate Trigger
+    Trigger -> ParseServer: Query Organization (Parse.Object.extend, Parse.Query)
+    activate ParseServer
+    ParseServer --> Trigger: Organization Details
+    deactivate ParseServer
+    Trigger --> Trigger: Organization Context Validated
+    deactivate Trigger
+
+    Trigger -> UserValidationTrigger: executeTriggerLogic(request)
+    activate UserValidationTrigger
+
+    UserValidationTrigger -> UserValidationTrigger: validateRequiredFields()
+    UserValidationTrigger -> UserValidationTrigger: validateDataFormats()
+    UserValidationTrigger -> UserValidationTrigger: validateBusinessRules()
+    UserValidationTrigger -> UserValidationTrigger: setComputedFields()
+
+    UserValidationTrigger --> Trigger: Trigger Logic Result
+    deactivate UserValidationTrigger
+
+    Trigger -> Audit: logTriggerExecution(Success)
+    activate Audit
+    Audit --> Trigger: Audit Logged
+    deactivate Audit
+    Trigger --> Router: Success Response
+else Trigger should not execute
+    Trigger --> Router: Skipped Response
+end
+
+alt Error handling
+    Trigger -> Trigger: handleError(error, request, auditContext)
+    activate Trigger
+    alt Retry Policy
+        Trigger -> Trigger: delay(backoffTime)
+        Trigger -> Trigger: retryExecution(request, auditContext) [Loop back to execute(request)]
+    else No Retry / Max Retries Reached
+        Trigger -> Audit: logTriggerError(Error)
+        activate Audit
+        Audit --> Trigger: Error Logged
+        deactivate Audit
+        Trigger -> Trigger: handleFinalError(error)
+        alt Notify Error (Threshold met)
+            Trigger -> Notification: sendErrorNotification(error, context)
+            activate Notification
+            Notification --> Trigger: Notification Sent
+            deactivate Notification
+        end
+        Trigger --> Router: Error Response
+    end
+    deactivate Trigger
+end
+
+deactivate Trigger
+deactivate Router
+deactivate ParseServer
+
+@enduml

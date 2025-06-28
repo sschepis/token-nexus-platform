@@ -1,0 +1,189 @@
+@startuml
+!theme toy
+
+' Enums
+enum VisualPageCategory {
+    DASHBOARD
+    ANALYTICS
+    FORM
+    REPORT
+    WORKFLOW
+    SETTINGS
+    PROFILE
+    CUSTOM
+}
+
+enum VisualPageType {
+    OVERVIEW
+    DETAIL
+    LIST
+    EDITOR
+    VIEWER
+    WIZARD
+    COMPARISON
+}
+
+' Interfaces/Types
+interface VisualPageMetadata {
+    +id: string
+    +name: string
+    +title: string
+    +description: string
+    +category: VisualPageCategory
+    +type: VisualPageType
+    +version: string
+    +permissions: string[]
+    +organizationScoped: boolean
+    +layout: PageLayout
+    +navigation: NavigationConfig
+    +seo: SEOConfig
+    +tags: string[]
+    +author: {
+        name: string;
+        email: string;
+        organization?: string;
+    }
+}
+
+interface PageLayout {
+    +template: "full-width" | "sidebar-left" | "sidebar-right" | "two-column" | "three-column"
+    +header: boolean
+    +footer: boolean
+    +breadcrumbs: boolean
+    +maxWidth?: string
+}
+
+interface NavigationConfig {
+    +showInMenu: boolean
+    +menuGroup?: string
+    +menuOrder?: number
+    +breadcrumbTitle?: string
+    +parentPage?: string
+}
+
+interface SEOConfig {
+    +title: string
+    +description: string
+    +keywords: string[]
+    +ogImage?: string
+}
+
+interface VisualPageProps
+interface VisualPageState
+interface PageAction
+interface BreadcrumbItem
+interface DateRange
+
+' React Components and Hooks
+class React_Component
+class usePageController
+class usePermission
+class useOrganization
+class PageHeader
+class PageContent
+class PageSidebar
+class PageFooter
+class Breadcrumbs
+class LoadingSpinner
+class ErrorBoundary
+class Card
+class CardContent
+class CardHeader
+class CardTitle
+class Button
+class Badge
+class BarChart
+class LineChart
+class PieChart
+class DataTable
+class MetricCard
+class DateRangePicker
+class ExportButton
+
+
+' BaseVisualPage Abstract Class
+abstract class BaseVisualPage {
+    protected pageController: any
+    protected abortController?: AbortController
+    protected metadata: VisualPageMetadata
+
+    +constructor(props: BaseVisualPageProps)
+    +componentDidMount()
+    +componentWillUnmount()
+    #abstract initializePageController(): void
+    #abstract loadPageData(): Promise<TData>
+    #abstract renderPageContent(): React.ReactNode
+    #abstract getPageActions(): PageAction[]
+    #renderPageHeader(): React.ReactNode
+    #renderPageSidebar(): React.ReactNode | null
+    #renderPageFooter(): React.ReactNode | null
+    #renderBreadcrumbs(): React.ReactNode
+    -initializePage(): Promise<void>
+    #fetchData<T>(fetcher: () => Promise<T>, options: {}): Promise<T>
+    #delay(ms: number): Promise<void>
+    #cleanup(): void
+    #getBreadcrumbItems(): BreadcrumbItem[]
+    +componentDidCatch(error: Error, errorInfo: React.ErrorInfo)
+    +render()
+    -getPageClassName(): string
+    -hasSidebar(): boolean
+    -renderSEOTags(): React.ReactNode
+}
+
+' Concrete Page Implementation Example
+class ProjectAnalyticsPage {
+    -dateRange: DateRange
+    -filters: ProjectAnalyticsParams
+    
+    +constructor() ' Implicit constructor calling super
+    #initializePageController(): void
+    #loadPageData(): Promise<ProjectAnalyticsData>
+    -loadOverviewData(): Promise<any>
+    -loadChartData(): Promise<any>
+    -loadTableData(): Promise<any>
+    #renderPageContent(): React.ReactNode
+    #getPageActions(): PageAction[]
+}
+
+' Relationships
+
+VisualPageMetadata --> VisualPageCategory
+VisualPageMetadata --> VisualPageType
+VisualPageMetadata *-- PageLayout
+VisualPageMetadata *-- NavigationConfig
+VisualPageMetadata *-- SEOConfig
+
+BaseVisualPage --|> React_Component
+BaseVisualPage "1" *-- "1" VisualPageMetadata
+
+BaseVisualPage ..> VisualPageProps
+BaseVisualPage ..> VisualPageState
+BaseVisualPage ..> PageAction
+BaseVisualPage ..> usePageController
+BaseVisualPage ..> usePermission
+BaseVisualPage ..> useOrganization
+BaseVisualPage ..> PageHeader
+BaseVisualPage ..> PageContent
+BaseVisualPage ..> PageSidebar
+BaseVisualPage ..> PageFooter
+BaseVisualPage ..> Breadcrumbs
+BaseVisualPage ..> LoadingSpinner
+BaseVisualPage ..> ErrorBoundary
+
+ProjectAnalyticsPage --|> BaseVisualPage
+ProjectAnalyticsPage ..> VisualPageMetadata
+ProjectAnalyticsPage ..> Card
+ProjectAnalyticsPage ..> CardContent
+ProjectAnalyticsPage ..> CardHeader
+ProjectAnalyticsPage ..> CardTitle
+ProjectAnalyticsPage ..> Button
+ProjectAnalyticsPage ..> Badge
+ProjectAnalyticsPage ..> BarChart
+ProjectAnalyticsPage ..> LineChart
+ProjectAnalyticsPage ..> PieChart
+ProjectAnalyticsPage ..> DataTable
+ProjectAnalyticsPage ..> MetricCard
+ProjectAnalyticsPage ..> DateRangePicker
+ProjectAnalyticsPage ..> ExportButton
+
+@enduml

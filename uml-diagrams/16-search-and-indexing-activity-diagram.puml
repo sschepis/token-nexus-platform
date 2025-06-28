@@ -1,0 +1,45 @@
+@startuml
+!theme toy
+
+partition "Search Request Workflow" {
+    start
+    :User submits search query;
+    :Recieve Search Request;
+    :Validate Input and Permissions;
+    :Check Cache;
+    if (Cached Result Found?) then (Yes)
+        :Log Cache Hit;
+        :Return Cached Result;
+        stop
+    else (No)
+        :Process Query (Parse, Optimize, Apply Filters);
+        :Apply Security Filters;
+        :Execute Search against Search Engine;
+        :Aggregate Raw Results;
+        :Rank Results;
+        :Format Results (Highlighting, Snippets);
+        :Cache Results;
+        :Log Search Event and Analytics;
+        :Return Search Results;
+        stop
+    endif
+}
+
+partition "Indexing Workflow (Real-time)" {
+    start
+    :New/Updated Document Event (e.g., File, Workflow, User);
+    :Identify Relevant Search Configuration(s);
+    :Pre-process Document (Extract Text, Metadata);
+    :Apply Mapping and Transformations;
+    :Send Document to Search Engine for Indexing;
+    :Verify Indexing Status;
+    if (Indexing Failed?) then (Yes)
+        :Log Indexing Error;
+        :Trigger Retry/Alert;
+    else (No)
+        :Confirm Document Indexed;
+    endif
+    stop
+}
+
+@enduml

@@ -1,0 +1,56 @@
+@startuml
+!theme toy
+
+left to right direction
+
+actor "Platform User" as User
+actor "Security Admin" as SecAdmin
+actor "Compliance Officer" as CompOfficer
+actor "System Process" as System
+
+rectangle "Security and Compliance System" {
+  usecase "Authenticate User" as UC1
+  usecase "Authorize Access to Resource" as UC2
+  usecase "Encrypt Data" as UC3
+  usecase "Decrypt Data" as UC4
+  usecase "Detect Threats" as UC5
+  usecase "Validate Compliance" as UC6
+  usecase "Handle Security Incident" as UC7
+  usecase "Manage Security Configurations" as UC8
+  usecase "Monitor Security Events" as UC9
+  usecase "Conduct Security Audits" as UC10
+  usecase "Maintain Data Retention Policies" as UC11
+  usecase "Enforce Privacy Controls" as UC12
+  usecase "Perform Vulnerability Scans" as UC13
+  usecase "Respond to Data Subject Rights Requests" as UC14
+}
+
+User -- UC1
+User -- UC2
+User -- UC3 : <<uses>>
+User -- UC4 : <<uses>>
+
+SecAdmin -- UC5
+SecAdmin -- UC7
+SecAdmin -- UC8
+SecAdmin -- UC9
+SecAdmin -- UC13
+
+CompOfficer -- UC6
+CompOfficer -- UC10
+CompOfficer -- UC11
+CompOfficer -- UC12
+CompOfficer -- UC14
+
+System -- UC1 : <<triggers>>
+System -- UC2 : <<triggers>>
+System -- UC3 : <<triggers>>
+System -- UC4 : <<triggers>>
+System -- UC5 : <<triggers>>
+System -- UC6 : <<triggers>>
+System -- UC7 : <<triggers>>
+
+UC1 <.. UC2 : extends
+UC5 <.. UC7 : includes
+
+@enduml

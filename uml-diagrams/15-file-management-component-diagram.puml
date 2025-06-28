@@ -1,0 +1,79 @@
+@startuml
+!theme toy
+
+package "Token Nexus Platform" {
+
+    rectangle "File Management System" {
+        component [File Manager API] as FileManagerAPI
+        component [Upload Handler] as UploadHandler
+        component [Storage Router] as StorageRouter
+        component [Processing Pipeline] as ProcessingPipeline
+        component [Access Controller] as AccessController
+        
+        component [Validation Engine] as ValidationEngine
+        component [Virus Scanner] as VirusScanner
+        component [Metadata Extractor] as MetadataExtractor
+        component [Thumbnail Generator] as ThumbnailGenerator
+        
+        component [Local Storage] as LocalStorage
+        component [AWS S3] as AWSS3
+        component [Google Cloud Storage] as GCS
+        component [Azure Blob Storage] as AzureBlob
+        component [IPFS Storage] as IPFS
+        
+        component [Image Processor] as ImageProcessor
+        component [Document Converter] as DocumentConverter
+        component [Video Transcoder] as VideoTranscoder
+        component [Audio Processor] as AudioProcessor
+        
+        component [Permission Engine] as PermissionEngine
+        component [Encryption Service] as EncryptionService
+        component [Audit Logger] as AuditLogger
+        component [CDN Manager] as CDNManager
+        
+        FileManagerAPI --> UploadHandler
+        FileManagerAPI --> StorageRouter
+        FileManagerAPI --> ProcessingPipeline
+        FileManagerAPI --> AccessController
+        
+        UploadHandler --> ValidationEngine
+        UploadHandler --> VirusScanner
+        UploadHandler --> MetadataExtractor
+        UploadHandler --> ThumbnailGenerator
+        
+        StorageRouter --> LocalStorage
+        StorageRouter --> AWSS3
+        StorageRouter --> GCS
+        StorageRouter --> AzureBlob
+        StorageRouter --> IPFS
+        
+        ProcessingPipeline --> ImageProcessor
+        ProcessingPipeline --> DocumentConverter
+        ProcessingPipeline --> VideoTranscoder
+        ProcessingPipeline --> AudioProcessor
+        
+        AccessController --> PermissionEngine
+        AccessController --> EncryptionService
+        AccessController --> AuditLogger
+        AccessController --> CDNManager
+    }
+
+    database "File Metadata Database" as MetadataDB
+
+    FileManagerAPI --> MetadataDB : "manages metadata"
+
+}
+
+cloud "External CDN" as ExternalCDN
+rectangle "External Virus Scanning Service" as ExternalVirusScan
+rectangle "External Cloud Storage" as ExternalCloudStorage // Represents S3, GCS, Azure
+cloud "IPFS Network" as IPFSOpus
+
+CDNManager --> ExternalCDN
+VirusScanner --> ExternalVirusScan
+AWSS3 -[hidden]d-> ExternalCloudStorage
+GCS -[hidden]d-> ExternalCloudStorage
+AzureBlob -[hidden]d-> ExternalCloudStorage
+IPFS --> IPFSOpus
+
+@enduml

@@ -1,0 +1,86 @@
+@startuml
+!theme toy
+
+actor User
+participant "ClientApp" as Client
+participant "FileManager" as FM
+participant "StorageProvider" as SP
+participant "ProcessingPipeline" as PP
+participant "SecurityService" as SS
+participant "MetadataExtractor" as ME
+participant "AccessController" as AC
+participant "VersionManager" as VM
+database "MetadataDB" as DB
+
+User -> Client: Initiates file upload
+Client -> FM: upload(request: FileUploadRequest)
+activate FM
+
+FM -> FM: validateUploadRequest(request)
+FM -> FM: createFileMetadata(request)
+
+FM -> SS: performSecurityScan(fileMetadata, buffer)
+activate SS
+SS --> FM: ScanResult
+deactivate SS
+
+FM -> ME: extractMetadata(fileMetadata, buffer)
+activate ME
+ME --> FM: ExtractedMetadata
+deactivate ME
+
+FM -> FM: selectStorageProvider(fileMetadata)
+FM -> SP: upload(fileMetadata, buffer)
+activate SP
+SP --> FM: StorageConfig
+deactivate SP
+
+FM -> DB: saveFileMetadata(fileMetadata)
+activate DB
+DB --> FM: Success
+deactivate DB
+
+alt if fileMetadata.processing.enabled
+    FM -> FM: queueForProcessing(fileMetadata)
+    FM -> PP: processFile(fileId) // Asynchronously handled
+    activate PP
+    PP --> FM: ProcessingResult (or event)
+    deactivate PP
+end
+
+FM -> FM: generateAccessUrls(fileMetadata)
+
+FM --> Client: FileUploadResult
+deactivate FM
+Client --> User: File upload successful (or failed)
+
+User -> Client: Initiates file download
+Client -> FM: downloadFile(fileId, context)
+activate FM
+
+FM -> DB: getFileMetadata(fileId)
+activate DB
+DB --> FM: FileMetadata
+deactivate DB
+
+FM -> AC: checkDownloadAccess(fileMetadata, context)
+activate AC
+AC --> FM: AccessGranted
+deactivate AC
+
+FM -> FM: getStorageProvider(fileMetadata.storage.provider)
+FM -> SP: getDownloadUrl(fileMetadata)
+activate SP
+SP --> FM: DownloadResult
+deactivate SP
+
+FM -> DB: updateDownloadStats(fileMetadata, context)
+activate DB
+DB --> FM: StatsUpdated
+deactivate DB
+
+FM --> Client: FileDownloadResult
+deactivate FM
+Client --> User: File downloaded
+
+@enduml

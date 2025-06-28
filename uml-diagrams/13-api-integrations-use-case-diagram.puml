@@ -1,0 +1,50 @@
+@startuml
+!theme toy
+
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Internal Service / Client App" as InternalClient
+actor "Platform Administrator" as Admin
+actor "External API Provider" as ExternalAPIProvider
+actor "Monitoring System" as MonitoringSys
+
+rectangle "API Integration System" {
+  usecase "Register Integration" as RegisterIntegration
+  usecase "Execute Integration Request" as ExecuteRequest
+  usecase "Handle Authentication (External)" as HandleAuth
+  usecase "Apply Rate Limiting" as ApplyRateLimit
+  usecase "Transform Request Data" as TransformRequest
+  usecase "Send HTTP Request" as SendRequest
+  usecase "Handle Response" as HandleResponse
+  usecase "Validate Response Data" as ValidateResponse
+  usecase "Cache External Data" as CacheData
+  usecase "Handle Integration Errors" as HandleErrors
+  usecase "Monitor Integration Health" as MonitorHealth
+  usecase "Configure Integration Metadata" as ConfigMetadata
+  usecase "Track Integration Metrics" as TrackMetrics
+}
+
+InternalClient --> ExecuteRequest
+InternalClient --> RegisterIntegration
+
+Admin --> RegisterIntegration
+Admin --> ConfigMetadata
+Admin --> MonitorHealth
+
+ExternalAPIProvider --> SendRequest : provides API
+
+MonitoringSys <-- TrackMetrics : receives metrics
+MonitoringSys <-- MonitorHealth : receives status
+
+ExecuteRequest <.. HandleAuth : include
+ExecuteRequest <.. ApplyRateLimit : include
+ExecuteRequest <.. TransformRequest : include
+ExecuteRequest <.. SendRequest : include
+ExecuteRequest <.. HandleResponse : include
+HandleResponse <.. ValidateResponse : include
+HandleResponse <.. CacheData : include
+HandleResponse <.. HandleErrors : include
+HandleResponse <.. TrackMetrics : include
+
+@enduml

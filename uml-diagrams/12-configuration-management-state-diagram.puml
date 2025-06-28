@@ -1,0 +1,25 @@
+@startuml
+!theme toy
+
+state "Configuration Value Lifecycle" as ConfigValueLifecycle {
+  state "Unregistered" as Unregistered
+  state "Registered" as Registered
+  state "Active" as Active
+  state "Cached" as Cached
+  state "Invalidated" as Invalidated
+
+  [*] --> Unregistered
+  Unregistered --> Registered : registerConfiguration(metadata)
+  
+  Registered --> Active : first read / set
+  Active --> Cached : value cached
+  Cached --> Active : cache hit (value retrieved)
+  Active --> Active : value read (not cached)
+
+  Active --> Active : value updated (set)
+  Active --> Invalidated : cache invalidated (due to update or TTL)
+  Cached --> Invalidated : cache invalidated (due to update or TTL)
+  
+  Invalidated --> Active : value re-read / re-set
+}
+@enduml

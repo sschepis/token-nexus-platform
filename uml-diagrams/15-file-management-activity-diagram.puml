@@ -1,0 +1,59 @@
+@startuml
+!theme toy
+
+start
+:Submit File Upload Request;
+
+:Validate Request (File Type, Size, Permissions);
+if (Validation Failed?) then (Yes)
+  :Return Error: Invalid Request;
+  stop
+endif
+
+:Create Provisional File Metadata;
+:Perform Security Scan (Virus, Malicious Content);
+if (Security Scan Failed?) then (Yes)
+  :Quarantine File;
+  :Notify Admin;
+  stop
+endif
+
+:Extract Metadata (Image Exif, Document Properties, etc.);
+
+:Select Storage Provider;
+:Upload File to Selected Storage;
+-> Storage Saved;
+
+:Save File Metadata to Database;
+-> Metadata Saved;
+
+if (Processing Enabled?) then (Yes)
+  :Queue File for Asynchronous Processing;
+  fork
+    :Retrieve File from Storage;
+    :Apply Processing Pipeline (Image Resize, Document Conversion, etc.);
+    if (Processing Failed?) then (Yes)
+      :Update File Status to 'Processing Failed';
+      :Log Error;
+      :Trigger Retry Mechanism;
+      if (Max Retries Reached?) then (Yes)
+        :Notify Admin of Permanent Failure;
+        stop
+      endif
+    else (No)
+      :Update File Status to 'Available';
+      :Save Processing Results;
+    endif
+  fork again
+    :Generate Access URLs (Public, Signed, CDN);
+    :Return File Upload Result to User;
+  end fork
+else (No)
+  :Update File Status to 'Available';
+  :Generate Access URLs (Public, Signed, CDN);
+  :Return File Upload Result to User;
+endif
+
+stop
+
+@enduml

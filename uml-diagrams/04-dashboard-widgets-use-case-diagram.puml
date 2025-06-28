@@ -1,0 +1,155 @@
+@startuml Dashboard Widgets - Use Case Diagram
+!theme plain
+title Dashboard Widgets - Use Case Diagram
+
+left to right direction
+
+' Actors
+actor "Dashboard User" as User
+actor "Organization Admin" as OrgAdmin
+actor "System Admin" as SysAdmin
+actor "Platform" as Platform
+actor "AI Assistant" as AI
+
+' Actor relationships
+SysAdmin --|> OrgAdmin : is a
+OrgAdmin --|> User : is a
+
+' System boundary
+rectangle "Token Nexus Platform - Dashboard Widgets" {
+    
+    ' Widget Display & Interaction
+    package "Widget Runtime" {
+        usecase "View Widget" as UC1
+        usecase "Interact with Widget Content" as UC2
+        usecase "Refresh Widget Data" as UC3
+        usecase "View Widget Details" as UC4
+        usecase "Display Real-time Data" as UC5
+        usecase "Handle Widget Errors" as UC6
+        usecase "Display Loading States" as UC7
+    }
+    
+    ' Widget Management
+    package "Widget Management" {
+        usecase "Add Widget to Dashboard" as UC8
+        usecase "Remove Widget from Dashboard" as UC9
+        usecase "Configure Widget Settings" as UC10
+        usecase "Resize Widget" as UC11
+        usecase "Reorder Widget" as UC12
+        usecase "Save Dashboard Layout" as UC13
+        usecase "Create Custom Widget" as UC14
+        usecase "Manage Widget Catalog" as UC15
+    }
+    
+    ' Data Management
+    package "Data Management" {
+        usecase "Fetch Widget Data" as UC16
+        usecase "Aggregate Widget Data" as UC17
+        usecase "Cache Widget Data" as UC18
+        usecase "Subscribe to Data Streams" as UC19
+        usecase "Filter Data by Permissions" as UC20
+        usecase "Access External Data Sources" as UC21
+    }
+    
+    ' Personalization & Customization
+    package "Personalization" {
+        usecase "Apply Widget Themes" as UC22
+        usecase "Customize Widget Appearance" as UC23
+        usecase "Set Widget Refresh Interval" as UC24
+        usecase "Save Personal Dashboard Views" as UC25
+    }
+    
+    ' Security & Permissions
+    package "Security & Permissions" {
+        usecase "Check Widget Permissions" as UC26
+        usecase "Enforce Data Isolation" as UC27
+        usecase "Audit Widget Interactions" as UC28
+        usecase "Secure Widget Configuration" as UC29
+    }
+    
+    ' AI Assistant Integration
+    package "AI Integration" {
+        usecase "Query Widget Data via AI" as UC30
+        usecase "Configure Widget via AI" as UC31
+        usecase "Generate Widget Insights via AI" as UC32
+        usecase "Automate Widget Tasks via AI" as UC33
+    }
+}
+
+' User use cases
+User --> UC1
+User --> UC2
+User --> UC3
+User --> UC4
+User --> UC5
+User --> UC6
+User --> UC7
+
+' OrgAdmin use cases
+OrgAdmin --> UC1 : <<includes>>
+OrgAdmin --> UC2 : <<includes>>
+OrgAdmin --> UC3 : <<includes>>
+OrgAdmin --> UC4 : <<includes>>
+OrgAdmin --> UC5 : <<includes>>
+OrgAdmin --> UC8
+OrgAdmin --> UC9
+OrgAdmin --> UC10
+OrgAdmin --> UC11
+OrgAdmin --> UC12
+OrgAdmin --> UC13
+OrgAdmin --> UC14
+OrgAdmin --> UC22
+OrgAdmin --> UC23
+OrgAdmin --> UC24
+OrgAdmin --> UC25
+OrgAdmin --> UC26 : <<includes>>
+OrgAdmin --> UC29 : <<includes>>
+
+' SysAdmin use cases
+SysAdmin --> UC15
+SysAdmin --> UC28 : <<includes>>
+
+' Platform use cases
+Platform --> UC16
+Platform --> UC17
+Platform --> UC18
+Platform --> UC19
+Platform --> UC20
+Platform --> UC21
+Platform --> UC27
+Platform --> UC28
+
+' AI Assistant use cases
+AI --> UC30
+AI --> UC31
+AI --> UC32
+AI --> UC33
+
+' Include relationships (common dependencies)
+UC2 .> UC16 : <<include>>
+UC3 .> UC16 : <<include>>
+UC5 .> UC19 : <<include>>
+UC6 .> UC16 : <<include>>
+UC7 .> UC16 : <<include>>
+UC10 .> UC29 : <<include>>
+UC11 .> UC13 : <<include>>
+UC12 .> UC13 : <<include>>
+UC13 .> UC16 : <<include>>
+UC14 .> UC16 : <<include>>
+UC23 .> UC22 : <<include>>
+UC24 .> UC10 : <<include>>
+
+' Extend relationships (optional features)
+UC14 .> UC10 : <<extend>>
+UC30 .> UC1 : <<extend>>
+UC31 .> UC10 : <<extend>>
+UC32 .> UC17 : <<extend>>
+UC33 .> UC10 : <<extend>>
+
+' Notes
+note right of UC1 : Widgets are modular and display on dashboards
+note right of UC10 : Configuration involves setting parameters for widget data and appearance
+note right of UC16 : Data fetching includes caching, real-time streams, security filtering
+note right of UC26 : Permissions are checked at runtime to control what data/functionality is visible
+
+@enduml

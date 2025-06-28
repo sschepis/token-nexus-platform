@@ -1,0 +1,368 @@
+@startuml Installable Applications - Class Diagram
+!theme plain
+title Installable Applications - Class Diagram
+
+package "Application Package" {
+    class ApplicationManifest {
+        +id: string
+        +name: string
+        +version: string
+        +description: string
+        +author: AuthorInfo
+        +license: string
+        +platform: PlatformRequirements
+        +capabilities: ApplicationCapabilities
+        +permissions: PermissionDefinitions
+        +dependencies: DependencyDefinitions
+        +configuration: ConfigurationSchema
+        +database: DatabaseSchema
+        +ai: AIIntegration
+        +build: BuildConfiguration
+        +installation: InstallationHooks
+        +validate(): ValidationResult
+    }
+    
+    class ApplicationCapabilities {
+        +pages: PageDefinition[]
+        +widgets: WidgetDefinition[]
+        +cloudFunctions: CloudFunctionDefinition[]
+        +scheduledJobs: ScheduledJobDefinition[]
+        +workflows: WorkflowDefinition[]
+        +routes: RouteDefinition[]
+    }
+    
+    class PageDefinition {
+        +id: string
+        +name: string
+        +path: string
+        +component: string
+        +permissions: string[]
+        +scope: string
+        +category: string
+    }
+    
+    class WidgetDefinition {
+        +id: string
+        +name: string
+        +component: string
+        +permissions: string[]
+        +defaultSize: WidgetSize
+        +configurableSize: boolean
+    }
+}
+
+package "Installation System" {
+    class ApplicationInstaller {
+        +install(packagePath, organizationId): Promise<InstallationResult>
+        +update(applicationId, newVersion): Promise<UpdateResult>
+        +uninstall(applicationId, organizationId): Promise<UninstallResult>
+        -validatePackage(packagePath): Promise<ApplicationManifest>
+        -checkDependencies(dependencies): Promise<void>
+        -validatePermissions(permissions, orgId): Promise<void>
+        -runPreInstallHooks(hooks): Promise<void>
+        -installDatabaseSchema(schema): Promise<void>
+        -registerComponents(capabilities): Promise<void>
+        -setupPermissions(permissions, orgId): Promise<void>
+        -runPostInstallHooks(hooks): Promise<void>
+        -createInstallationRecord(data): Promise<Installation>
+    }
+    
+    interface ApplicationLifecycleHooks {
+        +preInstall(): Promise<void>
+        +postInstall(): Promise<void>
+        +preUpdate(oldVersion, newVersion): Promise<void>
+        +postUpdate(oldVersion, newVersion): Promise<void>
+        +preUninstall(): Promise<void>
+        +postUninstall(): Promise<void>
+    }
+    
+    class Installation {
+        +id: string
+        +applicationId: string
+        +version: string
+        +organizationId: string
+        +installedAt: Date
+        +status: InstallationStatus
+        +configuration: Record<string, any>
+        +metadata: InstallationMetadata
+    }
+    
+    enum InstallationStatus {
+        INSTALLING
+        ACTIVE
+        UPDATING
+        FAILED
+        UNINSTALLING
+        REMOVED
+    }
+}
+
+package "Permission System" {
+    interface ApplicationPermission {
+        +id: string
+        +name: string
+        +description: string
+        +scope: PermissionScope
+        +category: PermissionCategory
+        +dependencies: string[]
+        +riskLevel: RiskLevel
+    }
+    
+    enum PermissionScope {
+        SYSTEM
+        ORGANIZATION
+        USER
+    }
+    
+    enum PermissionCategory {
+        DATA
+        ADMIN
+        API
+        UI
+    }
+    
+    enum RiskLevel {
+        LOW
+        MEDIUM
+        HIGH
+    }
+    
+    class ApplicationPermissionManager {
+        +validatePermissions(permissions, orgId): Promise<PermissionValidationResult>
+        +setupPermissions(permissions, orgId): Promise<void>
+        +checkPermission(userId, permission): Promise<boolean>
+        +grantPermission(userId, permission): Promise<void>
+        +revokePermission(userId, permission): Promise<void>
+        -validateSinglePermission(permission, orgId): Promise<SinglePermissionValidation>
+        -getExistingPermission(permissionId): Promise<ApplicationPermission>
+        -permissionExists(permissionId, orgId): Promise<boolean>
+    }
+}
+
+package "Security & Isolation" {
+    class ApplicationSecurityContext {
+        -applicationId: string
+        -organizationId: string
+        -userId: string
+        +createExecutionContext(): ApplicationExecutionContext
+        +validateDataAccess(className, objectId): Promise<boolean>
+        +getUserPermissions(): string[]
+        +getDataScope(): DataScope
+        +getApiLimits(): ApiLimits
+    }
+    
+    class ApplicationExecutionContext {
+        +applicationId: string
+        +organizationId: string
+        +userId: string
+        +permissions: string[]
+        +dataScope: DataScope
+        +apiLimits: ApiLimits
+        +sessionToken: string
+    }
+    
+    class DataScope {
+        +allowedClasses: string[]
+        +restrictedFields: Record<string, string[]>
+        +queryFilters: Record<string, any>
+    }
+}
+
+package "Data Management" {
+    class ApplicationDatabaseManager {
+        +createSchema(schemaDefinition): Promise<void>
+        +updateSchema(oldSchema, newSchema): Promise<void>
+        +removeSchema(schemaDefinition): Promise<void>
+        -createClass(classDefinition): Promise<void>
+        -addField(schema, fieldName, fieldDefinition): void
+        -createIndexes(schema, indexes): Promise<void>
+        -setClassLevelPermissions(schema, permissions): void
+    }
+    
+    class ApplicationDataService {
+        -applicationId: string
+        -organizationId: string
+        +createQuery(className): Parse.Query
+        +createObject(className, data): Parse.Object
+        +validateObjectAccess(object): Promise<boolean>
+        +findObjects(className, filters): Promise<Parse.Object[]>
+        +saveObject(object): Promise<Parse.Object>
+        +deleteObject(object): Promise<void>
+    }
+    
+    class DatabaseSchema {
+        +classes: ClassDefinition[]
+        +validate(): ValidationResult
+    }
+    
+    class ClassDefinition {
+        +className: string
+        +fields: Record<string, FieldDefinition>
+        +indexes: IndexDefinition[]
+        +classLevelPermissions: CLPDefinition
+    }
+    
+    class FieldDefinition {
+        +type: FieldType
+        +required: boolean
+        +defaultValue: any
+        +targetClass: string
+        +validation: ValidationRules
+    }
+}
+
+package "API Integration" {
+    class ApplicationApiService {
+        -applicationId: string
+        -securityContext: ApplicationSecurityContext
+        +callPlatformApi(endpoint, data): Promise<any>
+        +callExternalApi(url, options): Promise<any>
+        -checkRateLimit(): Promise<void>
+        -updateRateLimit(): Promise<void>
+        -getRateLimit(): Promise<RateLimit>
+    }
+    
+    class ApplicationRouteHandler {
+        -applicationId: string
+        +registerRoutes(): void
+        +handleApiRequest(request): Promise<any>
+        +handleWebhook(request): Promise<any>
+        -validateApplicationContext(request): Promise<void>
+        -checkApplicationPermission(user, permission): Promise<boolean>
+    }
+    
+    class RateLimit {
+        +limit: number
+        +remaining: number
+        +resetTime: Date
+        +windowSize: number
+    }
+}
+
+package "UI Components" {
+    class ApplicationComponentRegistry {
+        -components: Map<string, React.ComponentType>
+        -applicationId: string
+        +registerComponents(manifest): void
+        +getComponent(componentId): React.ComponentType
+        +unregisterComponents(applicationId): void
+        -registerPage(pageDefinition): void
+        -registerWidget(widgetDefinition): void
+        -wrapWithApplicationContext(Component, definition): React.ComponentType
+        -loadComponent(componentName): React.ComponentType
+    }
+    
+    interface ApplicationComponentProps {
+        +applicationId: string
+        +organizationId: string
+        +userId: string
+        +permissions: string[]
+        +configuration: Record<string, any>
+    }
+    
+    class ApplicationProvider {
+        +applicationId: string
+        +organizationId: string
+        +securityContext: ApplicationSecurityContext
+        +render(): JSX.Element
+    }
+    
+    class PermissionProvider {
+        +permissions: string[]
+        +hasPermission(permission): boolean
+        +checkAnyPermission(permissions): boolean
+        +render(): JSX.Element
+    }
+}
+
+package "Configuration Management" {
+    class ApplicationConfigurationManager {
+        -applicationId: string
+        -organizationId: string
+        +getConfiguration(): Promise<ApplicationConfiguration>
+        +updateConfiguration(updates): Promise<void>
+        +resetConfiguration(): Promise<void>
+        +validateConfiguration(config): Promise<ValidationResult>
+        -createDefaultConfiguration(): Promise<ApplicationConfiguration>
+        -getApplicationManifest(): Promise<ApplicationManifest>
+    }
+    
+    class ApplicationConfiguration {
+        +applicationId: string
+        +organizationId: string
+        +settings: Record<string, any>
+        +version: string
+        +updatedAt: Date
+        +updatedBy: string
+    }
+    
+    class ConfigurationSchema {
+        +schema: JSONSchema
+        +ui: UISchema
+        +validate(config): ValidationResult
+        +getDefaultValues(): Record<string, any>
+    }
+}
+
+package "Runtime System" {
+    class ApplicationRuntime {
+        -installedApplications: Map<string, Installation>
+        +loadApplication(applicationId): Promise<void>
+        +unloadApplication(applicationId): Promise<void>
+        +executeAction(applicationId, actionId, params): Promise<any>
+        +getApplicationContext(applicationId, orgId): ApplicationExecutionContext
+        -createSecurityContext(applicationId, orgId, userId): ApplicationSecurityContext
+        -validateApplicationAccess(applicationId, userId): Promise<boolean>
+    }
+    
+    class ApplicationLoader {
+        +loadManifest(applicationId): Promise<ApplicationManifest>
+        +loadComponents(applicationId): Promise<ComponentMap>
+        +loadServices(applicationId): Promise<ServiceMap>
+        +validateApplication(applicationId): Promise<ValidationResult>
+    }
+}
+
+' Relationships
+ApplicationManifest --> ApplicationCapabilities : contains
+ApplicationCapabilities --> PageDefinition : contains
+ApplicationCapabilities --> WidgetDefinition : contains
+
+ApplicationInstaller --> ApplicationManifest : validates
+ApplicationInstaller --> Installation : creates
+ApplicationInstaller --> ApplicationLifecycleHooks : executes
+ApplicationInstaller --> ApplicationPermissionManager : uses
+ApplicationInstaller --> ApplicationDatabaseManager : uses
+
+ApplicationPermissionManager --> ApplicationPermission : manages
+ApplicationPermission --> PermissionScope : has
+ApplicationPermission --> PermissionCategory : has
+ApplicationPermission --> RiskLevel : has
+
+ApplicationSecurityContext --> ApplicationExecutionContext : creates
+ApplicationExecutionContext --> DataScope : contains
+
+ApplicationDatabaseManager --> DatabaseSchema : manages
+DatabaseSchema --> ClassDefinition : contains
+ClassDefinition --> FieldDefinition : contains
+
+ApplicationDataService --> ApplicationSecurityContext : uses
+ApplicationApiService --> ApplicationSecurityContext : uses
+ApplicationApiService --> RateLimit : manages
+
+ApplicationRouteHandler --> ApplicationSecurityContext : validates
+
+ApplicationComponentRegistry --> ApplicationComponentProps : provides
+ApplicationComponentRegistry --> ApplicationProvider : uses
+ApplicationProvider --> PermissionProvider : contains
+
+ApplicationConfigurationManager --> ApplicationConfiguration : manages
+ApplicationConfigurationManager --> ConfigurationSchema : validates
+
+ApplicationRuntime --> Installation : manages
+ApplicationRuntime --> ApplicationLoader : uses
+ApplicationRuntime --> ApplicationSecurityContext : creates
+
+Installation --> InstallationStatus : has
+
+@enduml

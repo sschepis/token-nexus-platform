@@ -1,0 +1,73 @@
+@startuml
+!theme toy
+
+partition "Establishing Real-time Connection" {
+    start
+    :Client initiates connection request;
+    :Allocate network resources;
+    :Authenticate User and Device;
+    if (Authentication Failed?) then (No)
+        :Authorize Connection Scope and Permissions;
+        if (Authorization Failed?) then (No)
+            :Negotiate Connection Protocol (WebSocket, SSE, etc.);
+            :Establish Connection;
+            :Initialize Presence State;
+            :Register Connection with Message Router;
+            :Send Connection Success Acknowledgment;
+            stop
+        else (Yes)
+            :Send Authorization Failed Error;
+            stop
+        endif
+    else (Yes)
+        :Send Authentication Failed Error;
+        stop
+    endif
+}
+
+partition "Real-time Message Exchange" {
+    start
+    :Receive Message from Client/Service;
+    :Validate Message Format and Content;
+    :Determine Message Scope and Target Recipients;
+    :Check Message Permissions for Each Recipient;
+    fork
+        :Queue Message for Delivery;
+        :Send Message to Connection Manager for Dispatch;
+    fork again
+        :Record Message in Audit Log;
+        :Update Real-time Analytics;
+    end fork
+    :Await Delivery Acknowledgment;
+    if (Delivery Failed for Some Recipients?) then (Yes)
+        :Initiate Retries for Failed Deliveries;
+        if (Max Retries Reached?) then (Yes)
+            :Log Permanent Delivery Failure;
+            :Notify Send Originator;
+        else (No)
+            :Re-queue for Retry;
+        endif
+    else (No)
+        :Confirm All Messages Delivered;
+    endif
+    stop
+}
+
+partition "Collaborative Editing Synchronization" {
+    start
+    :Receive Collaborative Operation (OT/CRDT);
+    :Validate Operation and Source;
+    :Apply Synchronization Strategy;
+    if (Operation Conflict Detected?) then (Yes)
+        :Resolve Conflict;
+        :Generate Resolved Operation;
+        :Broadcast Resolved Operation to Collaborators;
+    else (No)
+        :Broadcast Original Operation to Collaborators;
+    endif
+    :Update Shared State;
+    :Persist Shared State Snapshot (Periodically);
+    stop
+}
+
+@enduml

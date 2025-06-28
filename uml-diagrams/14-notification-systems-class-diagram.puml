@@ -1,0 +1,302 @@
+@startuml
+!theme toy
+
+' Enums
+enum NotificationCategory {
+    SYSTEM
+    SECURITY
+    WORKFLOW
+    COLLABORATION
+    MARKETING
+    TRANSACTIONAL
+    REMINDER
+    ALERT
+    UPDATE
+    SOCIAL
+}
+
+enum NotificationPriority {
+    CRITICAL
+    HIGH
+    MEDIUM
+    LOW
+}
+
+enum NotificationChannel {
+    IN_APP
+    EMAIL
+    SMS
+    PUSH
+    WEBHOOK
+    SLACK
+    TEAMS
+}
+
+enum NotificationStatus {
+    PENDING
+    PROCESSING
+    SENT
+    DELIVERED
+    READ
+    FAILED
+    CANCELLED
+}
+
+enum DeliveryStrategy {
+    IMMEDIATE
+    BATCHED
+    SCHEDULED
+    DIGEST
+}
+
+enum FallbackTemplateType {
+    DEFAULT
+    PLAIN_TEXT
+    HTML_ONLY
+}
+
+enum ExpirationAction {
+    DELETE
+    ARCHIVE
+}
+
+enum RecipientType {
+    USER
+    ORGANIZATION
+    GROUP
+    EMAIL_ADDRESS
+    PHONE_NUMBER
+    DEVICE_TOKEN
+    WEBHOOK_URL
+}
+
+enum SenderType {
+    SYSTEM
+    USER
+    APPLICATION
+    INTEGRATION
+}
+
+enum TrackingEventType {
+    CREATED
+    SCHEDULED
+    SENT
+    DELIVERED
+    OPENED
+    CLICKED
+    FAILED
+    RETRY
+    CANCELLED
+    DISMISSED
+}
+
+' Interfaces/Types
+interface NotificationMetadata {
+    +id: string
+    +type: string
+    +category: NotificationCategory
+    +priority: NotificationPriority
+    +title: string
+    +message: string
+    +data: Record<string, any>
+    +channels: NotificationChannel[]
+    +recipients: NotificationRecipient[]
+    +sender: NotificationSender
+    +template: TemplateConfig
+    +delivery: DeliveryConfig
+    +tracking: TrackingConfig
+    +expiration: ExpirationConfig
+    +localization: LocalizationConfig
+    +personalization: PersonalizationConfig
+    +compliance: ComplianceConfig
+    +organizationId?: string
+    +applicationId?: string
+    +workflowId?: string
+    +tags: string[]
+    +createdAt: Date
+    +scheduledAt?: Date
+}
+
+interface NotificationRecipient {
+    +id: string
+    +type: RecipientType
+    +address: string
+    +preferences: UserPreferences
+    +context: RecipientContext
+}
+
+interface NotificationSender {
+    +id: string
+    +name: string
+    +email?: string
+    +avatar?: string
+    +type: SenderType
+}
+
+interface TemplateConfig {
+    +templateId: string
+    +variables: Record<string, any>
+    +fallback: FallbackTemplate
+}
+
+interface DeliveryConfig {
+    +strategy: DeliveryStrategy
+    +delay: number
+    +batchSize: number
+    +retryPolicy: RetryPolicy
+    +channels: ChannelConfig[]
+}
+
+interface TrackingConfig {
+    +enabled: boolean
+    +events: TrackingEventType[]
+    +analytics: AnalyticsConfig
+}
+
+interface ExpirationConfig {
+    +enabled: boolean
+    +ttl: number
+    +action: ExpirationAction
+}
+
+interface LocalizationConfig {
+    +enabled: boolean
+    +defaultLocale: string
+    +supportedLocales: string[]
+    +autoDetect: boolean
+}
+
+interface PersonalizationConfig {
+    +enabled: boolean
+    +rules: PersonalizationRule[]
+    +fallback: PersonalizationFallback
+}
+
+interface ComplianceConfig {
+    +gdprCompliant: boolean
+    +canSpamCompliant: boolean
+    +optOutRequired: boolean
+    +dataRetention: number
+}
+
+interface NotificationRequest
+interface NotificationResult
+interface BulkNotificationResult
+interface ScheduledNotificationResult
+interface NotificationStatusResult
+interface ChannelDeliveryResult
+interface NotificationError
+interface ChannelHandler
+interface UserPreferences
+interface RecipientContext
+interface FallbackTemplate
+interface RetryPolicy
+interface ChannelConfig
+interface AnalyticsConfig
+interface PersonalizationRule
+interface PersonalizationFallback
+interface Parse_Object
+interface Parse_Query
+interface Parse_User
+
+' Services and Managers
+class ChannelManager
+class TemplateEngine
+class UserPreferencesService
+class QueueService
+class AnalyticsService
+class ComplianceService
+
+' NotificationManager Class
+class NotificationManager {
+    -channels: Map<NotificationChannel, ChannelHandler>
+    -templates: TemplateEngine
+    -userPreferences: UserPreferencesService
+    -queue: QueueService
+    -analytics: AnalyticsService
+    -compliance: ComplianceService
+
+    +constructor()
+    +send(request: NotificationRequest): Promise<NotificationResult>
+    +sendBulk(requests: NotificationRequest[]): Promise<BulkNotificationResult>
+    +schedule(request: NotificationRequest, scheduledAt: Date): Promise<ScheduledNotificationResult>
+    +cancel(notificationId: string): Promise<void>
+    +getStatus(notificationId: string): Promise<NotificationStatusResult>
+    -initializeChannels(): void
+    -routeNotification(notification: NotificationMetadata): Promise<NotificationResult>
+    -deliverImmediate(notification: NotificationMetadata): Promise<NotificationResult>
+    -deliverBatched(notification: NotificationMetadata): Promise<NotificationResult>
+    -deliverScheduled(notification: NotificationMetadata): Promise<NotificationResult>
+    -deliverDigest(notification: NotificationMetadata): Promise<NotificationResult>
+    -processRecipients(request: NotificationRequest): Promise<NotificationRecipient[]>
+    -createNotification(request: NotificationRequest, processedRecipients: NotificationRecipient[]): Promise<NotificationMetadata>
+    -getChannelHandler(channel: NotificationChannel): ChannelHandler
+    -validateRequest(request: NotificationRequest): Promise<void>
+    -checkCompliance(request: NotificationRequest): Promise<void>
+    -isOptedOut(preferences: UserPreferences, category: NotificationCategory): boolean
+    -filterChannelsByPreferences(channels: NotificationChannel[], preferences: UserPreferences): NotificationChannel[]
+    -calculateOverallStatus(results: ChannelDeliveryResult[]): NotificationStatus
+    -storeScheduledNotification(notification: NotificationMetadata): Promise<void>
+    -updateNotificationStatus(notificationId: string, status: NotificationStatus): Promise<void>
+    -getNotification(notificationId: string): Promise<NotificationMetadata>
+    -getDeliveryStatus(notificationId: string): Promise<any>
+    -trackNotificationEvent(notification: NotificationMetadata, eventType: TrackingEventType): Promise<void>
+    -getPriorityScore(priority: NotificationPriority): number
+    -chunkArray<T>(array: T[], chunkSize: number): T[][]
+}
+
+' Concrete Notification Example
+class InAppNotificationService {
+    +constructor(manager: NotificationManager)
+    +sendWelcomeNotification(userId: string): Promise<void>
+}
+
+' Relationships
+
+NotificationManager *-- ChannelManager
+NotificationManager *-- TemplateEngine
+NotificationManager *-- UserPreferencesService
+NotificationManager *-- QueueService
+NotificationManager *-- AnalyticsService
+NotificationManager *-- ComplianceService
+NotificationManager "1" *-- "1" NotificationMetadata
+
+NotificationMetadata --> NotificationCategory
+NotificationMetadata --> NotificationPriority
+NotificationMetadata --> NotificationChannel
+NotificationMetadata --> NotificationStatus
+NotificationMetadata *-- NotificationRecipient
+NotificationMetadata *-- NotificationSender
+NotificationMetadata *-- TemplateConfig
+NotificationMetadata *-- DeliveryConfig
+NotificationMetadata *-- TrackingConfig
+NotificationMetadata *-- ExpirationConfig
+NotificationMetadata *-- LocalizationConfig
+NotificationMetadata *-- PersonalizationConfig
+NotificationMetadata *-- ComplianceConfig
+
+NotificationRecipient --> RecipientType
+NotificationRecipient *-- UserPreferences
+NotificationRecipient *-- RecipientContext
+
+NotificationSender --> SenderType
+
+TemplateConfig *-- FallbackTemplate
+
+DeliveryConfig --> DeliveryStrategy
+DeliveryConfig *-- RetryPolicy
+DeliveryConfig *-- ChannelConfig
+
+TrackingConfig *-- TrackingEventType
+TrackingConfig *-- AnalyticsConfig
+
+ExpirationConfig --> ExpirationAction
+
+PersonalizationConfig *-- PersonalizationRule
+PersonalizationConfig *-- PersonalizationFallback
+
+InAppNotificationService --> NotificationManager
+
+NotificationError --|> Error
+
+@enduml

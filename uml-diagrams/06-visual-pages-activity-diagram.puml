@@ -1,0 +1,43 @@
+@startuml
+!theme toy
+
+start
+:Mount Component;
+:Set Initial State (loading: true);
+
+:Initialize Page (Async);
+fork
+  :Initialize Page Controller;
+fork again
+  :Load Page Data (Async);
+  if (Data Load Successful?) then (yes)
+    :Update State (loading: false, data: loaded);
+  else (no)
+    :Update State (loading: false, error: occurred);
+    :Display Error UI;
+    stop
+  endif
+end fork
+
+:Render Page (based on state);
+if (Page State is Error) then (yes)
+  :Display Error UI;
+  stop
+endif
+if (Page State is Loading) then (yes)
+  :Display Loading Spinner;
+  :Wait for State Update;
+else (no)
+  :Render Page Header;
+  if (Has Sidebar?) then (yes)
+    :Render Sidebar;
+  endif
+  :Render Page Content;
+  :Render Page Footer;
+endif
+
+:Unmount Component;
+:Cleanup (Abort ongoing requests);
+stop
+
+@enduml

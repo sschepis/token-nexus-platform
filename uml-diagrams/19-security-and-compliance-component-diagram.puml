@@ -1,0 +1,95 @@
+@startuml
+!theme toy
+
+package "Token Nexus Platform" {
+
+    component [Security API Gateway] as SecurityAPI
+
+    folder "Security and Compliance System" {
+        rectangle "Security Manager" {
+            component [Authentication Service] as AuthS
+            component [Authorization Engine] as AuthzE
+            component [Encryption Service] as EncS
+            component [Threat Detection] as TD
+            component [Compliance Engine] as CE
+            component [Audit Logger] as AL
+        }
+
+        component [Identity Provider] as IdP
+        component [MFA Service] as MFA_S
+        component [Session Manager] as SessM
+        component [Token Service] as TokenS
+
+        component [RBAC Engine] as RBAC_E
+        component [ABAC Engine] as ABAC_E
+        component [Permission Store] as PermStore
+        component [Policy Engine] as PolE
+
+        component [Key Management] as KM
+        component [Data Encryption Module] as DataEnc
+        component [Transport Security Module] as TransSec
+        component [Field Encryption Module] as FieldEnc
+
+        component [WAF] as WAF_Comp
+        component [IDS/IPS] as IDS_IPS_Comp
+        comp [Anomaly Detection] as AnomalyDet
+        component [Vulnerability Scanner] as VulnScan
+
+        component [GDPR Module] as GDPR_Mod
+        component [SOC2 Module] as SOC2_Mod
+        component [HIPAA Module] as HIPAA_Mod
+    }
+
+    database "User Database" as UserDB
+    database "Policy Database" as PolicyDB
+    database "Key Store" as KeyStore
+    database "Audit Log Storage" as AuditLogDB
+
+    SecurityAPI --> AuthS : "auth requests"
+    SecurityAPI --> AuthzE : "authz requests"
+    SecurityAPI --> EncS : "encryption requests"
+    SecurityAPI --> TD : "threat data"
+    SecurityAPI --> CE : "compliance checks"
+
+    AuthS --> IdP
+    AuthS --> MFA_S
+    AuthS --> SessM
+    AuthS --> TokenS
+    AuthS --> UserDB : "authenticates users"
+
+    AuthzE --> RBAC_E
+    AuthzE --> ABAC_E
+    AuthzE --> PermStore
+    AuthzE --> PolE
+    AuthzE --> PolicyDB : "retrieves policies"
+
+    EncS --> KM
+    EncS --> DataEnc
+    EncS --> TransSec
+    EncS --> FieldEnc
+    EncS --> KeyStore : "manages keys"
+
+    TD --> WAF_Comp
+    TD --> IDS_IPS_Comp
+    TD --> AnomalyDet
+    TD --> VulnScan
+
+    CE --> GDPR_Mod
+    CE --> SOC2_Mod
+    CE --> HIPAA_Mod
+    CE --> AuditLogDB : "records compliance events"
+
+    AL --> AuditLogDB : "logs security events"
+    
+    SecurityAPI ..> [Incident Response Service] as IRS
+    SecurityAPI ..> [Notification Systems] as NotifS
+
+}
+
+cloud "External Identity Providers" as ExternalIdP
+cloud "External Threat Intel Feeds" as ThreatIntel
+
+IdP <--> ExternalIdP : "federated identity"
+TD <--> ThreatIntel : "threat data"
+
+@enduml

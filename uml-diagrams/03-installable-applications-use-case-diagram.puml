@@ -1,0 +1,282 @@
+@startuml Installable Applications - Use Case Diagram
+!theme plain
+title Installable Applications - Use Case Diagram
+
+left to right direction
+
+' Actors
+actor "Application Developer" as Dev
+actor "Organization Admin" as OrgAdmin
+actor "Application User" as AppUser
+actor "System Administrator" as SysAdmin
+actor "Platform" as Platform
+actor "External Systems" as ExtSys
+
+' Actor relationships
+SysAdmin --|> OrgAdmin : is a
+OrgAdmin --|> AppUser : is a
+
+' System boundary
+rectangle "Token Nexus Platform - Installable Applications" {
+    
+    ' Application Development Use Cases
+    package "Application Development" {
+        usecase "Create Application Package" as UC1
+        usecase "Define Application Manifest" as UC2
+        usecase "Implement Frontend Components" as UC3
+        usecase "Implement Backend Services" as UC4
+        usecase "Define Database Schema" as UC5
+        usecase "Configure Permissions" as UC6
+        usecase "Write Tests" as UC7
+        usecase "Build Application" as UC8
+        usecase "Publish to Store" as UC9
+        usecase "Update Application" as UC10
+    }
+    
+    ' Application Store Use Cases
+    package "Application Store" {
+        usecase "Browse Applications" as UC11
+        usecase "Search Applications" as UC12
+        usecase "View Application Details" as UC13
+        usecase "Review Application Permissions" as UC14
+        usecase "Install Application" as UC15
+        usecase "Update Installed Application" as UC16
+        usecase "Uninstall Application" as UC17
+        usecase "Manage Application Catalog" as UC18
+    }
+    
+    ' Application Installation Use Cases
+    package "Installation Management" {
+        usecase "Validate Application Package" as UC19
+        usecase "Check Dependencies" as UC20
+        usecase "Validate Permissions" as UC21
+        usecase "Install Database Schema" as UC22
+        usecase "Register Components" as UC23
+        usecase "Setup Application Permissions" as UC24
+        usecase "Run Installation Hooks" as UC25
+        usecase "Create Installation Record" as UC26
+        usecase "Rollback Failed Installation" as UC27
+    }
+    
+    ' Application Runtime Use Cases
+    package "Application Runtime" {
+        usecase "Load Application" as UC28
+        usecase "Create Security Context" as UC29
+        usecase "Validate User Access" as UC30
+        usecase "Execute Application Actions" as UC31
+        usecase "Manage Application Data" as UC32
+        usecase "Handle API Requests" as UC33
+        usecase "Process Webhooks" as UC34
+        usecase "Execute Scheduled Jobs" as UC35
+        usecase "Monitor Application Health" as UC36
+    }
+    
+    ' Data Management Use Cases
+    package "Data Management" {
+        usecase "Create Application Data" as UC37
+        usecase "Read Application Data" as UC38
+        usecase "Update Application Data" as UC39
+        usecase "Delete Application Data" as UC40
+        usecase "Query Application Data" as UC41
+        usecase "Export Application Data" as UC42
+        usecase "Import Application Data" as UC43
+        usecase "Backup Application Data" as UC44
+        usecase "Restore Application Data" as UC45
+    }
+    
+    ' Permission Management Use Cases
+    package "Permission Management" {
+        usecase "Grant Application Permissions" as UC46
+        usecase "Revoke Application Permissions" as UC47
+        usecase "Check User Permissions" as UC48
+        usecase "Manage Role Assignments" as UC49
+        usecase "Audit Permission Usage" as UC50
+        usecase "Configure Permission Policies" as UC51
+    }
+    
+    ' Configuration Management Use Cases
+    package "Configuration Management" {
+        usecase "View Application Configuration" as UC52
+        usecase "Update Application Settings" as UC53
+        usecase "Reset to Default Configuration" as UC54
+        usecase "Validate Configuration" as UC55
+        usecase "Export Configuration" as UC56
+        usecase "Import Configuration" as UC57
+    }
+    
+    ' Integration Use Cases
+    package "Platform Integration" {
+        usecase "Integrate with Platform APIs" as UC58
+        usecase "Access Organization Data" as UC59
+        usecase "Send Notifications" as UC60
+        usecase "Log Audit Events" as UC61
+        usecase "Access User Authentication" as UC62
+        usecase "Integrate with AI Assistant" as UC63
+    }
+    
+    ' External Integration Use Cases
+    package "External Integration" {
+        usecase "Call External APIs" as UC64
+        usecase "Handle Rate Limiting" as UC65
+        usecase "Process External Webhooks" as UC66
+        usecase "Sync External Data" as UC67
+        usecase "Authenticate with External Services" as UC68
+    }
+    
+    ' Monitoring & Analytics Use Cases
+    package "Monitoring & Analytics" {
+        usecase "Monitor Application Performance" as UC69
+        usecase "Track Application Usage" as UC70
+        usecase "Generate Usage Reports" as UC71
+        usecase "Monitor Error Rates" as UC72
+        usecase "Track API Usage" as UC73
+        usecase "Monitor Security Events" as UC74
+    }
+    
+    ' Lifecycle Management Use Cases
+    package "Lifecycle Management" {
+        usecase "Manage Application Versions" as UC75
+        usecase "Handle Application Updates" as UC76
+        usecase "Migrate Application Data" as UC77
+        usecase "Deprecate Application Features" as UC78
+        usecase "Archive Application Data" as UC79
+        usecase "Remove Application" as UC80
+    }
+}
+
+' Application Developer use cases
+Dev --> UC1
+Dev --> UC2
+Dev --> UC3
+Dev --> UC4
+Dev --> UC5
+Dev --> UC6
+Dev --> UC7
+Dev --> UC8
+Dev --> UC9
+Dev --> UC10
+
+' Organization Admin use cases
+OrgAdmin --> UC11
+OrgAdmin --> UC12
+OrgAdmin --> UC13
+OrgAdmin --> UC14
+OrgAdmin --> UC15
+OrgAdmin --> UC16
+OrgAdmin --> UC17
+OrgAdmin --> UC46
+OrgAdmin --> UC47
+OrgAdmin --> UC49
+OrgAdmin --> UC50
+OrgAdmin --> UC51
+OrgAdmin --> UC52
+OrgAdmin --> UC53
+OrgAdmin --> UC54
+OrgAdmin --> UC55
+OrgAdmin --> UC56
+OrgAdmin --> UC57
+OrgAdmin --> UC69
+OrgAdmin --> UC70
+OrgAdmin --> UC71
+OrgAdmin --> UC75
+OrgAdmin --> UC76
+
+' Application User use cases
+AppUser --> UC28
+AppUser --> UC31
+AppUser --> UC37
+AppUser --> UC38
+AppUser --> UC39
+AppUser --> UC40
+AppUser --> UC41
+AppUser --> UC42
+AppUser --> UC43
+AppUser --> UC52
+AppUser --> UC53
+
+' System Administrator use cases
+SysAdmin --> UC18
+SysAdmin --> UC19
+SysAdmin --> UC20
+SysAdmin --> UC21
+SysAdmin --> UC22
+SysAdmin --> UC23
+SysAdmin --> UC24
+SysAdmin --> UC25
+SysAdmin --> UC26
+SysAdmin --> UC27
+SysAdmin --> UC36
+SysAdmin --> UC44
+SysAdmin --> UC45
+SysAdmin --> UC72
+SysAdmin --> UC73
+SysAdmin --> UC74
+SysAdmin --> UC77
+SysAdmin --> UC78
+SysAdmin --> UC79
+SysAdmin --> UC80
+
+' Platform use cases
+Platform --> UC29
+Platform --> UC30
+Platform --> UC33
+Platform --> UC34
+Platform --> UC35
+Platform --> UC48
+Platform --> UC58
+Platform --> UC59
+Platform --> UC60
+Platform --> UC61
+Platform --> UC62
+Platform --> UC63
+Platform --> UC65
+
+' External Systems use cases
+ExtSys --> UC64
+ExtSys --> UC66
+ExtSys --> UC67
+ExtSys --> UC68
+
+' Include relationships (dependencies)
+UC15 .> UC19 : <<include>>
+UC15 .> UC20 : <<include>>
+UC15 .> UC21 : <<include>>
+UC15 .> UC22 : <<include>>
+UC15 .> UC23 : <<include>>
+UC15 .> UC24 : <<include>>
+UC15 .> UC25 : <<include>>
+UC15 .> UC26 : <<include>>
+
+UC28 .> UC29 : <<include>>
+UC28 .> UC30 : <<include>>
+
+UC31 .> UC48 : <<include>>
+UC32 .> UC48 : <<include>>
+
+UC37 .> UC32 : <<include>>
+UC38 .> UC32 : <<include>>
+UC39 .> UC32 : <<include>>
+UC40 .> UC32 : <<include>>
+UC41 .> UC32 : <<include>>
+
+UC53 .> UC55 : <<include>>
+UC57 .> UC55 : <<include>>
+
+UC76 .> UC77 : <<include>>
+
+' Extend relationships (optional features)
+UC27 .> UC15 : <<extend>>
+UC44 .> UC76 : <<extend>>
+UC45 .> UC27 : <<extend>>
+UC61 .> UC31 : <<extend>>
+UC70 .> UC31 : <<extend>>
+UC73 .> UC64 : <<extend>>
+UC74 .> UC31 : <<extend>>
+
+' Notes
+note right of UC19 : Package validation includes\nmanifest validation, dependency\nchecks, and security scanning
+note right of UC29 : Security context ensures\napplication isolation and\nproper permission enforcement
+note right of UC32 : All data operations are\nautomatically scoped to\norganization and application
+note right of UC63 : AI assistant integration\nallows natural language\ninteraction with applications
+
+@enduml

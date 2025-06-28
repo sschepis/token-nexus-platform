@@ -1,0 +1,128 @@
+@startuml
+!theme toy
+
+autonumber
+
+participant "Client Application" as ClientApp
+participant "ConfigurationManager" as ConfigManager
+participant "ConfigurationSource\n(e.g., FileConfig, EnvVar)" as ConfigSource
+participant "CacheService" as Cache
+participant "EncryptionService" as Encryption
+participant "ValidationService" as Validation
+participant "AuditService" as Audit
+participant "Database/External Service" as DataStore
+
+ClientApp -> ConfigManager: get(key, context)
+activate ConfigManager
+
+ConfigManager -> ConfigManager: getCachedValue(key, context)
+activate ConfigManager
+ConfigManager -> Cache: get(cacheKey)
+activate Cache
+Cache --> ConfigManager: Cached Value / null
+deactivate Cache
+alt Value found in cache
+    ConfigManager --> ClientApp: Retrieved Value
+    deactivate ConfigManager
+    deactivate ConfigManager
+    stop
+end
+deactivate ConfigManager
+
+ConfigManager -> ConfigManager: resolveValue(key, context)
+activate ConfigManager
+loop For each ConfigurationSource by priority
+    ConfigManager -> ConfigSource: getValue(key, context)
+    activate ConfigSource
+    ConfigSource --> ConfigManager: Raw Value / undefined
+    deactivate ConfigSource
+    alt Value Found
+        ConfigManager -> ConfigManager: processValueFromStorage(key, rawValue)
+        activate ConfigManager
+        alt Value is encrypted and sensitive
+            ConfigManager -> Encryption: decrypt(rawValue)
+            activate Encryption
+            Encryption --> ConfigManager: Decrypted Value
+            deactivate Encryption
+        end
+        ConfigManager --> ConfigManager: Resolved Value
+        deactivate ConfigManager
+        break
+    end
+end
+alt Value not found in any source
+    ConfigManager -> ConfigManager: Check for defaultValue / required
+    alt Required & No Default
+        ConfigManager --> ClientApp: Error (Configuration Not Found)
+        deactivate ConfigManager
+        deactivate ConfigManager
+        stop
+    else Default Value Present
+        ConfigManager --> ConfigManager: Use Default Value
+    end
+end
+ConfigManager --> ConfigManager: Final Resolved Value
+deactivate ConfigManager
+
+ConfigManager -> Validation: validate(value, metadata.schema)
+activate Validation
+Validation --> ConfigManager: Validation Result
+deactivate Validation
+alt Validation Failed
+    ConfigManager --> ClientApp: Error (Validation Failed)
+    deactivate ConfigManager
+    deactivate ConfigManager
+    stop
+end
+
+ConfigManager -> ConfigManager: cacheValue(key, value, context)
+activate ConfigManager
+ConfigManager -> Cache: set(cacheKey, value, ttl)
+activate Cache
+Cache --> ConfigManager: Value Cached
+deactivate Cache
+deactivate ConfigManager
+
+ConfigManager --> ClientApp: Retrieved Value
+deactivate ConfigManager
+
+ClientApp -> ConfigManager: set(key, newValue, context)
+activate ConfigManager
+
+ConfigManager -> ConfigManager: validateValue(key, newValue)
+ConfigManager -> ConfigManager: getCurrentValue(key, context)
+ConfigManager -> ConfigManager: processValueForStorage(key, newValue)
+activate ConfigManager
+alt Value is sensitive and requires encryption
+    ConfigManager -> Encryption: encrypt(newValue)
+    activate Encryption
+    Encryption --> ConfigManager: Encrypted Value
+    deactivate Encryption
+end
+ConfigManager --> ConfigManager: Processed Value
+deactivate ConfigManager
+
+ConfigManager -> ConfigSource: setValue(key, processedValue, context)
+activate ConfigSource
+ConfigSource --> ConfigManager: Value Stored
+deactivate ConfigSource
+
+ConfigManager -> ConfigManager: invalidateCache(key, context)
+activate ConfigManager
+ConfigManager -> Cache: delete(cacheKey)
+activate Cache
+Cache --> ConfigManager: Cache Invalidated
+deactivate Cache
+deactivate ConfigManager
+
+ConfigManager -> Audit: logConfigurationChange(key, oldValue, newValue, context)
+activate Audit
+Audit --> ConfigManager: Audit Logged
+deactivate Audit
+
+ConfigManager -> ConfigManager: notifyConfigurationChange(key, oldValue, newValue, context) (internal notification)
+
+ConfigManager --> ClientApp: Success Confirmation
+deactivate ConfigManager
+
+@enduml

@@ -1,0 +1,35 @@
+@startuml
+!theme toy
+
+rectangle "Scheduled Job Processing System" {
+  component "Job Scheduler" as Scheduler
+  component "Job Queue" as Queue
+  component "Job Worker Pool" as WorkerPool
+  component "Job Executor" as Executor
+  component "Business Logic Module" as BusinessLogic
+  component "Error Handler Module" as ErrorHandler
+  component "Progress Tracker Module" as ProgressTracker
+
+  component "Platform Services" as PlatformServices
+  component "External APIs" as ExternalAPIs
+  component "Retry Manager" as RetryManager
+  component "Alert System" as AlertSystem
+  component "Monitoring Dashboard" as MonitoringDashboard
+
+  Scheduler --> Queue : submits jobs
+  Queue --> WorkerPool : dispatches jobs
+  WorkerPool --> Executor : executes jobs
+
+  Executor --> BusinessLogic : invokes
+  Executor --> ErrorHandler : reports errors
+  Executor --> ProgressTracker : updates progress
+
+  BusinessLogic --> PlatformServices : uses
+  BusinessLogic --> ExternalAPIs : interacts with
+
+  ErrorHandler --> RetryManager : manages retries
+  ErrorHandler --> AlertSystem : sends alerts
+
+  ProgressTracker --> MonitoringDashboard : sends metrics
+}
+@enduml

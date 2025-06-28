@@ -1,0 +1,264 @@
+@startuml Dashboard Widgets - Class Diagram
+!theme plain
+title Dashboard Widgets - Class Diagram
+
+package "Widget Definition" {
+    enum WidgetCategory {
+        ANALYTICS
+        PRODUCTIVITY
+        COMMUNICATION
+        MONITORING
+        CONTENT
+        FINANCE
+        SYSTEM
+        CUSTOM
+    }
+    
+    enum WidgetType {
+        CHART
+        TABLE
+        METRIC
+        LIST
+        FORM
+        CALENDAR
+        MAP
+        MEDIA
+        INTERACTIVE
+    }
+    
+    class WidgetSize {
+        +width: number
+        +height: number
+    }
+    
+    class WidgetMetadata {
+        +id: string
+        +name: string
+        +description: string
+        +category: WidgetCategory
+        +type: WidgetType
+        +version: string
+        +author: AuthorInfo
+        +permissions: string[]
+        +defaultSize: WidgetSize
+        +minSize: WidgetSize
+        +maxSize: WidgetSize
+        +configurableSize: boolean
+        +refreshInterval?: number
+        +tags: string[]
+        +icon: string
+        +preview: string
+        +documentation: string
+    }
+    
+    class AuthorInfo {
+        +name: string
+        +email: string
+        +organization?: string
+    }
+}
+
+package "Widget Core Components" {
+    class BaseWidgetProps {
+        +id: string
+        +title: string
+        +size: WidgetSize
+        +configuration: Record<string, any>
+        +permissions: string[]
+        +organizationId: string
+        +userId: string
+        +onConfigurationChange?: (config) => void
+        +onSizeChange?: (size) => void
+        +onRemove?: () => void
+        +onRefresh?: () => void
+        +isEditing?: boolean
+    }
+    
+    class WidgetState {
+        +loading: boolean
+        +error: string | null
+        +data: any
+        +lastUpdated: Date | null
+    }
+    
+    abstract class BaseWidget<TData, TConfig> {
+        -refreshInterval?: NodeJS.Timeout
+        -abortController?: AbortController
+        +constructor(props: BaseWidgetProps)
+        +componentDidMount()
+        +componentWillUnmount()
+        +componentDidUpdate(prevProps: BaseWidgetProps)
+        #loadData(): Promise<void>
+        #renderContent(): React.ReactNode
+        #getConfigurationSchema(): any
+        #validateConfiguration(config): { valid: boolean; errors: string[] }
+        #fetchData(): Promise<TData>
+        #performDataFetch(): Promise<TData>
+        #setupRefreshInterval(): void
+        #getRefreshInterval(): number
+        -cleanup(): void
+        #updateConfiguration(updates: Partial<TConfig>): void
+        +componentDidCatch(error: Error, errorInfo: React.ErrorInfo)
+        +render(): React.ReactNode
+        #renderLoadingState(): React.ReactNode
+        #renderErrorState(error: string): React.ReactNode
+        #renderEditingActions(): React.ReactNode
+        #getWidgetClassName(): string
+        #formatLastUpdated(date: Date): string
+        -openConfigurationModal(): void
+    }
+}
+
+package "Widget Implementation Example" {
+    class UserActivityData {
+        +date: string
+        +activeUsers: number
+        +newUsers: number
+        +totalSessions: number
+    }
+    
+    class UserActivityConfig {
+        +timeRange: '7d' | '30d' | '90d'
+        +showNewUsers: boolean
+        +showSessions: boolean
+        +refreshInterval: number
+    }
+    
+    class UserActivityWidget extends BaseWidget<UserActivityData[], UserActivityConfig> {
+        #performDataFetch(): Promise<UserActivityData[]>
+        #loadData(): Promise<void>
+        #renderContent(): React.ReactNode
+        #getConfigurationSchema(): any
+        #validateConfiguration(config): { valid: boolean; errors: string[] }
+    }
+}
+
+package "Data Management" {
+    class WidgetDataService {
+        -organizationId: string
+        -userId: string
+        -permissions: string[]
+        +constructor(orgId, userId, permissions)
+        +fetchWidgetData<T>(widgetId, endpoint, params, options): Promise<T>
+        -performFetch<T>(endpoint, params): Promise<T>
+        +subscribeToRealTimeData(widgetId, channel, callback): () => void
+        -generateCacheKey(widgetId, endpoint, params): string
+        -getFromCache<T>(key): Promise<T | null>
+        -setCache(key, data, ttlSeconds): Promise<void>
+        -delay(ms): Promise<void>
+    }
+    
+    class WidgetAggregationService {
+        +aggregateData(sources: DataSource[]): Promise<AggregatedData>
+        +aggregateTimeSeries(data: TimeSeriesPoint[], interval): TimeSeriesPoint[]
+        +calculateStatistics(data: number[]): Statistics
+        -fetchSourceData(source): Promise<any>
+        -combineResults(results): AggregatedData
+        -groupByTimeInterval(data, interval): Record<string, TimeSeriesPoint[]>
+        -calculateAggregateValue(points): number
+    }
+    
+    interface DataSource {
+        +type: 'api' | 'graphql' | 'websocket'
+        +endpoint: string
+        +params: Record<string, any>
+    }
+    
+    interface TimeSeriesPoint {
+        +timestamp: Date
+        +value: number
+        +count?: number
+    }
+    
+    interface Statistics {
+        +mean: number
+        +median: number
+        +min: number
+        +max: number
+        +stdDev: number
+    }
+}
+
+package "Configuration Management" {
+    class WidgetConfigurationManager {
+        +generateConfigurationUI(schema: any): React.ComponentType<ConfigurationUIProps>
+        -renderConfigurationField(key, property, value, onChange, error): React.ReactNode
+        -renderArrayField(key, property, value, onChange, error): React.ReactNode
+    }
+    
+    interface ConfigurationUIProps {
+        +value: Record<string, any>
+        +onChange: (key: string, value: any) => void
+        +errors: Record<string, string>
+    }
+}
+
+package "Layout & Styling" {
+    class WidgetTheme {
+        +colors: { primary: string; secondary: string; background: string; foreground: string; muted: string; accent: string; destructive: string; }
+        +typography: { fontFamily: string; fontSize: { xs: string; sm: string; base: string; lg: string; xl: string; }; }
+        +spacing: { xs: string; sm: string; md: string; lg: string; xl: string; }
+        +borderRadius: { sm: string; md: string; lg: string; }
+    }
+    
+    class WidgetThemeProvider {
+        +theme: WidgetTheme
+        +children: React.ReactNode
+        +render(): React.ReactNode
+    }
+    
+    class DashboardGridManager {
+        -gridColumns: number
+        -gridRows: number
+        -gapSize: number
+        +calculateWidgetLayout(widgets: DashboardWidget[]): LayoutItem[]
+        +getResponsiveLayout(layout: LayoutItem[], breakpoint: string): LayoutItem[]
+    }
+    
+    class DashboardWidget {
+        +id: string
+        +title: string
+        +size: WidgetSize
+        +metadata: WidgetMetadata
+    }
+    
+    class LayoutItem {
+        +id: string
+        +x: number
+        +y: number
+        +w: number
+        +h: number
+        +minW: number
+        +minH: number
+        +maxW: number
+        +maxH: number
+        +resizable: boolean
+    }
+}
+
+' Relationships
+WidgetMetadata --> WidgetCategory
+WidgetMetadata --> WidgetType
+WidgetMetadata --> WidgetSize
+WidgetMetadata --> AuthorInfo
+
+BaseWidget <|-- UserActivityWidget : extends
+BaseWidget --> BaseWidgetProps
+BaseWidget --> WidgetState
+BaseWidget --> WidgetMetadata
+
+WidgetDataService --> WidgetAggregationService : uses
+
+WidgetConfigurationManager --> WidgetMetadata : uses schema from
+WidgetConfigurationManager --> ConfigurationUIProps
+
+WidgetThemeProvider --> WidgetTheme
+
+DashboardGridManager --> DashboardWidget
+DashboardWidget --> WidgetMetadata
+DashboardGridManager --> WidgetSize
+
+WidgetDataService --> DataSource
+WidgetAggregationService --> TimeSeriesPoint
+WidgetAggregationService --> Statistics
+@enduml

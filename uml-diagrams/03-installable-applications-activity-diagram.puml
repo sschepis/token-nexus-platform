@@ -1,0 +1,306 @@
+@startuml Installable Applications - Activity Diagram
+!theme plain
+title Installable Applications - Workflow Activities
+
+|Developer|
+start
+:Create Application Package;
+:Define manifest.json;
+:Implement Components;
+:Write Tests;
+:Build Package;
+
+|Package Repository|
+:Upload Package;
+:Validate Package Structure;
+if (Package Valid?) then (no)
+    :Reject Package;
+    stop
+else (yes)
+endif
+
+:Store Package;
+:Generate Package Metadata;
+
+|Organization Admin|
+:Browse Application Store;
+:Select Application;
+:Review Permissions;
+if (Accept Permissions?) then (no)
+    :Cancel Installation;
+    stop
+else (yes)
+endif
+
+|Installation System|
+:Start Installation Process;
+
+fork
+    :Validate Manifest;
+fork again
+    :Check Dependencies;
+fork again
+    :Validate Permissions;
+end fork
+
+if (All Validations Pass?) then (no)
+    :Display Error Message;
+    stop
+else (yes)
+endif
+
+:Run Pre-Install Hooks;
+
+|Database System|
+:Create Application Schema;
+fork
+    :Create Tables;
+fork again
+    :Set Up Indexes;
+fork again
+    :Configure Permissions;
+end fork
+
+|Component Registry|
+:Register Application Components;
+fork
+    :Register Pages;
+fork again
+    :Register Widgets;
+fork again
+    :Register Cloud Functions;
+fork again
+    :Register Routes;
+end fork
+
+|Permission System|
+:Set Up Application Permissions;
+:Create Role Mappings;
+:Configure Access Controls;
+
+|Installation System|
+:Run Post-Install Hooks;
+:Create Installation Record;
+:Mark Application as Active;
+
+|Organization Admin|
+:Receive Installation Confirmation;
+
+== Application Runtime ==
+
+|User|
+:Access Application;
+
+|Runtime System|
+:Load Application;
+:Create Security Context;
+:Validate User Permissions;
+
+if (User Has Access?) then (no)
+    :Display Access Denied;
+    stop
+else (yes)
+endif
+
+:Initialize Application Context;
+:Load Application Components;
+
+|Application|
+repeat
+    :Display User Interface;
+    :Wait for User Action;
+    
+    |User|
+    :Perform Action;
+    
+    |Application|
+    :Validate Action Permissions;
+    if (Action Permitted?) then (no)
+        :Display Permission Error;
+    else (yes)
+        :Execute Action;
+        
+        switch (Action Type)
+        case (Data Creation)
+            |Data Service|
+            :Validate Input Data;
+            :Apply Organization Scope;
+            :Create Database Record;
+            :Log Action;
+            
+        case (Data Reading)
+            |Data Service|
+            :Apply Security Filters;
+            :Query Database;
+            :Return Filtered Results;
+            :Log Access;
+            
+        case (Data Update)
+            |Data Service|
+            :Validate Ownership;
+            :Check Permissions;
+            :Update Database Record;
+            :Log Change;
+            
+        case (Data Deletion)
+            |Data Service|
+            :Validate Ownership;
+            :Check Delete Permissions;
+            :Soft Delete Record;
+            :Log Deletion;
+            
+        case (Configuration Change)
+            |Configuration Manager|
+            :Validate Configuration;
+            :Apply Schema Validation;
+            :Save Configuration;
+            :Notify Components;
+            
+        case (External API Call)
+            |API Service|
+            :Check Rate Limits;
+            :Validate API Permissions;
+            :Make External Request;
+            :Log API Usage;
+            
+        endswitch
+        
+        :Update User Interface;
+        :Show Action Result;
+    endif
+    
+repeat while (Continue Using Application?) is (yes)
+
+|User|
+:Exit Application;
+
+|Runtime System|
+:Clean Up Application Context;
+:Log Session End;
+
+== Application Update ==
+
+|Developer|
+:Create New Version;
+:Update Manifest;
+:Implement Changes;
+:Test Updates;
+:Release New Version;
+
+|Organization Admin|
+:Receive Update Notification;
+:Review Update Details;
+if (Approve Update?) then (no)
+    :Defer Update;
+    stop
+else (yes)
+endif
+
+|Update System|
+:Start Update Process;
+:Backup Current Data;
+:Run Pre-Update Hooks;
+
+|Database System|
+:Run Database Migrations;
+fork
+    :Update Schema;
+fork again
+    :Migrate Data;
+fork again
+    :Update Indexes;
+end fork
+
+|Component Registry|
+:Update Component Registrations;
+:Replace Old Components;
+:Update Route Mappings;
+
+|Update System|
+:Run Post-Update Hooks;
+:Update Installation Record;
+:Verify Update Success;
+
+if (Update Successful?) then (no)
+    :Restore from Backup;
+    :Mark Update as Failed;
+    :Notify Administrator;
+else (yes)
+    :Mark Update as Complete;
+    :Clean Up Backup;
+    :Notify Users;
+endif
+
+== Application Uninstallation ==
+
+|Organization Admin|
+:Request Uninstallation;
+:Confirm Data Removal;
+
+|Uninstall System|
+:Run Pre-Uninstall Hooks;
+:Backup Application Data;
+
+|Component Registry|
+:Unregister Components;
+fork
+    :Remove Page Registrations;
+fork again
+    :Remove Widget Registrations;
+fork again
+    :Remove Cloud Functions;
+fork again
+    :Remove Routes;
+end fork
+
+|Permission System|
+:Remove Application Permissions;
+:Clean Up Role Mappings;
+:Revoke User Access;
+
+|Database System|
+:Remove Application Schema;
+fork
+    :Drop Tables;
+fork again
+    :Remove Indexes;
+fork again
+    :Clean Up Data;
+end fork
+
+|Uninstall System|
+:Run Post-Uninstall Hooks;
+:Update Installation Record;
+:Mark as Uninstalled;
+
+|Organization Admin|
+:Receive Uninstall Confirmation;
+
+stop
+
+note right of "Create Security Context"
+    Security context includes:
+    - Application ID
+    - Organization ID
+    - User permissions
+    - Data scope restrictions
+    - API rate limits
+end note
+
+note right of "Apply Organization Scope"
+    All data operations automatically:
+    - Filter by organization ID
+    - Apply application scope
+    - Enforce data isolation
+    - Validate ownership
+end note
+
+note right of "Backup Current Data"
+    Update process includes:
+    - Full data backup
+    - Schema versioning
+    - Rollback capability
+    - Migration validation
+end note
+
+@enduml

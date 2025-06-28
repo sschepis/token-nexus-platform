@@ -1,0 +1,182 @@
+@startuml
+!theme toy
+
+' Enums
+enum CustomPageCategory {
+    SPECIALIZED_WORKFLOW
+    DATA_VISUALIZATION
+    EXTERNAL_INTEGRATION
+    CUSTOM_FORM
+    INTERACTIVE_TOOL
+    REPORTING_DASHBOARD
+    CONFIGURATION_INTERFACE
+    PROTOTYPE
+}
+
+enum CustomPageComplexity {
+    SIMPLE
+    MODERATE
+    COMPLEX
+    ENTERPRISE
+}
+
+' Interfaces/Types
+interface CustomPageMetadata {
+    +id: string
+    +name: string
+    +title: string
+    +description: string
+    +category: CustomPageCategory
+    +complexity: CustomPageComplexity
+    +version: string
+    +permissions: string[]
+    +organizationScoped: boolean
+    +customization: CustomizationConfig
+    +dependencies: DependencyConfig
+    +performance: PerformanceConfig
+    +security: SecurityConfig
+    +tags: string[]
+    +author: AuthorInfo
+    +documentation: DocumentationConfig
+}
+
+interface CustomizationConfig {
+    +allowCustomCSS: boolean
+    +allowCustomJS: boolean
+    +allowThirdPartyLibraries: boolean
+    +customComponentsEnabled: boolean
+    +advancedLayoutOptions: boolean
+}
+
+interface DependencyConfig {
+    +platformServices: string[]
+    +externalAPIs: ExternalAPIConfig[]
+    +thirdPartyLibraries: LibraryConfig[]
+    +customModules: string[]
+}
+
+interface PerformanceConfig {
+    +lazyLoading: boolean
+    +codesplitting: boolean
+    +caching: CachingConfig
+    +bundleOptimization: boolean
+}
+
+interface SecurityConfig {
+    +cspPolicy: string
+    +allowedDomains: string[]
+    +sanitization: SanitizationConfig
+    +auditLevel: "basic" | "detailed" | "comprehensive"
+}
+
+interface CustomPageProps
+interface CustomPageState
+interface CustomPageAction
+interface DataSet
+interface FilterConfig
+interface ChartData
+interface ColumnDefinition
+interface RequestOptions
+interface AuthorInfo
+interface DocumentationConfig
+interface ExternalAPIConfig
+interface LibraryConfig
+interface CachingConfig
+interface SanitizationConfig
+
+' React Components and Services
+class React_Component
+class PlatformIntegrationService
+class CustomPageSecurityService
+class CustomPagePerformanceService
+class ErrorBoundary
+class LoadingSpinner
+class Card
+class Button
+class Input
+class Select
+class DataGrid
+class ChartContainer
+class FilterPanel
+class ExportPanel
+
+' CustomPageBase Abstract Class
+abstract class CustomPageBase {
+    protected platformServices: PlatformIntegrationService
+    protected securityService: CustomPageSecurityService
+    protected performanceService: CustomPagePerformanceService
+    protected abortController?: AbortController
+    protected performanceObserver?: PerformanceObserver
+
+    +constructor(props: CustomPageBaseProps)
+    +componentDidMount()
+    +componentWillUnmount()
+    #abstract getInitialCustomState(): TState
+    #abstract initializeCustomPage(): Promise<void>
+    #abstract renderCustomContent(): React.ReactNode
+    #abstract getCustomPageActions(): CustomPageAction[]
+    #getCustomStyles(): React.CSSProperties
+    #getCustomClassName(): string
+    #setupCustomEventListeners(): void
+    #cleanupCustomResources(): void
+    -initializePage(): Promise<void>
+    -validatePageSecurity(): Promise<void>
+    -initializePlatformIntegration(): Promise<void>
+    -setupPerformanceMonitoring(): void
+    -cleanup(): void
+    #callPlatformAPI<T>(endpoint: string, data?: any, options?: RequestOptions): Promise<T>
+    #callExternalAPI<T>(apiId: string, endpoint: string, data?: any, options?: RequestOptions): Promise<T>
+    #updateCustomState(updates: Partial<TState>): void
+    #loadData<T>(loader: () => Promise<T>, options?: {}): Promise<T>
+    +componentDidCatch(error: Error, errorInfo: React.ErrorInfo)
+    +render()
+    -renderPlatformIntegration(): React.ReactNode
+    -renderAIAssistantIntegration(): React.ReactNode
+    -renderPerformanceMonitoring(): React.ReactNode
+}
+
+' Concrete Page Implementation Example
+class InteractiveDataExplorerPage {
+    +constructor() ' Implicit constructor calling super
+    #getInitialCustomState(): DataExplorerState
+    #initializeCustomPage(): Promise<void>
+    #renderCustomContent(): React.ReactNode
+    #getCustomPageActions(): CustomPageAction[]
+    -fetchDataFromAPI(): Promise<DataSet>
+    -prepareChartData(dataSet: DataSet): { chart1: ChartData; chart2: ChartData; }
+    -handleFilterChange(newFilters: FilterConfig[]): void
+    -handleExport(): void
+}
+
+' Relationships
+
+CustomPageMetadata --> CustomPageCategory
+CustomPageMetadata --> CustomPageComplexity
+CustomPageMetadata *-- CustomizationConfig
+CustomPageMetadata *-- DependencyConfig
+CustomPageMetadata *-- PerformanceConfig
+CustomPageMetadata *-- SecurityConfig
+
+CustomPageBase --|> React_Component
+CustomPageBase "1" *-- "1" CustomPageMetadata
+
+CustomPageBase ..> CustomPageProps
+CustomPageBase ..> CustomPageState
+CustomPageBase ..> CustomPageAction
+CustomPageBase ..> PlatformIntegrationService
+CustomPageBase ..> CustomPageSecurityService
+CustomPageBase ..> CustomPagePerformanceService
+CustomPageBase ..> ErrorBoundary
+CustomPageBase ..> LoadingSpinner
+
+InteractiveDataExplorerPage --|> CustomPageBase
+InteractiveDataExplorerPage ..> Card
+InteractiveDataExplorerPage ..> Button
+InteractiveDataExplorerPage ..> Input
+InteractiveDataExplorerPage ..> Select
+InteractiveDataExplorerPage ..> DataGrid
+InteractiveDataExplorerPage ..> ChartContainer
+InteractiveDataExplorerPage ..> FilterPanel
+InteractiveDataExplorerPage ..> ExportPanel
+
+@enduml

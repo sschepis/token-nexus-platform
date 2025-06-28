@@ -1,0 +1,45 @@
+@startuml
+!theme toy
+
+state "Scheduled Job Execution Lifecycle" as JobLifecycle {
+  state "Idle" as Idle
+  state "Scheduled" as Scheduled
+  state "Queued" as Queued
+  state "InProgress" as InProgress {
+    state "Initializing" as Initializing
+    state "Validating Security" as ValidatingSecurity
+    state "Checking Resources" as CheckingResources
+    state "Executing Logic" as ExecutingLogic
+    state "Handling Error" as HandlingError
+    state "Retrying" as Retrying
+  }
+  state "Completed" as Completed
+  state "Failed" as Failed
+  state "Aborted" as Aborted
+
+  [*] --> Idle
+  Idle --> Scheduled : defined schedule / manual trigger
+  Scheduled --> Queued : scheduler dispatches job
+  Queued --> Initializing : worker picks up job
+
+  Initializing --> ValidatingSecurity : setup complete
+  ValidatingSecurity --> CheckingResources : security validated
+  ValidatingSecurity --> Failed : security validation failed (e.g., disabled job, wrong env, missing permissions)
+  CheckingResources --> ExecutingLogic : resources available
+  CheckingResources --> Failed : insufficient resources
+
+  ExecutingLogic --> Completed : logic successful
+  ExecutingLogic --> HandlingError : logic failed
+
+  HandlingError --> Retrying : retries available
+  Retrying --> ExecutingLogic : retry job logic
+
+  HandlingError --> Failed : no retries / unrecoverable error
+
+  Completed --> Idle : job finished successfully
+  Failed --> Idle : job ended in failure
+  Aborted --> Idle : job explicitly aborted
+
+  InProgress --> Aborted : external abort command received
+}
+@enduml

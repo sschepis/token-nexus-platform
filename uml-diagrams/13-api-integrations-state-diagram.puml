@@ -1,0 +1,35 @@
+@startuml
+!theme toy
+
+state "Integration Request Lifecycle" as RequestLifecycle {
+  [*] --> Initializing : request received
+  Initializing --> Authenticating : metadata retrieved, validation complete
+  Authenticating --> RateLimiting : authentication successful
+  Authenticating --> Failed : authentication failed (e.g., invalid creds, expired token)
+
+  RateLimiting --> TransformingRequest : rate limit allowed
+  RateLimiting --> Failed : rate limit exceeded
+
+  TransformingRequest --> ExecutingRequest : request transformed
+  ExecutingRequest --> Retrying : request failed, retries available
+  ExecutingRequest --> Failed : request failed, no retries / non-retryable error
+
+  Retrying --> ExecutingRequest : after backoff delay
+
+  ExecutingRequest --> ResponseTransformation : request successful
+  ResponseTransformation --> ValidatingResponse : response transformed
+  ValidatingResponse --> CachingResponse : response validation successful
+  ValidatingResponse --> Failed : response validation failed
+
+  CachingResponse --> Completed : response cached
+  Completed --> [*] : response returned to client
+
+  state "Failed State Details" as FailedState {
+    FailedState --> LoggingError : error logged
+    LoggingError --> NotifyingAlert : alerts sent (if configured)
+    NotifyingAlert --> [*] : process terminated after error handling
+  }
+
+  Failed --> FailedState : error caught
+}
+@enduml

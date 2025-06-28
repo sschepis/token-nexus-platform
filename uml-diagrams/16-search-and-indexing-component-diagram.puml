@@ -1,0 +1,91 @@
+@startuml
+!theme toy
+
+package "Token Nexus Platform" {
+
+    component [Search API Gateway] as SearchApi
+
+    folder "Search and Indexing System" {
+        rectangle "Search Manager" {
+            component [Query Processor] as QueryProcessor
+            component [Index Manager] as IndexManager
+            component [Result Aggregator] as ResultAggregator
+            component [Analytics Engine] as AnalyticsEngine
+        }
+
+        component [Query Parser] as QueryParser
+        component [Query Optimizer] as QueryOptimizer
+        component [Filter Engine] as FilterEngine
+        component [Facet Engine] as FacetEngine
+
+        component [Document Indexer] as DocumentIndexer
+        component [Real-time Indexer] as RealtimeIndexer
+        component [Batch Indexer] as BatchIndexer
+        component [Index Optimizer] as IndexOptimizer
+
+        component [Result Ranker] as ResultRanker
+        component [Result Formatter] as ResultFormatter
+        component [Highlight Engine] as HighlightEngine
+        component [Suggestion Engine] as SuggestionEngine
+        
+        SearchApi --> QueryProcessor : "search requests"
+        SearchApi --> IndexManager : "indexing requests"
+
+        QueryProcessor --> QueryParser
+        QueryProcessor --> QueryOptimizer
+        QueryProcessor --> FilterEngine
+        QueryProcessor --> FacetEngine
+
+        IndexManager --> DocumentIndexer
+        IndexManager --> RealtimeIndexer
+        IndexManager --> Batch Indexer
+        IndexManager --> IndexOptimizer
+
+        ResultAggregator --> ResultRanker
+        ResultAggregator --> ResultFormatter
+        ResultAggregator --> HighlightEngine
+        ResultAggregator --> SuggestionEngine
+
+        AnalyticsEngine --> [Search Analytics] as SearchAnalytics
+        AnalyticsEngine --> [Performance Metrics] as PerformanceMetrics
+        AnalyticsEngine --> [User Behavior] as UserBehavior
+        AnalyticsEngine --> [Content Insights] as ContentInsights
+    }
+
+    rectangle "External Search Engines" {
+        cloud "Elasticsearch" as ES
+        cloud "Solr" as Solr
+        database "Database FTS" as DBFTS
+        database "Vector Store" as VS
+    }
+
+    DocumentIndexer --> ES
+    DocumentIndexer --> Solr
+    DocumentIndexer --> DBFTS
+    DocumentIndexer --> VS
+
+    RealtimeIndexer --> ES
+    RealtimeIndexer --> Solr
+    RealtimeIndexer --> DBFTS
+    RealtimeIndexer --> VS
+
+    BatchIndexer --> ES
+    BatchIndexer --> Solr
+    BatchIndexer --> DBFTS
+    BatchIndexer --> VS
+
+    QueryProcessor <--> ES
+    QueryProcessor <--> Solr
+    QueryProcessor <--> DBFTS
+    QueryProcessor <--> VS
+    
+    QueryProcessor ..> [Security Service] as SecurityService
+    IndexManager ..> [File Management System] as FileManagement
+    IndexManager ..> [Workflow Module] as WorkflowModule
+    IndexManager ..> [User Management] as UserManagement
+
+    SearchApi --> SecurityService : "permission checks"
+    QueryProcessor --> SecurityService : "access control"
+}
+
+@enduml

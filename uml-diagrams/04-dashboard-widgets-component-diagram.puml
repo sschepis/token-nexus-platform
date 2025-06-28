@@ -1,0 +1,163 @@
+@startuml Dashboard Widgets - Component Diagram
+!theme plain
+title Dashboard Widgets - Component Architecture
+
+package "Dashboard Host" {
+    component [Dashboard Container] as Dashboard
+    component [Widget Manager] as WidgetMgr
+    component [Layout Manager] as LayoutMgr
+    component [Permission Manager] as PermMgr
+    component [Configuration Storage] as ConfigStore
+    
+    Dashboard --> WidgetMgr : manages widgets
+    Dashboard --> LayoutMgr : organizes layout
+    WidgetMgr --> PermMgr : checks permissions
+    WidgetMgr --> ConfigStore : persists configuration
+    LayoutMgr --> WidgetMgr : provides layout info
+}
+
+package "Widget Runtime" {
+    component [Widget Host] as WidgetHost
+    component [Widget Provider] as WidgetProvider
+    component [Widget Lifecycle Manager] as WidgetLCM
+    component [Error Boundary] as ErrorBoundary
+    
+    WidgetHost --> WidgetProvider : loads widgets
+    WidgetHost --> ErrorBoundary : catches errors
+    WidgetProvider --> WidgetLCM : manages lifecycle
+}
+
+package "Widget Components" {
+    component [Base Widget] as BaseWidget
+    component [User Activity Widget] as UserActivityWidget
+    component [Metric Display Widget] as MetricWidget
+    component [List Data Widget] as ListWidget
+    component [Custom Widget] as CustomWidget
+    
+    BaseWidget <|-- UserActivityWidget : extends
+    BaseWidget <|-- MetricWidget : extends
+    BaseWidget <|-- ListWidget : extends
+    BaseWidget <|-- CustomWidget : extends
+    
+    WidgetProvider --> BaseWidget : provides base functionality
+}
+
+package "Data Layer" {
+    component [Widget Data Service] as DataService
+    component [Widget Aggregation Service] as AggregationService
+    component [Platform API Client] as APIClient
+    component [Real-time Data Stream] as RTDataStream
+    component [Local Cache] as LocalCache
+    component [Data Adapters] as DataAdapters
+    
+    DataService --> AggregationService : uses
+    DataService --> APIClient : fetches data
+    DataService --> RTDataStream : subscribes
+    DataService --> LocalCache : caches data
+    APIClient --> DataAdapters : transforms data
+}
+
+package "Configuration System" {
+    component [Widget Configuration Manager] as ConfigMgr
+    component [Configuration Schema Validator] as SchemaValidator
+    component [Configuration UI Generator] as UIGenerator
+    component [Configuration Editor] as ConfigEditor
+    
+    ConfigMgr --> SchemaValidator : validates schema
+    ConfigMgr --> UIGenerator : generates UI
+    ConfigEditor --> ConfigMgr : applies changes
+}
+
+package "Theming & Styling" {
+    component [Widget Theme Provider] as ThemeProvider
+    component [Widget Styles] as WidgetStyles
+    component [Platform Theme] as PlatformTheme
+    
+    ThemeProvider --> WidgetStyles : applies styles
+    WidgetStyles --> PlatformTheme : inherits from
+}
+
+package "Integration Points" {
+    component [Platform Authentication] as Auth
+    component [Organization Context] as OrgContext
+    component [AI Assistant Integration] as AIAssistant
+    component [Audit Logging] as AuditLog
+    
+    PermMgr --> Auth : verifies user
+    PermMgr --> OrgContext : checks organization
+    DataService --> Auth : authenticates requests
+    DataService --> OrgContext : scopes requests
+    BaseWidget --> AIAssistant : integrates
+    BaseWidget --> AuditLog : logs actions
+}
+
+package "External Systems" {
+    component [Third-party Analytics] as ThirdPartyAnalytics
+    component [Data Warehouses] as DataWarehouses
+    component [Monitoring Systems] as Monitoring
+    
+    AggregationService --> ThirdPartyAnalytics : integrates
+    DataAdapters --> DataWarehouses : pulls data
+    APIClient --> Monitoring : reports usage
+}
+
+' Relationships / Connections
+Dashboard --> WidgetMgr : configures & displays
+WidgetMgr --> WidgetHost : provides widget instances
+WidgetHost --> WidgetComp : hosts
+WidgetComp --> BaseWidget : implements
+BaseWidget --> DataService : fetches data
+BaseWidget --> ConfigMgr : uses configuration tools
+BaseWidget --> ThemeProvider : uses styling
+DataService --> APIClient : communicates with backend
+APIClient --> APIClient : (to Platform API)
+ConfigEditor --> UI : provides UI for editing
+PermMgr --> Auth : verifies user roles
+PermMgr --> OrgContext : ensures data scope
+AIAssistant --> BaseWidget : receives AI commands
+AuditLog --> BaseWidget : logs widget interactions
+
+' Boundaries
+rectangle "Widget Micro-frontend Boundary" {
+    WidgetHost
+    WidgetProvider
+    WidgetComp
+    BaseWidget
+    UserActivityWidget
+    MetricWidget
+    ListWidget
+    CustomWidget
+    ThemeProvider
+    WidgetStyles
+}
+
+rectangle "Data Handling Boundary" {
+    DataService
+    AggregationService
+    APIClient
+    RTDataStream
+    LocalCache
+    DataAdapters
+}
+
+rectangle "Configuration Boundary" {
+    ConfigMgr
+    SchemaValidator
+    UIGenerator
+    ConfigEditor
+}
+
+' Notes for key abstractions
+note "Responsible for managing widget instances, \nlayout, and user interactions on the dashboard." as DashboardNote
+Dashboard ..left.. DashboardNote
+
+note "Provides a standardized interface for widgets \nto fetch data, handle configuration, and interact \nwith the platform." as BaseWidgetNote
+BaseWidget ..left.. BaseWidgetNote
+
+note "Handles all data fetching, caching, and aggregation \nlogic for widgets, ensuring performance and reliability." as DataServiceNote
+DataService ..left.. DataServiceNote
+
+note "Defines the structure and validation rules for widget \nconfigurations, enabling dynamic UI generation." as ConfigMgrNote
+ConfigMgr ..left.. ConfigMgrNote
+
+@enduml

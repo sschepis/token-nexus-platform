@@ -1,0 +1,103 @@
+@startuml
+!theme toy
+
+autonumber
+
+participant "Client Application" as Client
+participant "Notification Manager" as Manager
+participant "User Preferences Service" as UserPrefs
+participant "Compliance Service" as Compliance
+participant "Template Engine" as Template
+participant "Queue Service" as Queue
+participant "Channel Manager" as ChannelMgr
+participant "Channel Handler\n(e.g., EmailService)" as ChannelHandler
+participant "Analytics Service" as Analytics
+
+Client -> Manager: send(NotificationRequest)
+activate Manager
+
+Manager -> Manager: validateRequest(request)
+Manager -> Compliance: checkCompliance(request)
+activate Compliance
+Compliance --> Manager: Compliance Check Result
+deactivate Compliance
+
+Manager -> Manager: processRecipients(request)
+activate Manager
+Manager -> UserPrefs: getPreferences(recipientId)
+activate UserPrefs
+UserPrefs --> Manager: User Preferences
+deactivate UserPrefs
+Manager -> Manager: isOptedOut() / filterChannelsByPreferences()
+Manager --> Manager: Processed Recipients
+deactivate Manager
+
+Manager -> Manager: createNotification(request, processedRecipients)
+activate Manager
+Manager -> Template: processTemplate(templateConfig, data, localization, personalization)
+activate Template
+Template --> Manager: Rendered Content
+deactivate Template
+Manager --> Manager: Notification Metadata
+deactivate Manager
+
+Manager -> Manager: routeNotification(notification)
+activate Manager
+
+alt Immediate Delivery Strategy
+    Manager -> Manager: deliverImmediate(notification)
+    activate Manager
+    loop For each Channel in Notification
+        Manager -> ChannelMgr: getChannelHandler(channel)
+        activate ChannelMgr
+        ChannelMgr --> Manager: Channel Handler
+        deactivate ChannelMgr
+
+        Manager -> ChannelHandler: deliver(notification)
+        activate ChannelHandler
+        ChannelHandler --> Manager: Channel Delivery Result
+        deactivate ChannelHandler
+    end
+    Manager -> Manager: calculateOverallStatus()
+    Manager -> Manager: updateNotificationStatus(notificationId, status)
+    Manager --> Manager: Delivery Results
+    deactivate Manager
+else Batched Delivery Strategy
+    Manager -> Manager: deliverBatched(notification)
+    activate Manager
+    Manager -> Queue: add('notification-batch', notification, options)
+    activate Queue
+    Queue --> Manager: Notification Queued (Batch)
+    deactivate Queue
+    Manager --> Manager: Delivery Results (Processing Status)
+    deactivate Manager
+else Scheduled Delivery Strategy
+    Manager -> Manager: deliverScheduled(notification)
+    activate Manager
+    Manager -> Queue: schedule('notification-delivery', notification, delay)
+    activate Queue
+    Queue --> Manager: Notification Scheduled
+    deactivate Queue
+    Manager --> Manager: Delivery Results (Pending Status)
+    deactivate Manager
+else Digest Delivery Strategy
+    Manager -> Manager: deliverDigest(notification)
+    activate Manager
+    Manager -> Queue: add('notification-digest', digestKey, notification, recipient)
+    activate Queue
+    Queue --> Manager: Notification Queued (Digest)
+    deactivate Queue
+    Manager --> Manager: Delivery Results (Processing Status)
+    deactivate Manager
+end
+Manager --> Client: NotificationResult
+deactivate Manager
+
+Manager -> Analytics: trackNotificationEvent(notification, 'created')
+activate Analytics
+Analytics --> Manager: Event Tracked
+deactivate Analytics
+
+deactivate Manager
+
+@enduml

@@ -1,0 +1,67 @@
+@startuml
+!theme toy
+
+rectangle "Notification System" {
+  component "Notification Manager" as Manager
+  component "Event Processor" as EventProcessor
+  component "Channel Router" as ChannelRouter
+  component "Template Engine" as TemplateEngine
+  component "Delivery Queue" as DeliveryQueue
+
+  component "Event Filters" as EventFilters
+  component "Rule Engine" as RuleEngine
+  component "User Preferences Store" as UserPreferences
+
+  component "In-App Channel" as InAppChannel
+  component "Email Channel" as EmailChannel
+  component "SMS Channel" as SMSChannel
+  component "Push Channel" as PushChannel
+  component "Webhook Channel" as WebhookChannel
+
+  component "Template Store" as TemplateStore
+  component "Localization Service" as Localization
+  component "Personalization Service" as Personalization
+
+  component "Priority Queue" as PriorityQueue
+  component "Retry Handler" as RetryHandler
+  component "Dead Letter Queue" as DeadLetterQueue
+
+  Manager --> EventProcessor : processes events
+  Manager --> ChannelRouter : routes notifications
+  Manager --> TemplateEngine : renders templates
+  Manager --> DeliveryQueue : queues messages
+
+  EventProcessor --> EventFilters : applies
+  EventProcessor --> RuleEngine : uses
+  EventProcessor --> UserPreferences : queries
+
+  ChannelRouter --> InAppChannel : dispatches
+  ChannelRouter --> EmailChannel : dispatches
+  ChannelRouter --> SMSChannel : dispatches
+  ChannelRouter --> PushChannel : dispatches
+  ChannelRouter --> WebhookChannel : dispatches
+
+  TemplateEngine --> TemplateStore : retrieves from
+  TemplateEngine --> Localization : uses
+  TemplateEngine --> Personalization : uses
+
+  DeliveryQueue --> PriorityQueue : manages
+  DeliveryQueue --> RetryHandler : handles retries
+  DeliveryQueue --> DeadLetterQueue : forwards failures
+
+  InAppChannel --> WebSocketServer : sends
+  EmailChannel --> EmailService : sends
+  SMSChannel --> SMSService : sends
+  PushChannel --> PushService : sends
+  WebhookChannel --> WebhookService : sends
+}
+
+package "External Services" {
+  component "WebSocket Server" as WebSocketServer
+  component "Email Service" as EmailService
+  component "SMS Service" as SMSService
+  component "Push Service" as PushService
+  component "Webhook Service" as WebhookService
+}
+
+@enduml

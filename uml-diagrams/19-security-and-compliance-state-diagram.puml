@@ -1,0 +1,74 @@
+@startuml
+!theme toy
+
+state "Security State" {
+    [*] --> SecureIdle : System operating normally, continuously monitoring
+
+    state "Threat Detection" as ThreatDet {
+        [*] --> MonitoringTraffic : Inspecting network/application traffic
+        MonitoringTraffic --> AnalyzingLogs : Correlating logs for anomalies
+        AnalyzingLogs --> ScanningVulnerabilities : Proactively identifying weaknesses
+        ScanningVulnerabilities --> ThreatDet : Continuous process
+        
+        ThreatDet --> ThreatDetected : Anomaly/vulnerability found
+    }
+
+    state "Incident Response" as IncidentRes {
+        [*] --> NewIncident : ThreatDetected state leads here
+        NewIncident --> Investigate : Gather more data, assess scope
+        Investigate --> Containment : Isolate affected systems, prevent spread
+        Containment --> Eradication : Remove root cause (malware, vulnerability)
+        Eradication --> Recovery : Restore services, data
+        Recovery --> PostIncident : Review, learn, improve defenses
+        PostIncident --> SecureIdle : Incident resolved
+        
+        IncidentRes --> Escalated : Incident severity increased, external help needed
+    }
+
+    state "Compliance State" as ComplianceState {
+        [*] --> ContinuousAudit : Regularly checking for policy adherence
+        ContinuousAudit --> PrivacyEnforced : Ensuring data privacy controls are active
+        PrivacyEnforced --> DataRetentionManaged : Managing data lifecycle per regulations
+        DataRetentionManaged --> ComplianceReportGenerated : Documenting adherence
+        ComplianceReportGenerated --> ContinuousAudit : Ongoing process
+        
+        ComplianceState --> ViolationDetected : Non-compliance identified
+    }
+
+    SecureIdle --> ThreatDet : Always active monitoring
+    ThreatDet --> IncidentRes : If a threat is detected
+    IncidentRes --> SecureIdle : After successful resolution
+    
+    SecureIdle --> ComplianceState : Always active auditing
+    ComplianceState --> SecureIdle : Continuous adherence or after remediation
+    
+    ThreatDetected --> IncidentRes : Threat escalates to an incident
+    ViolationDetected --> ComplianceRemediation : Non-compliance needs addressing
+    
+    state "Compliance Remediation" as CompRem {
+        [*] --> AnalyzeViolation : Understand compliance gap
+        AnalyzeViolation --> ImplementFix : Apply corrective actions (policy, tech)
+        ImplementFix --> VerifyRemediation : Test and confirm fix
+        VerifyRemediation --> ComplianceReportGenerated : Update records
+        ComplianceReportGenerated --> SecureIdle : Compliance restored
+    }
+    
+    ViolationDetected --> CompRem
+
+    state "Security Configuration Management" as ConfigMan {
+        [*] --> PolicyReview : Reviewing security policies, access controls
+        PolicyReview --> UpdateConfiguration : Applying changes to authentication, encryption
+        UpdateConfiguration --> ValidateChanges : Testing new configurations
+        ValidateChanges --> SecureIdle : Config updated, system is secure
+        
+        ConfigMan --> ConfigurationError : Error during config update
+        ConfigurationError --> SecureIdle : Configuration issues resolved
+    }
+    
+    SecureIdle --> ConfigMan : Admin initiates configuration change
+    ConfigMan --> SecureIdle : Changes applied and verified
+
+    SecureIdle -d-> [*] : System Shutdown
+}
+
+@enduml

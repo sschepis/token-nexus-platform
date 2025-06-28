@@ -1,0 +1,62 @@
+@startuml
+!theme toy
+
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Platform User" as User
+actor "Platform Administrator" as Admin
+actor "Integrated System" as IntegratedSystem
+actor "Workflow Engine" as Engine
+
+rectangle "Workflow Orchestration System" {
+  usecase "Initiate Workflow" as Initiate
+  usecase "Execute Workflow Steps" as ExecuteSteps
+  usecase "Manage Workflow State" as ManageState
+  usecase "Evaluate Decisions" as EvaluateDecisions
+  usecase "Handle Workflow Errors" as HandleErrors
+  usecase "Monitor Workflow Progress" as MonitorProgress
+  usecase "Access Workflow History" as AccessHistory
+  usecase "Define Workflow Metadata" as DefineMetadata
+  usecase "Manage Workflow Permissions" as ManagePermissions
+  usecase "Integrate External Services" as IntegrateExternal
+  usecase "Trigger Workflow Manually" as ManualTrigger
+  usecase "Trigger Workflow by Schedule" as ScheduledTrigger
+  usecase "Trigger Workflow by Event" as EventTrigger
+  usecase "Trigger Workflow by API Call" as APITrigger
+  usecase "Trigger Workflow by Webhook" as WebhookTrigger
+  usecase "Receive Workflow Notifications" as ReceiveNotifications
+}
+
+User --> Initiate
+User --> MonitorProgress
+User --> AccessHistory
+
+Admin --> DefineMetadata
+Admin --> ManagePermissions
+Admin --> ManualTrigger
+Admin --> MonitorProgress
+Admin --> AccessHistory
+
+IntegratedSystem --> Initiate
+IntegratedSystem --> IntegrateExternal
+
+Engine --> ExecuteSteps
+Engine --> ManageState
+Engine --> EvaluateDecisions
+Engine --> HandleErrors
+Engine --> MonitorProgress
+
+Initiate <.. ManualTrigger : include
+Initiate <.. ScheduledTrigger : include
+Initiate <.. EventTrigger : include
+Initiate <.. APITrigger : include
+Initiate <.. WebhookTrigger : include
+
+ExecuteSteps <.. IntegrateExternal : include
+ExecuteSteps <.. EvaluateDecisions : include
+ExecuteSteps <.. ManageState : include
+
+HandleErrors <.. ReceiveNotifications : include
+
+@enduml

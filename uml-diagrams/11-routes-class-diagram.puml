@@ -1,0 +1,194 @@
+@startuml
+!theme toy
+
+' Enums
+enum RouteCategory {
+    API
+    WEBHOOK
+    INTEGRATION
+    ADMIN
+    PUBLIC
+    INTERNAL
+}
+
+enum RouteMethod {
+    GET
+    POST
+    PUT
+    PATCH
+    DELETE
+    OPTIONS
+}
+
+enum RouteScope {
+    SYSTEM
+    ORGANIZATION
+    USER
+    PUBLIC
+}
+
+' Interfaces/Types
+interface RouteMetadata {
+    +id: string
+    +path: string
+    +method: RouteMethod
+    +category: RouteCategory
+    +scope: RouteScope
+    +description: string
+    +version: string
+    +enabled: boolean
+    +authentication: AuthenticationConfig
+    +authorization: AuthorizationConfig
+    +validation: ValidationConfig
+    +rateLimit: RateLimitConfig
+    +caching: CachingConfig
+    +documentation: DocumentationConfig
+    +tags: string[]
+}
+
+interface AuthenticationConfig {
+    +required: boolean
+    +methods: ('session' | 'api-key' | 'jwt' | 'oauth')[]
+    +allowAnonymous?: boolean
+}
+
+interface AuthorizationConfig {
+    +permissions: string[]
+    +organizationScoped: boolean
+    +roleRequired?: string
+    +customValidator?: string
+}
+
+interface ValidationConfig {
+    +requestSchema?: any
+    +responseSchema?: any
+    +sanitization: SanitizationConfig
+}
+
+interface RateLimitConfig {
+    +enabled: boolean
+    +requests: number
+    +window: number
+    +scope: 'ip' | 'user' | 'organization'
+}
+
+interface CachingConfig {
+    +enabled: boolean
+    +ttl: number
+    +varyBy: string[]
+    +invalidateOn: string[]
+}
+
+interface RouteRequest
+interface RouteResponse
+interface DocumentationConfig
+interface SanitizationConfig
+
+class AuthenticationService
+class AuthorizationService
+class ValidationService
+class RateLimitService
+class CacheService
+class AuditService
+class Parse_User
+class Parse_Error
+class RouteError
+class Stripe
+class Mailchimp
+class Salesforce
+class DataService
+
+' BaseRouteHandler Abstract Class
+abstract class BaseRouteHandler {
+    protected authService: AuthenticationService
+    protected authzService: AuthorizationService
+    protected validationService: ValidationService
+    protected rateLimitService: RateLimitService
+    protected cacheService: CacheService
+    protected auditService: AuditService
+    protected metadata: RouteMetadata
+
+    +constructor(metadata: RouteMetadata)
+    +handle(request: RouteRequest): Promise<RouteResponse>
+    #abstract executeRouteLogic(request: RouteRequest, user?: Parse_User): Promise<any>
+    #beforeRouteExecution(request: RouteRequest, user?: Parse_User): Promise<void>
+    #afterRouteExecution(request: RouteRequest, result: any, user?: Parse_User): Promise<void>
+    -authenticateRequest(request: RouteRequest): Promise<Parse_User | null>
+    -authorizeRequest(request: RouteRequest, user?: Parse_User): Promise<void>
+    -validateRequest(request: RouteRequest): Promise<void>
+    -checkRateLimit(request: RouteRequest): Promise<void>
+    -getRateLimitIdentifier(request: RouteRequest, scope: string): string
+    -getCachedResponse(request: RouteRequest): Promise<RouteResponse | null>
+    -cacheResponse(request: RouteRequest, response: RouteResponse): Promise<void>
+    -generateCacheKey(request: RouteRequest): string
+    #createSuccessResponse(data: any, statusCode: number): RouteResponse
+    #createErrorResponse(statusCode: number, message: string, details?: any): RouteResponse
+    -handleError(error: any, request: RouteRequest, requestId: string): Promise<RouteResponse>
+    #extractOrganizationId(request: RouteRequest): string | null
+    #generateRequestId(): string
+    -sanitizeInput(input: any): Promise<any>
+    -executeCustomAuthorization(request: RouteRequest, user?: Parse_User): Promise<boolean>
+}
+
+' Custom error class for routes
+class RouteError {
+    +statusCode: number
+    +message: string
+    +details?: any
+    +constructor(statusCode: number, message: string, details?: any)
+}
+
+' Concrete API Route Example
+class ProductApiRoute {
+    +constructor()
+    #executeRouteLogic(request: RouteRequest, user?: Parse_User): Promise<any>
+    -getProductData(productId: string): Promise<any>
+    -transformProductData(data: any): any
+    -updateProductStock(productId: string, quantity: number): Promise<void>
+    -deleteProduct(productId: string): Promise<void>
+}
+
+' Concrete Webhook Route Example
+class StripeWebhookRoute {
+    +constructor()
+    #executeRouteLogic(request: RouteRequest, user?: Parse_User): Promise<any>
+    -validateStripeSignature(payload: string, signature: string): boolean
+    -handlePaymentSuccess(event: any): Promise<void>
+    -handleSubscriptionUpdate(event: any): Promise<void>
+    -handleRefund(event: any): Promise<void>
+    -dispatchEventToInternalSystem(eventName: string, data: any): Promise<void>
+}
+
+' Relationships
+
+RouteMetadata --> RouteCategory
+RouteMetadata --> RouteMethod
+RouteMetadata --> RouteScope
+RouteMetadata *-- AuthenticationConfig
+RouteMetadata *-- AuthorizationConfig
+RouteMetadata *-- ValidationConfig
+RouteMetadata *-- RateLimitConfig
+RouteMetadata *-- CachingConfig
+
+BaseRouteHandler *-- RouteMetadata
+BaseRouteHandler ..> AuthenticationService
+BaseRouteHandler ..> AuthorizationService
+BaseRouteHandler ..> ValidationService
+BaseRouteHandler ..> RateLimitService
+BaseRouteHandler ..> CacheService
+BaseRouteHandler ..> AuditService
+BaseRouteHandler ..> Parse_User
+BaseRouteHandler ..> Parse_Error
+BaseRouteHandler ..> RouteError
+
+ProductApiRoute --|> BaseRouteHandler
+ProductApiRoute ..> DataService
+
+StripeWebhookRoute --|> BaseRouteHandler
+StripeWebhookRoute ..> Stripe
+StripeWebhookRoute ..> DataService
+
+RouteError --|> Error
+
+
+@enduml

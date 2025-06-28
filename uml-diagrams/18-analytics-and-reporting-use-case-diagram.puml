@@ -1,0 +1,55 @@
+@startuml
+!theme toy
+
+left to right direction
+
+actor "Platform User" as User
+actor "System Admin" as Admin
+actor "Business Analyst" as Analyst
+actor "External System" as External
+
+rectangle "Analytics and Reporting System" {
+  usecase "Track User Behavior (Events)" as UC1
+  usecase "Record System Metrics" as UC2
+  usecase "View Analytics Dashboards" as UC3
+  usecase "Generate Ad-Hoc Reports" as UC4
+  usecase "Schedule Reports" as UC5
+  usecase "Export Data" as UC6
+  usecase "Configure Analytics Settings" as UC7
+  usecase "Monitor Data Collection" as UC8
+  usecase "Define Custom Metrics" as UC9
+  usecase "Set Up Alerts" as UC10
+  usecase "Analyze Real-time Data" as UC11
+  usecase "Enforce Data Privacy (GDPR/CCPA)" as UC12
+  usecase "Integrate External Data Sources" as UC13
+}
+
+User -- UC1 : <<indirectly>>
+User -- UC3
+User -- UC4
+
+Admin -- UC2 : <<indirectly>>
+Admin -- UC7
+Admin -- UC8
+Admin -- UC9
+Admin -- UC10
+Admin -- UC12 : <<configures>>
+
+Analyst -- UC3
+Analyst -- UC4
+Analyst -- UC5
+Analyst -- UC6
+Analyst -- UC11
+
+External -- UC1 : <<triggers>>
+External -- UC2 : <<sends>>
+External -- UC6 : <<consumes>>
+External -- UC13 : <<provides>>
+
+UC1 .> UC12 : includes
+UC2 .> UC12 : includes
+UC4 .> UC12 : includes
+UC5 .> UC12 : includes
+UC6 .> UC12 : includes
+
+@enduml

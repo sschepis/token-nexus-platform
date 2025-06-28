@@ -1,0 +1,135 @@
+@startuml
+!theme toy
+
+autonumber
+
+participant "Client Application" as ClientApp
+participant "API Integration Manager" as Manager
+participant "IntegrationMetadata" as Metadata
+participant "AuthenticationService" as AuthService
+participant "RateLimiter" as RateLimiter
+participant "TransformationService" as Transformation
+participant "CacheService" as Cache
+participant "HttpClient" as HttpClient
+participant "External API" as ExternalAPI
+participant "ValidationService" as Validation
+participant "MonitoringService" as Monitoring
+participant "Internal Error Handling" as ErrorHandler
+
+ClientApp -> Manager: execute(integrationId, request, context)
+activate Manager
+
+Manager -> Manager: getIntegrationMetadata(integrationId)
+Manager -> Manager: validateRequest(metadata, request)
+alt Request Validation Failed
+    Manager --> ClientApp: Error Response (Validation)
+    deactivate Manager
+    stop
+end
+Manager -> Manager: getCachedResponse(metadata, request, context)
+activate Manager
+Manager -> Cache: get(cacheKey)
+activate Cache
+Cache --> Manager: Cached Response / null
+deactivate Cache
+alt Cached Response Found
+    Manager -> Manager: recordMetrics(cache_hit)
+    Manager --> ClientApp: Cached Response
+    deactivate Manager
+    deactivate Manager
+    stop
+end
+deactivate Manager
+
+Manager -> Manager: checkRateLimit(metadata, context)
+activate Manager
+Manager -> RateLimiter: checkLimit(key)
+activate RateLimiter
+RateLimiter --> Manager: Allowed/Denied
+deactivate RateLimiter
+alt Rate Limit Exceeded
+    Manager --> ClientApp: Error Response (Rate Limit)
+    deactivate Manager
+    deactivate Manager
+    stop
+end
+deactivate Manager
+
+Manager -> Manager: authenticateRequest(metadata, request, context)
+activate Manager
+Manager -> AuthService: getCredentials()\ngetOAuth2Token()\napplyCustomAuthentication()
+activate AuthService
+AuthService --> Manager: Authenticated Request
+deactivate AuthService
+deactivate Manager
+
+Manager -> Manager: transformRequest(metadata, authenticatedRequest)
+activate Manager
+Manager -> Transformation: transform(request)
+activate Transformation
+Transformation --> Manager: Transformed Request
+deactivate Transformation
+deactivate Manager
+
+loop Retry Attempts
+    Manager -> HttpClient: request(transformedRequest, timeout)
+    activate HttpClient
+    HttpClient -> ExternalAPI: HTTP Request
+    activate ExternalAPI
+    ExternalAPI --> HttpClient: HTTP Response
+    deactivate ExternalAPI
+    HttpClient --> Manager: Raw Response
+    deactivate HttpClient
+    alt Request Successful
+        break
+    else Request Failed & Retryable
+        Manager -> Manager: sleep(backoffDelay)
+    end
+end
+alt All Retries Failed
+    Manager -> ErrorHandler: handleRequestError(metadata, error)
+    ErrorHandler --> Manager: Processed Error
+    Manager --> ClientApp: Error Response (after retries)
+    deactivate Manager
+    Monitoring: recordMetrics(error)
+    stop
+end
+
+Manager -> Manager: transformResponse(metadata, rawResponse)
+activate Manager
+Manager -> Transformation: transform(response)
+activate Transformation
+Transformation --> Manager: Transformed Response
+deactivate Transformation
+deactivate Manager
+
+Manager -> Manager: validateResponse(metadata, transformedResponse)
+activate Manager
+Manager -> Validation: validate(response)
+activate Validation
+Validation --> Manager: Validation Result
+deactivate Validation
+alt Response Validation Failed
+    Manager --> ClientApp: Error Response (Validation)
+    deactivate Manager
+    stop
+end
+deactivate Manager
+
+Manager -> Manager: cacheResponse(metadata, request, transformedResponse, context)
+activate Manager
+Manager -> Cache: set(cacheKey, response, ttl)
+activate Cache
+Cache --> Manager: Response Cached
+deactivate Cache
+deactivate Manager
+
+Manager -> Monitoring: recordMetrics(success)
+activate Monitoring
+Monitoring --> Manager: Metrics Recorded
+deactivate Monitoring
+
+Manager --> ClientApp: Final Integration Response
+deactivate Manager
+
+@enduml

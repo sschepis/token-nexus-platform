@@ -1,0 +1,119 @@
+@startuml Dashboard Widgets - Sequence Diagram
+!theme plain
+title Dashboard Widgets - Data Flow and Interaction
+
+actor "User" as User
+participant "Dashboard Container" as Dashboard
+participant "Widget Manager" as WidgetMgr
+participant "Widget Component" as WidgetComp
+participant "Widget Host" as WidgetHost
+participant "BaseWidget" as BaseWidget
+participant "WidgetDataService" as DataService
+participant "Platform API" as API
+database "Data Sources" as DB
+participant "Configuration Manager" as ConfigMgr
+participant "UI Controls" as UI
+
+== Widget Loading and Data Fetching ==
+User -> Dashboard: View Dashboard
+Dashboard -> WidgetMgr: requestWidgets(dashboardId, userId, orgId)
+WidgetMgr -> WidgetMgr: retrieveWidgetConfigurations()
+WidgetMgr -> WidgetMgr: checkWidgetPermissions()
+
+loop For each enabled widget
+    WidgetMgr -> WidgetComp: renderWidget(widgetId, config, permissions)
+    WidgetComp -> WidgetHost: instantiate()
+    WidgetHost -> BaseWidget: constructor(props)
+    BaseWidget -> BaseWidget: componentDidMount()
+    BaseWidget -> BaseWidget: loadData()
+    BaseWidget -> BaseWidget: fetchData()
+
+    BaseWidget -> DataService: fetchWidgetData(widgetId, endpoint, params)
+    DataService -> DataService: generateCacheKey()
+    DataService -> DataService: getFromCache(cacheKey)
+
+    alt Data in Cache
+        DataService --> BaseWidget: Cached data
+        BaseWidget -> BaseWidget: setState(data, loading: false)
+    else No Data in Cache
+        DataService -> DataService: performFetch(endpoint, params)
+        DataService -> API: POST /api/widgets/{endpoint} (with org/user/perm headers)
+        API -> DB: Query data (e.g., analytics, metrics)
+        DB --> API: Raw Data
+        API --> DataService: API Response
+        DataService -> DataService: setCache(cacheKey, data, ttl)
+        DataService --> BaseWidget: Fetched data
+        BaseWidget -> BaseWidget: setState(data, loading: false)
+    end
+    BaseWidget -> WidgetComp: renderContent()
+    WidgetComp --> Dashboard: Display widget
+end
+
+== Real-time Data Subscription ==
+User -> WidgetComp: Enable real-time updates (e.g., for a live metrics widget)
+WidgetComp -> DataService: subscribeToRealTimeData(widgetId, channel, callback)
+DataService -> API: Establish Server-Sent Events (SSE) connection /api/widgets/realtime/{channel}
+API <--> DataService: Stream data updates (onmessage, onerror)
+
+loop Real-time updates
+    API -> DataService: send(newData)
+    DataService -> WidgetComp: callback(newData)
+    WidgetComp -> BaseWidget: setState(newData)
+    BaseWidget -> WidgetComp: renderContent()
+    WidgetComp --> Dashboard: Update widget display
+end
+
+== Widget Configuration ==
+User -> WidgetComp: Click "Settings" icon (assuming isEditing true)
+WidgetComp -> BaseWidget: openConfigurationModal()
+BaseWidget -> BaseWidget: getConfigurationSchema()
+BaseWidget --> ConfigMgr: Configuration schema (JSON Schema)
+
+ConfigMgr -> UI: generateConfigurationUI(schema)
+UI --> User: Display configuration form
+User -> UI: Input new configuration values
+UI -> ConfigMgr: onChange(key, value)
+ConfigMgr --> WidgetComp: New configuration values
+
+WidgetComp -> BaseWidget: updateConfiguration(updates)
+BaseWidget -> BaseWidget: validateConfiguration(newConfig)
+BaseWidget -> BaseWidget: props.onConfigurationChange?.(newConfig)
+Dashboard -> WidgetMgr: updateWidgetConfiguration(widgetId, newConfig)
+WidgetMgr -> WidgetMgr: persistConfiguration()
+WidgetMgr --> Dashboard: Configuration updated
+Dashboard -> WidgetComp: Re-render widget with new config (triggers componentDidUpdate)
+WidgetComp -> BaseWidget: loadData() (with new config)
+
+== Widget Refresh ==
+User -> WidgetComp: Click "Refresh" icon OR Automatic refresh by interval (BaseWidget)
+WidgetComp -> BaseWidget: loadData()
+BaseWidget -> DataService: fetchWidgetData(..., cache: false)
+DataService -> API: Fetch fresh data
+API --> DB: Re-query
+DB --> API: Fresh Data
+API --> DataService: Fresh Data
+DataService --> BaseWidget: Fresh Data
+BaseWidget -> BaseWidget: setState(freshData, loading: false)
+BaseWidget -> WidgetComp: renderContent()
+WidgetComp --> Dashboard: Widget display updated
+
+== Widget Removal ==
+User -> WidgetComp: Click "Remove" icon (assuming isEditing true)
+WidgetComp -> BaseWidget: props.onRemove?.()
+Dashboard -> WidgetMgr: removeWidget(widgetId)
+WidgetMgr -> WidgetMgr: persistLayout()
+WidgetMgr --> Dashboard: Widget removed
+Dashboard --> User: Dashboard updated
+
+== Error Handling ==
+alt Data Fetching Error
+    DataService --> BaseWidget: Throws Error
+    BaseWidget -> BaseWidget: catch(error)
+    BaseWidget -> BaseWidget: setState(error, loading: false)
+    BaseWidget -> WidgetComp: renderErrorState(error)
+    WidgetComp --> Dashboard: Display error message
+    User -> WidgetComp: Click "Retry"
+    WidgetComp -> BaseWidget: loadData()
+end
+
+@enduml

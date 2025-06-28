@@ -1,0 +1,204 @@
+@startuml Installable Applications - Sequence Diagram
+!theme plain
+title Installable Applications - Installation and Runtime Flow
+
+actor "Organization Admin" as Admin
+participant "Application Store" as Store
+participant "Application Installer" as Installer
+participant "Permission Manager" as PermMgr
+participant "Database Manager" as DBMgr
+participant "Component Registry" as CompReg
+participant "Application Runtime" as Runtime
+participant "Security Context" as SecCtx
+participant "Data Service" as DataSvc
+database "Application Database" as AppDB
+
+== Application Installation ==
+Admin -> Store: Browse available applications
+Store -> Store: Display application catalog
+Admin -> Store: Select application to install
+Store -> Store: Show application details and permissions
+
+Admin -> Store: Confirm installation
+Store -> Installer: install(packagePath, organizationId)
+
+Installer -> Installer: validatePackage(packagePath)
+note right: Validate manifest.json\nCheck package integrity\nVerify digital signatures
+
+Installer -> Installer: checkDependencies(manifest.dependencies)
+alt Dependencies Missing
+    Installer --> Store: Installation failed - missing dependencies
+    Store --> Admin: Show dependency error
+else Dependencies OK
+    Installer -> PermMgr: validatePermissions(manifest.permissions, orgId)
+    PermMgr -> PermMgr: Check permission conflicts
+    PermMgr -> PermMgr: Validate permission scope
+    PermMgr --> Installer: Permission validation result
+    
+    alt Permission Validation Failed
+        Installer --> Store: Installation failed - permission issues
+        Store --> Admin: Show permission error
+    else Permissions Valid
+        Installer -> Installer: runPreInstallHooks(manifest.installation.preInstall)
+        
+        Installer -> DBMgr: installDatabaseSchema(manifest.database)
+        DBMgr -> AppDB: Create application tables
+        DBMgr -> AppDB: Set up indexes
+        DBMgr -> AppDB: Configure class-level permissions
+        AppDB --> DBMgr: Schema created
+        DBMgr --> Installer: Database schema installed
+        
+        Installer -> CompReg: registerComponents(manifest.capabilities)
+        CompReg -> CompReg: Register pages
+        CompReg -> CompReg: Register widgets
+        CompReg -> CompReg: Register cloud functions
+        CompReg --> Installer: Components registered
+        
+        Installer -> PermMgr: setupPermissions(manifest.permissions, orgId)
+        PermMgr -> AppDB: Create permission records
+        PermMgr -> AppDB: Set up role mappings
+        PermMgr --> Installer: Permissions configured
+        
+        Installer -> Installer: runPostInstallHooks(manifest.installation.postInstall)
+        
+        Installer -> AppDB: createInstallationRecord(installationData)
+        AppDB --> Installer: Installation record created
+        
+        Installer --> Store: Installation successful
+        Store --> Admin: Application installed successfully
+    end
+end
+
+== Application Runtime Execution ==
+Admin -> Runtime: Access installed application
+Runtime -> Runtime: loadApplication(applicationId)
+
+Runtime -> SecCtx: createSecurityContext(applicationId, orgId, userId)
+SecCtx -> PermMgr: getUserPermissions(userId, applicationId)
+PermMgr --> SecCtx: User permissions
+SecCtx -> SecCtx: createExecutionContext()
+SecCtx --> Runtime: Security context created
+
+Runtime -> CompReg: getComponent(pageId)
+CompReg -> CompReg: Load application component
+CompReg --> Runtime: Component instance
+
+Runtime -> Runtime: validateApplicationAccess(applicationId, userId)
+alt Access Denied
+    Runtime --> Admin: Access denied message
+else Access Granted
+    Runtime -> DataSvc: Initialize data service
+    DataSvc -> SecCtx: Get application context
+    SecCtx --> DataSvc: Execution context
+    
+    Runtime --> Admin: Render application page
+end
+
+== Data Operations ==
+Admin -> Runtime: Perform application action
+Runtime -> SecCtx: validateDataAccess(className, objectId)
+SecCtx -> SecCtx: Check organization isolation
+SecCtx -> SecCtx: Check application ownership
+SecCtx --> Runtime: Access validation result
+
+alt Access Denied
+    Runtime --> Admin: Access denied
+else Access Granted
+    Runtime -> DataSvc: executeAction(actionType, params)
+    
+    switch (Action Type)
+    case (Create Data)
+        DataSvc -> DataSvc: createObject(className, data)
+        DataSvc -> DataSvc: Set applicationId and organizationId
+        DataSvc -> AppDB: Save object
+        AppDB --> DataSvc: Object created
+        
+    case (Read Data)
+        DataSvc -> DataSvc: createQuery(className)
+        DataSvc -> DataSvc: Apply organization filter
+        DataSvc -> DataSvc: Apply application filter
+        DataSvc -> AppDB: Execute query
+        AppDB --> DataSvc: Query results
+        
+    case (Update Data)
+        DataSvc -> DataSvc: validateObjectAccess(object)
+        DataSvc -> AppDB: Update object
+        AppDB --> DataSvc: Object updated
+        
+    case (Delete Data)
+        DataSvc -> DataSvc: validateObjectAccess(object)
+        DataSvc -> AppDB: Delete object
+        AppDB --> DataSvc: Object deleted
+    endswitch
+    
+    DataSvc --> Runtime: Action result
+    Runtime --> Admin: Display result
+end
+
+== Configuration Management ==
+Admin -> Runtime: Access application settings
+Runtime -> Runtime: getConfiguration(applicationId, orgId)
+Runtime -> AppDB: Query application configuration
+AppDB --> Runtime: Configuration data
+Runtime --> Admin: Display configuration form
+
+Admin -> Runtime: Update configuration
+Runtime -> Runtime: validateConfiguration(updates)
+alt Validation Failed
+    Runtime --> Admin: Configuration validation error
+else Validation Passed
+    Runtime -> AppDB: Save configuration updates
+    AppDB --> Runtime: Configuration saved
+    Runtime --> Admin: Configuration updated successfully
+end
+
+== Application Uninstallation ==
+Admin -> Store: Request application uninstall
+Store -> Installer: uninstall(applicationId, organizationId)
+
+Installer -> Installer: runPreUninstallHooks(manifest.installation.preUninstall)
+note right: Backup data\nConfirm uninstallation\nNotify users
+
+Installer -> CompReg: unregisterComponents(applicationId)
+CompReg -> CompReg: Remove page registrations
+CompReg -> CompReg: Remove widget registrations
+CompReg -> CompReg: Remove cloud functions
+CompReg --> Installer: Components unregistered
+
+Installer -> PermMgr: removePermissions(applicationId, orgId)
+PermMgr -> AppDB: Delete permission records
+PermMgr -> AppDB: Remove role mappings
+PermMgr --> Installer: Permissions removed
+
+Installer -> DBMgr: removeSchema(manifest.database)
+DBMgr -> AppDB: Drop application tables
+DBMgr -> AppDB: Remove indexes
+DBMgr --> Installer: Schema removed
+
+Installer -> AppDB: Update installation record (status = 'removed')
+AppDB --> Installer: Installation record updated
+
+Installer -> Installer: runPostUninstallHooks(manifest.installation.postUninstall)
+note right: Clean up temporary files\nRemove cached data\nSend notifications
+
+Installer --> Store: Uninstallation successful
+Store --> Admin: Application uninstalled successfully
+
+== Error Handling ==
+loop Error Monitoring
+    Runtime -> Runtime: Monitor application health
+    Runtime -> SecCtx: Check security violations
+    Runtime -> DataSvc: Monitor data access patterns
+    
+    alt Security Violation Detected
+        Runtime -> PermMgr: Log security event
+        Runtime -> Admin: Security alert notification
+    end
+    
+    alt Application Error
+        Runtime -> AppDB: Log error details
+        Runtime -> Admin: Error notification
+    end
+end
+
+@enduml

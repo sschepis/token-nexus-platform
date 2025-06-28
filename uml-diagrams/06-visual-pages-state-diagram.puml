@@ -1,0 +1,48 @@
+@startuml
+!theme toy
+
+state "Visual Page Lifecycle" as PageLifecycle {
+  state "Unmounted" as Unmounted
+  state "Mounting" as Mounting {
+    state "Initializing Controller" as InitController
+    state "Loading Data" as LoadingData
+  }
+  state "Mounted (Ready)" as MountedReady
+  state "Updating" as Updating
+  state "Error Display" as ErrorDisplay
+  state "Unmounting" as UnmountingState
+
+  [*] --> Unmounted
+  Unmounted --> Mounting : mount component
+  Mounting --> InitController : constructor
+  InitController --> LoadingData : controller initialized
+  LoadingData --> MountedReady : data loaded successfully
+  LoadingData --> ErrorDisplay : data loading failed
+
+  MountedReady --> Updating : props change / data fetch / user interaction
+  Updating --> MountedReady : update complete
+  Updating --> ErrorDisplay : update failed
+
+  MountedReady --> UnmountingState : unmount component
+  Updating --> UnmountingState : unmount component
+  ErrorDisplay --> UnmountingState : unmount component
+  UnmountingState --> Unmounted : cleanup complete
+
+  MountedReady --> MountedReady : re-render (stable state)
+
+  state "Data Fetch Substates" as DataFetchSubstates {
+     state "Idle" as DataIdle
+     state "Fetching" as DataFetching
+     state "Retrying" as DataRetrying
+     state "Fetch Error" as DataFetchError
+  }
+  LoadingData --> DataFetchSubstates
+  DataFetchSubstates --> DataIdle : initial state
+  DataIdle --> DataFetching : initiate fetch
+  DataFetching --> DataIdle : fetch success
+  DataFetching --> DataRetrying : fetch failed (retries left)
+  DataRetrying --> DataFetching : retry
+  DataFetching --> DataFetchError : fetch failed (no retries)
+  DataFetchError --> ErrorDisplay : propagate error
+}
+@enduml

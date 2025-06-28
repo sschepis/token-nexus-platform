@@ -1,0 +1,91 @@
+@startuml
+!theme toy
+
+actor User
+participant "ClientApp" as Client
+participant "AnalyticsManager" as AM
+participant "DataCollector" as DC
+participant "EventProcessor" as EP
+participant "MetricsEngine" as ME
+participant "ReportGenerator" as RG
+participant "PrivacyService" as PS
+participant "StorageService" as SS
+
+User -> Client: Performs action (e.g., page view, click)
+Client -> AM: track(event: AnalyticsEvent)
+activate AM
+
+AM -> AM: validateEvent(event)
+AM -> PS: applyPrivacyFilters(event)
+activate PS
+PS --> AM: filteredEvent
+deactivate PS
+AM -> AM: enrichEvent(filteredEvent)
+
+AM -> DC: collect(enrichedEvent)
+activate DC
+DC --> AM: TrackingResult
+deactivate DC
+
+alt If real-time processing configured
+    AM -> EP: processRealTime(enrichedEvent)
+    activate EP
+    EP --> AM:
+    deactivate EP
+end
+
+AM --> Client: TrackingResult
+deactivate AM
+
+User -> Client: Requests dashboard data
+Client -> AM: getDashboardData(request: DashboardRequest)
+activate AM
+
+AM -> AM: validateDashboardRequest(request)
+AM -> AM: getDashboardConfig(dashboardId)
+AM -> AM: collectWidgetData(widgets, context)
+
+AM -> ME: query(metricsQuery)
+activate ME
+ME --> AM:rawMetrics
+deactivate ME
+
+AM -> PS: applyPrivacyFiltersToResult(rawMetrics, context)
+activate PS
+PS --> AM: filteredMetrics
+deactivate PS
+
+AM --> Client: DashboardData
+deactivate AM
+
+User -> AM: Initiates scheduled report generation
+activate AM
+AM -> AM: scheduleReport(schedule: ReportSchedule)
+
+AM -> RG: schedule(schedule)
+activate RG
+RG --> AM: ScheduleResult
+deactivate RG
+
+AM --> User: ScheduleResult
+deactivate AM
+
+System -> RG: TriggerScheduledReport
+activate RG
+RG -> ME: query(reportMetricsQuery)
+activate ME
+ME --> RG: reportData
+deactivate ME
+
+RG -> RG: generate(reportData)
+RG -> PS: applyPrivacyFiltersToReport(report, context)
+activate PS
+PS --> RG: filteredReport
+deactivate PS
+RG -> SS: storeReport(filteredReport)
+activate SS
+SS --> RG:
+deactivate SS
+RG --> System: ReportGenerationComplete
+
+@enduml

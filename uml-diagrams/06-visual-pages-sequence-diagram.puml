@@ -1,0 +1,95 @@
+@startuml
+!theme toy
+
+autonumber
+
+participant "Client (Browser)" as Client
+participant "Visual Page (React Component)" as Page
+participant "BaseVisualPage Instance" as BasePage
+participant "PageController Hook" as PageController
+participant "Permission Hook" as PermHook
+participant "Organization Hook" as OrgHook
+participant "Data Service Layer" as DataService
+participant "API Endpoints" as API
+participant "Loading UI" as LoadingUI
+participant "Error Boundary" as ErrorBoundary
+
+Client -> Page: Render Visual Page
+activate Page
+
+Page -> BasePage: constructor(props)
+activate BasePage
+
+BasePage -> BasePage: componentDidMount()
+activate BasePage
+
+BasePage -> BasePage: initializePage()
+activate BasePage
+
+BasePage -> BasePage: setState({ loading: true })
+BasePage -> PageController: usePageController()
+activate PageController
+PageController --> BasePage: Page Controller Instance
+deactivate PageController
+
+BasePage -> PermHook: usePermission()
+activate PermHook
+PermHook --> BasePage: Permission State
+deactivate PermHook
+
+BasePage -> OrgHook: useOrganization()
+activate OrgHook
+OrgHook --> BasePage: Organization Context
+deactivate OrgHook
+
+BasePage -> BasePage: loadPageData()
+activate BasePage
+
+BasePage -> DataService: fetchData (from concrete page implementation)
+activate DataService
+
+DataService -> API: Request Data (e.g., Project Analytics Data)
+activate API
+API --> DataService: Data Response
+deactivate API
+
+DataService --> BasePage: Page Data
+deactivate DataService
+deactivate BasePage
+
+BasePage -> BasePage: setState({ data, loading: false, initialized: true })
+BasePage --> Client: Render Initial Page Content (with data)
+deactivate BasePage
+deactivate Page
+
+Client -> Page: User Interaction (e.g., filter data)
+activate Page
+Page -> BasePage: fetchData(newFilters)
+activate BasePage
+BasePage -> DataService: Request Filtered Data
+activate DataService
+DataService -> API: API Call with Filters
+activate API
+API --> DataService: Filtered Data
+deactivate API
+DataService --> BasePage: Filtered Data
+deactivate DataService
+deactivate BasePage
+Page --> Client: Update Page Content
+deactivate Page
+
+Client -> Page: Error Occurs during render or data fetch
+activate Page
+Page -> ErrorBoundary: componentDidCatch()
+activate ErrorBoundary
+ErrorBoundary --> Page: Error Handled
+deactivate ErrorBoundary
+Page --> Client: Render Error UI
+deactivate Page
+
+Client -> BasePage: componentWillUnmount()
+activate BasePage
+BasePage -> BasePage: cleanup() (abort ongoing fetches)
+deactivate BasePage
+
+@enduml

@@ -1,0 +1,329 @@
+@startuml
+!theme toy
+
+' Enums
+enum RealTimeFeature {
+    LIVE_UPDATES
+    COLLABORATIVE_EDITING
+    INSTANT_MESSAGING
+    NOTIFICATIONS
+    PRESENCE
+    ACTIVITY_FEED
+    LIVE_DASHBOARD
+    CURSOR_TRACKING
+    VOICE_CHAT
+    VIDEO_CHAT
+    SCREEN_SHARING
+    WHITEBOARD
+}
+
+enum ConnectionType {
+    WEBSOCKET
+    SERVER_SENT_EVENTS
+    SOCKET_IO
+    WEBRTC
+    LONG_POLLING
+}
+
+enum MessageType {
+    DATA_UPDATE
+    USER_ACTION
+    SYSTEM_EVENT
+    NOTIFICATION
+    PRESENCE_UPDATE
+    CURSOR_MOVE
+    SELECTION_CHANGE
+    DOCUMENT_CHANGE
+    HEARTBEAT
+    ERROR
+}
+
+enum SyncStrategy {
+    OPERATIONAL_TRANSFORM
+    CONFLICT_FREE_REPLICATED_DATA_TYPE
+    LAST_WRITER_WINS
+    MANUAL_MERGE
+    SNAPSHOT_BASED
+}
+
+enum PresenceStatus {
+    ONLINE
+    AWAY
+    BUSY
+    OFFLINE
+    INVISIBLE
+}
+
+enum ScopeType {
+    GLOBAL
+    ORGANIZATION
+    APPLICATION
+    RESOURCE
+    CUSTOM
+}
+
+' Interfaces/Types
+interface RealTimeConfiguration {
+    +id: string
+    +name: string
+    +feature: RealTimeFeature
+    +connectionType: ConnectionType
+    +syncStrategy: SyncStrategy
+    +scope: RealTimeScope
+    +security: SecurityConfig
+    +performance: PerformanceConfig
+    +collaboration: CollaborationConfig
+    +presence: PresenceConfig
+    +messaging: MessagingConfig
+    +persistence: PersistenceConfig
+    +scaling: ScalingConfig
+    +monitoring: MonitoringConfig
+    +enabled: boolean
+    +organizationId?: string
+    +applicationId?: string
+}
+
+interface RealTimeScope {
+    +type: ScopeType
+    +resourceId?: string
+    +permissions: Permission[]
+    +filters: ScopeFilter[]
+}
+
+interface SecurityConfig {
+    +authentication: AuthenticationConfig
+    +authorization: AuthorizationConfig
+    +encryption: EncryptionConfig
+    +rateLimit: RateLimitConfig
+    +validation: ValidationConfig
+}
+
+interface PerformanceConfig {
+    +maxConnections: number
+    +messageQueueSize: number
+    +heartbeatInterval: number
+    +reconnectTimeout: number
+    +maxReconnectAttempts: number
+    +compressionEnabled: boolean
+    +batchingEnabled: boolean
+    +batchSize: number
+    +batchTimeout: number
+}
+
+interface CollaborationConfig {
+    +maxCollaborators: number
+    +conflictResolution: ConflictResolutionConfig
+    +operationalTransform: OTConfig
+    +crdt: CRDTConfig
+    +lockingStrategy: LockingStrategy
+    +mergeStrategy: MergeStrategy
+}
+
+interface PresenceConfig {
+    +enabled: boolean
+    +statusTypes: PresenceStatus[]
+    +timeout: number
+    +broadcastInterval: number
+    +includeMetadata: boolean
+    +customFields: PresenceField[]
+}
+
+interface MessagingConfig {
+    +enabled: boolean
+    +messageTypes: MessageType[]
+    +persistence: boolean
+    +encryption: boolean
+    +moderation: ModerationConfig
+    +fileSharing: FileShareConfig
+}
+
+interface PersistenceConfig {
+    +enabled: boolean
+    +strategy: PersistenceStrategy
+    +retention: number
+    +compression: boolean
+    +snapshotInterval: number
+}
+
+interface ScalingConfig {
+    +horizontal: HorizontalScalingConfig
+    +loadBalancing: LoadBalancingConfig
+    +clustering: ClusteringConfig
+    +sharding: ShardingConfig
+}
+
+interface MonitoringConfig {
+    +enabled: boolean
+    +metrics: MetricConfig[]
+    +alerts: AlertConfig[]
+    +logging: LoggingConfig
+    +analytics: AnalyticsConfig
+}
+
+interface RealTimeConnection
+interface RealTimeMessage
+interface ConnectionTarget
+interface SendResult
+interface BroadcastScope
+interface BroadcastResult
+interface CollaborativeOperation
+interface OperationResult
+interface PresenceUpdate
+interface PresenceInfo
+interface RealTimeAnalyticsRequest
+interface RealTimeAnalyticsResult
+interface ConnectionRequest
+interface Permission
+interface ScopeFilter
+interface AuthenticationConfig
+interface AuthorizationConfig
+interface EncryptionConfig
+interface RateLimitConfig
+interface ValidationConfig
+interface ConflictResolutionConfig
+interface OTConfig
+interface CRDTConfig
+interface LockingStrategy
+interface MergeStrategy
+interface PresenceField
+interface ModerationConfig
+interface FileShareConfig
+interface PersistenceStrategy
+interface HorizontalScalingConfig
+interface LoadBalancingConfig
+interface ClusteringConfig
+interface ShardingConfig
+interface MetricConfig
+interface AlertConfig
+interface LoggingConfig
+
+' Services and Managers
+class ConnectionManager
+class MessageRouter
+class SyncEngine
+class PresenceManager
+class SecurityService
+class AnalyticsService
+class RealTimeError
+class WebSocketServer
+class SSEServer
+class SocketIOServer
+class ConnectionPool
+class MessageQueue
+class EventBus
+class BroadcastEngine
+class FilterEngine
+class StateManager
+class DeltaEngine
+class SnapshotManager
+class VersionControl
+class CRDTEngine
+class OTEngine
+class MergeResolver
+class ConflictLogger
+
+' RealTimeManager Class
+class RealTimeManager {
+    -configurations: Map<string, RealTimeConfiguration>
+    -connectionManager: ConnectionManager
+    -messageRouter: MessageRouter
+    -syncEngine: SyncEngine
+    -presenceManager: PresenceManager
+    -security: SecurityService
+    -analytics: AnalyticsService
+
+    +constructor()
+    +registerConfiguration(config: RealTimeConfiguration): void
+    +createConnection(request: ConnectionRequest): Promise<RealTimeConnection>
+    +sendMessage(message: RealTimeMessage, targets?: ConnectionTarget[]): Promise<SendResult>
+    +broadcast(message: RealTimeMessage, scope: BroadcastScope): Promise<BroadcastResult>
+    +handleCollaborativeEdit(operation: CollaborativeOperation): Promise<OperationResult>
+    +updatePresence(connectionId: string, presence: PresenceUpdate): Promise<void>
+    +getPresence(scope: PresenceScope): Promise<PresenceInfo[]>
+    +closeConnection(connectionId: string, reason?: string): Promise<void>
+    +getAnalytics(request: RealTimeAnalyticsRequest): Promise<RealTimeAnalyticsResult>
+    -initializeEventHandlers(): void
+    -validateConfiguration(config: RealTimeConfiguration): void
+    -getConfiguration(configId: string): RealTimeConfiguration
+    -initializeFeature(config: RealTimeConfiguration): void
+    -authenticateConnection(request: ConnectionRequest, config: RealTimeConfiguration): Promise<void>
+    -trackConnectionEvent(connection: RealTimeConnection, eventType: string, data?: any): Promise<void>
+    -validateMessage(message: RealTimeMessage): Promise<void>
+    -trackMessageEvent(message: RealTimeMessage, results: SendAttemptResult[]): Promise<void>
+    -resolveTargets(targets: ConnectionTarget[]): Promise<RealTimeConnection[]>
+    -getConnectionsForScope(scope: MessageScope): Promise<RealTimeConnection[]>
+    -filterByPermissions(connections: RealTimeConnection[], message: RealTimeMessage): Promise<RealTimeConnection[]>
+    -getConnectionsInScope(scope: BroadcastScope): Promise<RealTimeConnection[]>
+    -broadcastOperation(operation: CollaborativeOperation, result: OperationResult): Promise<void>
+    -broadcastPresenceUpdate(connection: RealTimeConnection, presence: PresenceUpdate): Promise<void>
+    -checkRateLimit(userId: string, config: RealTimeConfiguration): Promise<void>
+}
+
+' Relationships
+
+RealTimeManager "1" o-- "1" ConnectionManager
+RealTimeManager "1" o-- "1" MessageRouter
+RealTimeManager "1" o-- "1" SyncEngine
+RealTimeManager "1" o-- "1" PresenceManager
+RealTimeManager "1" o-- "1" SecurityService
+RealTimeManager "1" o-- "1" AnalyticsService
+
+RealTimeConfiguration "1" --> RealTimeFeature
+RealTimeConfiguration "1" --> ConnectionType
+RealTimeConfiguration "1" --> SyncStrategy
+RealTimeConfiguration "1" *-- "1" RealTimeScope
+RealTimeConfiguration "1" *-- "1" SecurityConfig
+RealTimeConfiguration "1" *-- "1" PerformanceConfig
+RealTimeConfiguration "1" *-- "1" CollaborationConfig
+RealTimeConfiguration "1" *-- "1" PresenceConfig
+RealTimeConfiguration "1" *-- "1" MessagingConfig
+RealTimeConfiguration "1" *-- "1" PersistenceConfig
+RealTimeConfiguration "1" *-- "1" ScalingConfig
+RealTimeConfiguration "1" *-- "1" MonitoringConfig
+
+RealTimeScope "1" --> ScopeType
+SecurityConfig *-- AuthenticationConfig
+SecurityConfig *-- AuthorizationConfig
+SecurityConfig *-- EncryptionConfig
+SecurityConfig *-- RateLimitConfig
+SecurityConfig *-- ValidationConfig
+CollaborationConfig *-- ConflictResolutionConfig
+CollaborationConfig *-- OTConfig
+CollaborationConfig *-- CRDTConfig
+CollaborationConfig *-- LockingStrategy
+CollaborationConfig *-- MergeStrategy
+PresenceConfig *-- PresenceStatus
+MessagingConfig *-- MessageType
+MessagingConfig *-- ModerationConfig
+MessagingConfig *-- FileShareConfig
+PersistenceConfig *-- PersistenceStrategy
+ScalingConfig *-- HorizontalScalingConfig
+ScalingConfig *-- LoadBalancingConfig
+ScalingConfig *-- ClusteringConfig
+ScalingConfig *-- ShardingConfig
+MonitoringConfig *-- MetricConfig
+MonitoringConfig *-- AlertConfig
+MonitoringConfig *-- LoggingConfig
+
+ConnectionManager --> WebSocketServer
+ConnectionManager --> SSEServer
+ConnectionManager --> SocketIOServer
+ConnectionManager --> ConnectionPool
+
+MessageRouter --> MessageQueue
+MessageRouter --> EventBus
+MessageRouter --> BroadcastEngine
+MessageRouter --> FilterEngine
+
+SyncEngine --> StateManager
+SyncEngine --> DeltaEngine
+SyncEngine --> SnapshotManager
+SyncEngine --> VersionControl
+SyncEngine -> CRDTEngine
+SyncEngine -> OT Engine
+SyncEngine -> MergeResolver
+SyncEngine -> ConflictLogger
+
+RealTimeError --|> Error
+
+@enduml

@@ -1,0 +1,60 @@
+@startuml
+!theme toy
+
+state "Workflow Execution Lifecycle" as WorkflowLifecycle {
+  state "Idle" as Idle
+  state "Pending" as Pending
+  state "Running" as Running {
+    state "Initializing" as Initializing
+    state "Validating Security" as ValidatingSec
+    state "Executing Steps" as ExecutingSteps
+    state "Handling Step Error" as HandlingStepError
+    state "Paused" as Paused
+  }
+  state "Completed" as Completed
+  state "Failed" as Failed
+  state "Terminated" as Terminated
+
+  [*] --> Idle
+  Idle --> Pending : workflow triggered
+  Pending --> Initializing : engine picks up workflow
+
+  Initializing --> ValidatingSec : setup complete
+  ValidatingSec --> ExecutingSteps : security valid
+  ValidatingSec --> Failed : security invalid
+
+  ExecutingSteps --> Completed : all steps successful
+  ExecutingSteps --> HandlingStepError : step failed
+
+  HandlingStepError --> Paused : retryable error / manual intervention
+  HandlingStepError --> Failed : unrecoverable error
+
+  Paused --> ExecutingSteps : resumed / retry
+  Paused --> Terminated : manual termination
+
+  Completed --> [*]
+  Failed --> [*]
+  Terminated --> [*]
+
+  state "Step Execution Sub-process" as StepExecutionSubprocess {
+    state "Step Ready" as StepReady
+    state "Step InProgress" as StepInProgress
+    state "Step Skipped" as StepSkipped
+    state "Step Succeeded" as StepSucceeded
+    state "Step Failed" as StepFailed
+    state "Step Retrying" as StepRetrying
+  }
+
+  ExecutingSteps --> StepExecutionSubprocess : begins step
+  StepExecutionSubprocess --> StepReady : new step
+  StepReady --> StepInProgress : execute action
+  StepInProgress --> StepSucceeded : action successful
+  StepInProgress --> StepFailed : action failed and retry policy exhaust
+  StepInProgress --> StepRetrying : action failed, retries left
+  StepRetrying --> StepInProgress : retrying
+  StepSucceeded --> ExecutingSteps : continues workflow
+  StepFailed --> ExecutingSteps : propagates error (handled by workflow)
+  StepReady --> StepSkipped : conditions not met
+  StepSkipped --> ExecutingSteps : continues workflow
+}
+@enduml

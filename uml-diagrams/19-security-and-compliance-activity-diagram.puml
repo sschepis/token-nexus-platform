@@ -1,0 +1,103 @@
+@startuml
+!theme toy
+
+partition "Authentication Workflow" {
+    start
+    :User submits credentials;
+    :Log Authentication Attempt;
+    :Validate Credentials;
+    if (Credentials Valid?) then (Yes)
+        :Check for Suspicious Activity (e.g., failed login attempts, geo-location);
+        if (Suspicious Activity Detected?) then (Yes)
+            :Flag for Review / Block User;
+            :Notify Security Team;
+            stop
+        else (No)
+            :Apply Multi-Factor Authentication (MFA);
+            if (MFA Successful?) then (Yes)
+                :Create Secure Session and Token;
+                :Log Successful Authentication;
+                :Return Session Token;
+                stop
+            else (No)
+                :Log MFA Failure;
+                stop
+            endif
+        endif
+    else (No)
+        :Log Authentication Failure;
+        stop
+    endif
+}
+
+partition "Authorization Workflow" {
+    start
+    :Application requests access to Resource (Action, Context);
+    :Validate Session Token;
+    :Retrieve User Permissions and Policies;
+    :Evaluate Policies using RBAC/ABAC Engine;
+    if (Authorized?) then (Yes)
+        :Log Successful Authorization;
+        :Grant Access;
+        stop
+    else (No)
+        :Log Authorization Denial;
+        :Deny Access;
+        stop
+    endif
+}
+
+partition "Data Encryption/Decryption Workflow" {
+    start
+    :Request Data Operation (Encrypt/Decrypt);
+    :Validate Request and User Permissions;
+    :Access Key Management Service;
+    :Retrieve Encryption Key;
+    :Perform Data Encryption/Decryption;
+    :Log Encryption/Decryption Event;
+    :Return Processed Data;
+    stop
+}
+
+partition "Threat Detection and Incident Response Workflow" {
+    start
+    :Monitor System Logs and Traffic;
+    :Detect Anomalies / Known Threat Patterns (WAF, IDS/IPS);
+    :Assess Threat Level;
+    if (Threat Level is Critical?) then (Yes)
+        :Trigger Incident Response Plan;
+        :Isolate Affected Systems;
+        :Notify Relevant Teams (Security, Operations);
+        :Conduct Forensic Investigation;
+        :Eradicate Threat;
+        :Restore Services;
+        :Post-Incident Review;
+        :Update Security Policies;
+        stop
+    else (No)
+        :Log Threat Details;
+        :Generate Alert (if High/Medium);
+        stop
+    endif
+}
+
+partition "Compliance Validation Workflow" {
+    start
+    :Initiate Compliance Audit / Continuous Monitoring;
+    :Collect Relevant Data (Audit Logs, Configuration, User Consent);
+    :Validate Against Regulatory Frameworks (GDPR, SOC2, HIPAA);
+    if (Compliance Achieved?) then (Yes)
+        :Generate Compliance Report;
+        :Maintain Audit Trail;
+        :Schedule Next Audit;
+        stop
+    else (No)
+        :Identify Violations;
+        :Generate Remediation Plan;
+        :Track Remediation Progress;
+        :Notify Compliance Officer;
+        stop
+    endif
+}
+
+@enduml

@@ -1,0 +1,89 @@
+@startuml
+!theme toy
+
+actor User
+participant "ClientApp" as Client
+participant "SearchManager" as SM
+participant "CacheService" as Cache
+participant "QueryProcessor" as QP
+participant "SecurityService" as SS
+participant "SearchEngine" as SE
+participant "ResultAggregator" as RA
+participant "AnalyticsService" as AS
+database "Indexed Data" as IDB
+
+User -> Client: Initiates Search (query, filters)
+Client -> SM: search(request: SearchRequest)
+activate SM
+
+SM -> SM: getConfiguration(request.configId)
+SM -> SM: validateSearchRequest(request, config)
+
+SM -> Cache: getCachedResult(request, config)
+activate Cache
+Cache --> SM: cachedResult (optional)
+deactivate Cache
+
+alt If cachedResult exists
+    SM -> AS: trackSearchEvent(request, cachedResult, 'cache_hit')
+    activate AS
+    AS --> SM:
+    deactivate AS
+    SM --> Client: cachedResult
+else No cachedResult
+    SM -> QP: process(request, config)
+    activate QP
+    QP --> SM: processedQuery
+    deactivate QP
+
+    SM -> SS: applySecurityFilters(processedQuery, request.context)
+    activate SS
+    SS --> SM: secureQuery
+    deactivate SS
+
+    SM -> SE: executeSearch(secureQuery, config)
+    activate SE
+    SE --> IDB: query data
+    IDB --> SE: rawResults
+    SE --> SM: rawResults
+    deactivate SE
+
+    SM -> RA: aggregate(rawResults, config)
+    activate RA
+    RA --> SM: aggregatedResults
+    deactivate RA
+
+    SM -> SM: formatResults(aggregatedResults, config)
+    SM -> Cache: cacheResults(request, formattedResults, config)
+    activate Cache
+    Cache --> SM:
+    deactivate Cache
+
+    SM -> AS: trackSearchEvent(request, formattedResults, 'search')
+    activate AS
+    AS --> SM:
+    deactivate AS
+
+    SM --> Client: formattedResults
+end
+
+deactivate SM
+Client --> User: Display Search Results
+
+User -> Client: Triggers Indexing (e.g., saves new content)
+Client -> SM: indexDocument(document: SearchDocument, configId?: string)
+activate SM
+
+SM -> SM: getConfigurationsForDocument(document) // if configId not provided
+loop for each relevant config
+    SM -> IndexManager: indexDocument(document, config)
+    activate IndexManager
+    IndexManager -> SE: index document
+    SE --> IndexManager: IndexSuccess
+    IndexManager --> SM: IndexOperationResult
+    deactivate IndexManager
+end
+SM --> Client: IndexResult (status for all configs)
+deactivate SM
+
+@enduml

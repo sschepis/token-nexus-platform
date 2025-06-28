@@ -1,0 +1,118 @@
+@startuml
+!theme toy
+
+autonumber
+
+participant "Client (Browser)" as Client
+participant "Custom Page (React Component)" as Page
+participant "CustomPageBase Instance" as BasePage
+participant "PlatformIntegrationService" as PlatformService
+participant "CustomPageSecurityService" as SecurityService
+participant "CustomPagePerformanceService" as PerformanceService
+participant "Local Cache" as Cache
+participant "Platform API" as PlatformAPI
+participant "External API" as ExternalAPI
+participant "Loading UI" as LoadingUI
+participant "Error Boundary" as ErrorBoundary
+
+Client -> Page: Render Custom Page
+activate Page
+
+Page -> BasePage: constructor(props)
+activate BasePage
+
+BasePage -> BasePage: componentDidMount()
+activate BasePage
+
+BasePage -> BasePage: initializePage()
+activate BasePage
+
+BasePage -> BasePage: setState({ loading: true })
+BasePage -> SecurityService: validatePageSecurity (permissions, org context, policies)
+activate SecurityService
+SecurityService --> BasePage: Validation Result
+deactivate SecurityService
+
+BasePage -> PlatformService: initializeService(platformServices) // for metadata dependencies
+activate PlatformService
+PlatformService --> BasePage: Services Initialized
+deactivate PlatformService
+
+BasePage -> PlatformService: setupExternalAPI(apiConfigs) // for metadata dependencies
+activate PlatformService
+PlatformService --> BasePage: External APIs Setup
+deactivate PlatformService
+
+BasePage -> BasePage: initializeCustomPage() (abstract method implemented by concrete page)
+activate BasePage
+BasePage --> BasePage: Custom Page Logic Initialized
+deactivate BasePage
+
+BasePage -> BasePage: setupCustomEventListeners()
+
+BasePage -> BasePage: setState({ initialized: true, loading: false })
+BasePage --> Client: Render Initial Page Content
+deactivate BasePage
+deactivate Page
+
+Client -> Page: User Interaction (e.g., load new data)
+activate Page
+Page -> BasePage: loadData(loaderFunction, options)
+activate BasePage
+
+alt Cache Hit
+    BasePage -> Cache: getFromCache(cacheKey)
+    activate Cache
+    Cache --> BasePage: Cached Data
+    deactivate Cache
+    BasePage --> Page: Data Loaded from Cache
+else Cache Miss or No Cache
+    BasePage -> BasePage: setState({ loading: true })
+    BasePage -> BasePage: loaderFunction() (calls platformService.callAPI or callExternalAPI)
+    activate BasePage
+    alt Platform API Call
+        BasePage -> PlatformService: callAPI(endpoint, data, options)
+        activate PlatformService
+        PlatformService -> PlatformAPI: HTTP Request
+        activate PlatformAPI
+        PlatformAPI --> PlatformService: Response
+        deactivate PlatformAPI
+        PlatformService --> BasePage: API Result
+        deactivate PlatformService
+    else External API Call
+        BasePage -> PlatformService: callExternalAPI(apiId, endpoint, data, options)
+        activate PlatformService
+        PlatformService -> ExternalAPI: HTTP Request
+        activate ExternalAPI
+        ExternalAPI --> PlatformService: Response
+        deactivate ExternalAPI
+        PlatformService --> BasePage: API Result
+        deactivate PlatformService
+    end
+    BasePage -> Cache: setCache(cacheKey, result, cacheTTL)
+    activate Cache
+    Cache --> BasePage: Data Cached
+    deactivate Cache
+    BasePage -> BasePage: setState({ loading: false })
+    BasePage --> Page: Data Loaded
+end
+deactivate BasePage
+Page --> Client: Update Page Content
+deactivate Page
+
+Client -> Page: Error Occurs during render or data fetch
+activate Page
+Page -> ErrorBoundary: componentDidCatch()
+activate ErrorBoundary
+ErrorBoundary --> Page: Error Handled
+deactivate ErrorBoundary
+Page --> Client: Render Error UI
+deactivate Page
+
+Client -> BasePage: componentWillUnmount()
+activate BasePage
+BasePage -> BasePage: cleanup() (abort ongoing requests, disconnect performance observer)
+BasePage -> BasePage: cleanupCustomResources()
+deactivate BasePage
+
+@enduml

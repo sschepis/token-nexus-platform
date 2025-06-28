@@ -1,0 +1,52 @@
+@startuml
+!theme toy
+
+left to right direction
+
+actor "Platform User" as User
+actor "System Admin" as Admin
+actor "External Service" as External
+
+rectangle "Real-time System" {
+  usecase "Establish Real-time Connection" as UC1
+  usecase "Send Real-time Message" as UC2
+  usecase "Receive Real-time Message" as UC3
+  usecase "Update Presence Status" as UC4
+  usecase "View User Presence" as UC5
+  usecase "Collaborative Document Editing" as UC6
+  usecase "Receive Live Updates (UI)" as UC7
+  usecase "Live Activity Feed" as UC8
+  usecase "Conduct Live Chat (Messaging)" as UC9
+  usecase "Monitor Real-time System" as UC10
+  usecase "Configure Real-time Features" as UC11
+  usecase "Manage Real-time Connections" as UC12
+  usecase "Integrate External Real-time Data" as UC13
+  usecase "Perform Real-time Analytics" as UC14
+}
+
+User -- UC1
+User -- UC2
+User -- UC3
+User -- UC4
+User -- UC5
+User -- UC6
+User -- UC7
+User -- UC8
+User -- UC9
+
+Admin -- UC10
+Admin -- UC11
+Admin -- UC12
+Admin -- UC14
+
+External -- UC2 : <<triggers>>
+External -- UC3 : <<receives from>>
+External -- UC13 : <<integrates with>>
+
+UC6 .> UC2 : includes
+UC6 .> UC3 : includes
+
+UC1 .> UC14 : includes
+UC2 .> UC14 : includes
+
+@enduml

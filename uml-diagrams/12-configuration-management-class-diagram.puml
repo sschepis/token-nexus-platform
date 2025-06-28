@@ -1,0 +1,209 @@
+@startuml
+!theme toy
+
+' Enums
+enum ConfigurationCategory {
+    APPLICATION
+    DATABASE
+    SECURITY
+    INTEGRATION
+    FEATURE_FLAGS
+    PERFORMANCE
+    MONITORING
+    NOTIFICATION
+}
+
+enum ConfigurationScope {
+    SYSTEM
+    ORGANIZATION
+    USER
+    APPLICATION
+}
+
+enum ConfigurationSensitivity {
+    PUBLIC
+    INTERNAL
+    CONFIDENTIAL
+    SECRET
+}
+
+enum ConfigurationDataType {
+    STRING
+    NUMBER
+    BOOLEAN
+    JSON
+    ARRAY
+}
+
+' Interfaces/Types
+interface ConfigurationMetadata {
+    +key: string
+    +category: ConfigurationCategory
+    +scope: ConfigurationScope
+    +sensitivity: ConfigurationSensitivity
+    +description: string
+    +dataType: ConfigurationDataType
+    +defaultValue?: any
+    +required: boolean
+    +validation: ValidationConfig
+    +environment: EnvironmentConfig
+    +encryption: EncryptionConfig
+    +caching: CachingConfig
+    +audit: AuditConfig
+    +tags: string[]
+}
+
+interface ValidationConfig {
+    +schema: any
+    +customValidator?: string
+    +dependencies?: string[]
+}
+
+interface EnvironmentConfig {
+    +environments: string[]
+    +overrides: Record<string, any>
+    +inheritance: boolean
+}
+
+interface EncryptionConfig {
+    +enabled: boolean
+    +algorithm?: string
+    +keyId?: string
+}
+
+interface CachingConfig {
+    +enabled: boolean
+    +ttl: number
+    +invalidateOn: string[]
+}
+
+interface AuditConfig {
+    +trackChanges: boolean
+    +retentionDays: number
+    +notifyOnChange: boolean
+}
+
+interface ConfigurationValue
+interface ConfigurationSource {
+    +name: string
+    +priority: number
+    +getValue(key: string, context?: ConfigurationContext): Promise<any>
+    +setValue(key: string, value: any, context?: ConfigurationContext): Promise<void>
+}
+interface ConfigurationContext {
+    +environment?: string;
+    +organizationId?: string;
+    +userId?: string;
+}
+
+class EncryptionService
+class ValidationService
+class CacheService
+class AuditService
+
+' ConfigurationManager Class
+class ConfigurationManager {
+    -sources: ConfigurationSource[]
+    -cache: Map<string, ConfigurationValue>
+    -metadata: Map<string, ConfigurationMetadata>
+    
+    -encryptionService: EncryptionService
+    -validationService: ValidationService
+    -cacheService: CacheService
+    -auditService: AuditService
+
+    +constructor()
+    +get<T = any>(key: string, context?: ConfigurationContext): Promise<T>
+    +set(key: string, value: any, context?: ConfigurationContext): Promise<void>
+    +registerConfiguration(metadata: ConfigurationMetadata): void
+    +registerSource(source: ConfigurationSource): void
+    +getMultiple(keys: string[], context?: ConfigurationContext): Promise<Record<string, any>>
+    +setMultiple(values: Record<string, any>, context?: ConfigurationContext): Promise<void>
+    -initializeSources(): void
+    -resolveValue<T>(key: string, context?: ConfigurationContext): Promise<T>
+    -getCurrentValue(key: string, context?: ConfigurationContext): Promise<any>
+    -updateInSource(key: string, value: any, context?: ConfigurationContext): Promise<void>
+    -processValueForStorage(key: string, value: any): Promise<any>
+    -processValueFromStorage<T>(key: string, value: any): Promise<T>
+    -convertValue<T>(value: any, dataType: ConfigurationDataType): T
+    -validateValue(key: string, value: any): Promise<void>
+    -validateMetadata(metadata: ConfigurationMetadata): void
+    -executeCustomValidator(validatorName: string, key: string, value: any): Promise<boolean>
+    -validateDependencies(key: string, value: any, dependencies: string[]): Promise<void>
+    -getCachedValue<T>(key: string, context?: ConfigurationContext): Promise<T | null>
+    -cacheValue(key: string, value: any, context?: ConfigurationContext): Promise<void>
+    -invalidateCache(key: string, context?: ConfigurationContext): Promise<void>
+    -generateCacheKey(key: string, context?: ConfigurationContext): string
+    -auditConfigurationChange(key: string, oldValue: any, newValue: any, context?: ConfigurationContext): Promise<void>
+    -sanitizeValueForAudit(value: any, metadata: ConfigurationMetadata): any
+    -notifyConfigurationChange(key: string, oldValue: any, newValue: any, context?: ConfigurationContext): Promise<void>
+}
+
+' Configuration Source Implementations
+class EnvironmentVariableSource {
+    +constructor()
+    +getValue(key: string): Promise<any>
+    +setValue(key: string, value: any): Promise<void>
+}
+
+class FileConfigSource {
+    +constructor(filePath: string)
+    +getValue(key: string): Promise<any>
+    +setValue(key: string, value: any): Promise<void>
+}
+
+class DatabaseConfigSource {
+    +constructor()
+    +getValue(key: string, context?: ConfigurationContext): Promise<any>
+    +setValue(key: string, value: any, context?: ConfigurationContext): Promise<void>
+}
+
+class ExternalConfigServiceSource {
+    +constructor(serviceUrl: string)
+    +getValue(key: string, context?: ConfigurationContext): Promise<any>
+    +setValue(key: string, value: any, context?: ConfigurationContext): Promise<void>
+}
+
+' Application Configuration Example
+
+class ApplicationConfig {
+    -configManager: ConfigurationManager
+    +constructor()
+    +getApiKey(): Promise<string>
+    +setApiKey(key: string): Promise<void>
+    +isFeatureEnabled(feature: string): Promise<boolean>
+    +getDatabaseConnection(): Promise<string>
+    +setLogLevel(level: string): Promise<void>
+    +getNotificationSettings(orgId: string): Promise<any>
+    +setNotificationSettings(orgId: string, settings: any): Promise<void>
+    +initialize(): Promise<void>
+}
+
+' Relationships
+
+ConfigurationManager "1" o-- "N" ConfigurationSource
+ConfigurationManager --> EncryptionService
+ConfigurationManager --> ValidationService
+ConfigurationManager --> CacheService
+ConfigurationManager --> AuditService
+ConfigurationManager "1" *-- "N" ConfigurationMetadata
+
+
+ConfigurationMetadata --> ConfigurationCategory
+ConfigurationMetadata --> ConfigurationScope
+ConfigurationMetadata --> ConfigurationSensitivity
+ConfigurationMetadata --> ConfigurationDataType
+ConfigurationMetadata *-- ValidationConfig
+ConfigurationMetadata *-- EnvironmentConfig
+ConfigurationMetadata *-- EncryptionConfig
+ConfigurationMetadata *-- CachingConfig
+ConfigurationMetadata *-- AuditConfig
+
+EnvironmentVariableSource --|> ConfigurationSource
+FileConfigSource --|> ConfigurationSource
+DatabaseConfigSource --|> ConfigurationSource
+ExternalConfigServiceSource --|> ConfigurationSource
+
+ApplicationConfig --> ConfigurationManager
+
+@enduml

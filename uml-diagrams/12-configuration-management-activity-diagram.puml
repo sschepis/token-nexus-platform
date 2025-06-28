@@ -1,0 +1,53 @@
+@startuml
+!theme toy
+
+start
+:Client Requests Configuration Value;
+
+:Check Configuration Cache;
+if (Value in Cache and Valid?) then (yes)
+  :Return Cached Value;
+  stop
+endif
+
+:Resolve Value from Configuration Sources (Hierarchical);
+if (Value Found?) then (yes)
+  :Decrypt Value (if encrypted);
+else (no)
+  :Check Default Value;
+  if (Default Value Available?) then (yes)
+    :Return Default Value;
+    stop
+  else (no)
+    :Throw "Configuration Not Found" Error;
+    stop
+  endif
+endif
+
+:Validate Retrieved Value;
+if (Validation Successful?) then (no)
+  :Throw "Validation Failed" Error;
+  stop
+endif
+
+:Cache Value (if caching enabled);
+:Return Resolved Value;
+stop
+
+:Client Sets Configuration Value;
+:Get Current Value for Audit;
+:Validate New Value;
+if (New Value Valid?) then (no)
+  :Throw "Validation Failed" Error;
+  stop
+endif
+
+:Encrypt Value (if sensitive);
+:Update Value in Primary Source;
+:Invalidate Cache;
+:Audit Configuration Change;
+:Notify Configuration Change;
+:Return Success;
+stop
+
+@enduml

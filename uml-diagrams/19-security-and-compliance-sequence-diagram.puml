@@ -1,0 +1,122 @@
+@startuml
+!theme toy
+
+actor User
+participant "ClientApp" as Client
+participant "SecurityManager" as SM
+participant "AuthenticationService" as AuthS
+participant "AuthorizationService" as AuthzS
+participant "EncryptionService" as EncS
+participant "ThreatDetectionService" as TDS
+participant "ComplianceService" as CompS
+participant "AuditService" as AuditS
+database "IdentityDB" as IDB
+database "ComplianceDB" as CDB
+database "SecurityLogs" as SL
+
+User -> Client: Login Request (credentials)
+Client -> SM: authenticate(request: AuthenticationRequest)
+activate SM
+
+SM -> AuditS: logSecurityEvent(type: AUTH_ATTEMPT)
+activate AuditS
+AuditS --> SM: Logged
+deactivate AuditS
+
+SM -> SM: validateAuthenticationRequest(request)
+SM -> SM: checkSuspiciousActivity(request)
+
+SM -> AuthS: authenticate(request)
+activate AuthS
+AuthS --> IDB: verify credentials
+IDB --> AuthS: UserInfo
+AuthS --> SM: AuthenticationResult (e.g., success, MFA_required)
+deactivate AuthS
+
+alt If MFA required
+    SM -> Client: MFA_CHALLENGE
+    Client -> User: Prompt for MFA
+    User -> Client: MFA Code
+    Client -> SM: authenticate(request: MFA_request)
+    SM -> AuthS: validateMFA(MFA_code)
+    AuthS --> SM: MFA_SUCCESS
+end
+
+SM -> SM: createSecureSession(user, request)
+SM -> AuditS: logSecurityEvent(type: AUTH_SUCCESS)
+activate AuditS
+AuditS --> SM: Logged
+deactivate AuditS
+
+SM --> Client: AuthenticationResult (session, token)
+deactivate SM
+
+Client -> SM: authorize(request: AuthorizationRequest)
+activate SM
+
+SM -> SM: validateSession(sessionToken)
+SM -> AuthzS: checkPermission(userId, resource, action, context)
+activate AuthzS
+AuthzS --> SM: Authorized
+deactivate AuthzS
+
+SM -> AuditS: logSecurityEvent(type: AUTHORIZATION_ATTEMPT/SUCCESS)
+activate AuditS
+AuditS --> SM: Logged
+deactivate AuditS
+
+SM --> Client: AuthorizationResult (authorized, permissions)
+deactivate SM
+
+Client -> SM: encryptData(data, config)
+activate SM
+SM -> SM: validateEncryptionRequest(config)
+SM -> EncS: encrypt(data, config)
+activate EncS
+EncS --> SM: EncryptedData
+deactivate EncS
+SM -> AuditS: logSecurityEvent(type: ENCRYPT_DATA)
+activate AuditS
+AuditS --> SL: Write Log
+SL --> AuditS:
+deactivate AuditS
+SM --> Client: EncryptionResult
+deactivate SM
+
+Client -> SM: detectThreats(request)
+activate SM
+SM -> TDS: analyze(request)
+activate TDS
+TDS --> SM: ThreatAssessment
+deactivate TDS
+SM -> AuditS: logSecurityEvent(type: SUSPICIOUS_ACTIVITY)
+activate AuditS
+AuditS --> SL: Write Log
+SL --> AuditS:
+deactivate AuditS
+alt If ThreatLevel is CRITICAL
+    SM -> IncidentResponseService: triggerIncidentResponse(assessment)
+    activate IncidentResponseService
+    IncidentResponseService --> SM: IncidentResponse
+    deactivate IncidentResponseService
+end
+SM --> Client: ThreatAssessment
+deactivate SM
+
+Admin -> SM: validateCompliance(request)
+activate SM
+SM -> CompS: validate(request)
+activate CompS
+CompS --> CDB: Check Compliance Rules
+CDB --> CompS: ComplianceStatus
+CompS --> SM: ComplianceResult
+deactivate CompS
+SM -> AuditS: logSecurityEvent(type: COMPLIANCE_CHECK)
+activate AuditS
+AuditS --> SL: Write Log
+SL --> AuditS:
+deactivate AuditS
+SM --> Admin: ComplianceResult
+deactivate SM
+
+@enduml

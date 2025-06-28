@@ -1,0 +1,46 @@
+@startuml
+!theme toy
+
+start
+:Client Request Received;
+
+:Validate Request Structure (schema validation);
+if (Request Valid?) then (no)
+  :Log Error (Validation Failed);
+  :Format Error Response;
+  stop
+endif
+
+:Authenticate User;
+if (User Authenticated?) then (no)
+  :Log Error (Authentication Required/Failed);
+  :Format Error Response;
+  stop
+endif
+
+:Validate Permissions;
+if (Permissions Valid?) then (no)
+  :Log Error (Insufficient Permissions);
+  :Format Error Response;
+  stop
+endif
+
+:Validate Organization Context;
+if (Org Context Valid? AND Required) then (no)
+  :Log Error (Org Context Required/Invalid);
+  :Format Error Response;
+  stop
+endif
+
+:Execute Business Logic;
+if (Business Logic Successful?) then (no)
+  :Log Error (Business Logic Failed);
+  :Format Error Response;
+  stop
+endif
+
+:Log Successful Execution;
+:Prepare Success Response;
+stop
+
+@enduml

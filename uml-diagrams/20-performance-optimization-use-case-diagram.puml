@@ -1,0 +1,71 @@
+@startuml
+!theme toy
+
+left to right direction
+
+actor "Platform User" as User
+actor "System Admin" as Admin
+actor "Developer" as Dev
+actor "Performance Engineer" as PerfEng
+actor "Metrics System" as MetricsSys
+actor "External CDN" as CDN
+
+rectangle "Performance Optimization System" {
+  usecase "Monitor Application Performance" as UC1
+  usecase "Analyze Performance Metrics" as UC2
+  usecase "Identify Performance Bottlenecks" as UC3
+  usecase "Implement Code Optimizations" as UC4
+  usecase "Optimize Database Queries" as UC5
+  usecase "Manage Caching Strategies" as UC6
+  usecase "Manage Resource Allocation" as UC7
+  usecase "Receive Performance Alerts" as UC8
+  usecase "Generate Performance Reports" as UC9
+  usecase "Conduct Performance Tests" as UC10
+  usecase "Optimize Frontend Assets" as UC11
+  usecase "Configure Performance Settings" as UC12
+}
+
+User -- UC1 : <<indirectly>>
+User -- UC6 : <<indirectly>>
+
+Admin -- UC1
+Admin -- UC2
+Admin -- UC3
+Admin -- UC7
+Admin -- UC8
+Admin -- UC9
+Admin -- UC12
+
+Dev -- UC3
+Dev -- UC4
+Dev -- UC5
+Dev -- UC6
+Dev -- UC10
+Dev -- UC11
+
+PerfEng -- UC1
+PerfEng -- UC2
+PerfEng -- UC3
+PerfEng -- UC4
+PerfEng -- UC5
+PerfEng -- UC6
+PerfEng -- UC7
+PerfEng -- UC8
+PerfEng -- UC9
+PerfEng -- UC10
+PerfEng -- UC11
+PerfEng -- UC12
+
+MetricsSys -- UC1 : <<sends data>>
+CDN -- UC6 : <<serves content>>
+
+UC1 <.. UC8 : includes
+UC2 <.. UC3 : includes
+UC3 <.. UC4 : extends
+UC3 <.. UC5 : extends
+UC3 <.. UC6 : extends
+UC3 <.. UC7 : extends
+UC3 <.. UC11 : extends
+UC3 <.. UC12 : extends
+
+@enduml

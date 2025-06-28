@@ -1,0 +1,56 @@
+@startuml
+!theme toy
+
+rectangle "API Integration System" {
+  component "API Integration Manager" as Manager
+  component "Integration Registry" as Registry
+  component "Request Pipeline" as ReqPipeline
+  component "Response Pipeline" as ResPipeline
+  
+  component "Authentication Handler" as AuthHandler
+  component "Rate Limiter" as RateLimiter
+  component "Request Transformer" as ReqTransformer
+  component "HTTP Client" as HttpClient
+  
+  component "Response Validator" as ResValidator
+  component "Data Transformer" as DataTransformer
+  component "Cache Manager" as Cache
+  component "Error Handler" as ErrorHandler
+
+  component "Integration Metadata Store" as MetadataStore
+  component "Configuration Store" as ConfigStore
+  component "Health Monitor" as HealthMonitor
+
+  Manager --> Registry : uses
+  Manager --> ReqPipeline : orchestrates
+  Manager --> ResPipeline : orchestrates
+
+  ReqPipeline --> AuthHandler : processes
+  ReqPipeline --> RateLimiter : processes
+  ReqPipeline --> ReqTransformer : processes
+  ReqPipeline --> HttpClient : sends request
+
+  ResPipeline --> ResValidator : processes
+  ResPipeline --> DataTransformer : processes
+  ResPipeline --> Cache : processes
+  ResPipeline --> ErrorHandler : processes
+
+  Registry --> MetadataStore : retrieves from
+  Registry --> ConfigStore : retrieves from
+  Registry --> HealthMonitor : uses
+
+  HttpClient --> ExternalAPIs : requests
+  ExternalAPIs --> RestAPI : type
+  ExternalAPIs --> GraphQLAPI : type
+  ExternalAPIs --> WebhookEndpoints : type
+  ExternalAPIs --> BlockchainRPCs : type
+}
+
+cloud "External APIs" as ExternalAPIs {
+    artifact "REST APIs" as RestAPI
+    artifact "GraphQL APIs" as GraphQLAPI
+    artifact "Webhook Endpoints" as WebhookEndpoints
+    artifact "Blockchain RPCs" as BlockchainRPCs
+}
+
+@enduml

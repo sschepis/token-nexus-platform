@@ -1,0 +1,115 @@
+@startuml
+!theme toy
+
+autonumber
+
+participant "Trigger Source\n(Manual, Schedule, Event)" as Trigger
+participant "Workflow Engine" as Engine
+participant "BaseWorkflow Instance" as Workflow
+participant "WorkflowStateManager" as StateManager
+participant "WorkflowSecurityService" as SecurityService
+participant "WorkflowMonitoringService" as MonitoringService
+participant "WorkflowIntegrationService" as IntegrationService
+participant "Action Handler\n(e.g., ApiCallActionHandler)" as ActionHandler
+participant "Platform Services" as PlatformServices
+participant "External APIs" as ExternalAPIs
+
+Trigger -> Engine: Initiate Workflow (context)
+activate Engine
+
+Engine -> Workflow: execute(context)
+activate Workflow
+
+Workflow -> Workflow: generateExecutionId()
+Workflow -> StateManager: createWorkflowState()
+activate StateManager
+StateManager --> Workflow: State Created
+deactivate StateManager
+
+Workflow -> MonitoringService: registerExecution()
+activate MonitoringService
+MonitoringService --> Workflow: Registration Confirmed
+deactivate MonitoringService
+
+Workflow -> Workflow: beforeWorkflowExecution(context)
+activate Workflow
+Workflow --> Workflow: Pre-execution Logic Complete
+deactivate Workflow
+
+Workflow -> Workflow: validateSecurity(context)
+activate Workflow
+Workflow -> SecurityService: checkPermission()\nvalidateOrganizationContext()
+activate SecurityService
+SecurityService --> Workflow: Security Validated
+deactivate SecurityService
+Workflow -> Workflow: validateWorkflowSpecificSecurity()
+Workflow --> Workflow: All Security Validated
+deactivate Workflow
+
+loop while there are steps to execute
+    Workflow -> Workflow: findInitialSteps() / determineNextSteps()
+    Workflow -> Workflow: executeStep(step, context, executionId)
+    activate Workflow
+
+    Workflow -> StateManager: updateCurrentStep()
+    activate StateManager
+    StateManager --> Workflow: Step State Updated
+    deactivate StateManager
+
+    Workflow -> Workflow: evaluateStepConditions(conditions, context)
+    alt Conditions met
+        Workflow -> Workflow: executeStepAction(step, context, executionId)
+        activate Workflow
+        Workflow -> Workflow: getActionHandler(step.type)
+        Workflow -> ActionHandler: execute(step.action, parameters, context)
+        activate ActionHandler
+        alt Platform Service Call
+            ActionHandler -> PlatformServices: Perform Action
+            activate PlatformServices
+            PlatformServices --> ActionHandler: Action Result
+            deactivate PlatformServices
+        else External API Call
+            ActionHandler -> ExternalAPIs: Perform Action
+            activate ExternalAPIs
+            ExternalAPIs --> ActionHandler: Action Result
+            deactivate ExternalAPIs
+        end
+        ActionHandler --> Workflow: Step Action Result
+        deactivate ActionHandler
+        Workflow -> MonitoringService: recordStepCompletion()
+        activate MonitoringService
+        MonitoringService --> Workflow: Step Completion Recorded
+        deactivate MonitoringService
+        Workflow --> Workflow: Step Execution Result
+        deactivate Workflow
+    else Conditions not met
+        Workflow --> Workflow: Step Skipped (conditions)
+        deactivate Workflow
+    end
+end
+
+Workflow -> Workflow: recordCompletion(executionId, result, duration)
+Workflow -> Workflow: afterWorkflowExecution(context, result)
+
+Workflow --> Engine: WorkflowResult (Success)
+deactivate Workflow
+deactivate Engine
+
+alt Workflow Error
+    Engine -> Workflow: execute(context) (after internal error)
+    activate Workflow
+    Workflow -> Workflow: handleWorkflowError(error, context, executionId)
+    activate Workflow
+    Workflow -> MonitoringService: recordWorkflowFailure()
+    activate MonitoringService
+    MonitoringService --> Workflow: Failure Recorded
+    deactivate MonitoringService
+    Workflow -> Workflow: onWorkflowError(error, context) (custom handling)
+    Workflow --> Workflow: Error Handled
+    deactivate Workflow
+    Workflow --> Engine: WorkflowResult (Failure)
+    deactivate Workflow
+    deactivate Engine
+end
+
+@enduml

@@ -1,0 +1,361 @@
+@startuml
+!theme toy
+
+' Enums
+enum SecurityDomain {
+    IDENTITY_ACCESS
+    DATA_PROTECTION
+    NETWORK_SECURITY
+    APPLICATION_SECURITY
+    INFRASTRUCTURE_SECURITY
+    OPERATIONAL_SECURITY
+    COMPLIANCE
+    INCIDENT_RESPONSE
+}
+
+enum ThreatLevel {
+    CRITICAL
+    HIGH
+    MEDIUM
+    LOW
+    INFO
+}
+
+enum ComplianceFramework {
+    GDPR
+    SOC2
+    HIPAA
+    PCI_DSS
+    ISO27001
+    NIST
+    CCPA
+}
+
+enum SecurityEventType {
+    AUTHENTICATION_FAILURE
+    AUTHORIZATION_VIOLATION
+    DATA_ACCESS
+    PRIVILEGE_ESCALATION
+    SUSPICIOUS_ACTIVITY
+    SECURITY_VIOLATION
+    COMPLIANCE_VIOLATION
+    SYSTEM_COMPROMISE
+}
+
+enum EncryptionAlgorithm {
+    AES_256_GCM
+    AES_256_CBC
+    RSA_4096
+    ECDSA_P256
+    CHACHA20_POLY1305
+}
+
+enum AuthorizationModel {
+    RBAC
+    ABAC
+    ACL
+    GRAPH_BASED
+}
+
+' Interfaces/Types
+interface SecurityConfiguration {
+    +id: string
+    +name: string
+    +domain: SecurityDomain
+    +enabled: boolean
+    +authentication: AuthenticationConfig
+    +authorization: AuthorizationConfig
+    +encryption: EncryptionConfig
+    +monitoring: SecurityMonitoringConfig
+    +compliance: ComplianceConfig
+    +threatDetection: ThreatDetectionConfig
+    +incidentResponse: IncidentResponseConfig
+    +auditLogging: AuditLoggingConfig
+    +organizationId?: string
+    +applicationId?: string
+}
+
+interface AuthenticationConfig {
+    +providers: AuthProvider[]
+    +mfa: MFAConfig
+    +passwordPolicy: PasswordPolicyConfig
+    +sessionManagement: SessionConfig
+    +tokenManagement: TokenConfig
+    +sso: SSOConfig
+}
+
+interface AuthorizationConfig {
+    +model: AuthorizationModel
+    +rbac: RBACConfig
+    +abac: ABACConfig
+    +policies: PolicyConfig[]
+    +enforcement: EnforcementConfig
+    +delegation: DelegationConfig
+}
+
+interface EncryptionConfig {
+    +dataAtRest: DataEncryptionConfig
+    +dataInTransit: TransportEncryptionConfig
+    +keyManagement: KeyManagementConfig
+    +fieldLevel: FieldEncryptionConfig
+    +algorithms: AlgorithmConfig[]
+}
+
+interface SecurityMonitoringConfig {
+    +realTimeMonitoring: boolean
+    +threatIntelligence: ThreatIntelConfig
+    +anomalyDetection: AnomalyDetectionConfig
+    +vulnerabilityScanning: VulnScanConfig
+    +securityMetrics: SecurityMetricsConfig
+}
+
+interface ComplianceConfig {
+    +frameworks: ComplianceFramework[]
+    +dataRetention: RetentionConfig
+    +dataSubjectRights: DataSubjectRightsConfig
+    +consentManagement: ConsentConfig
+    +privacyControls: PrivacyControlsConfig
+    +auditRequirements: AuditRequirementsConfig
+}
+
+interface ThreatDetectionConfig {
+    +waf: WAFConfig
+    +idsIps: IDSIPSConfig
+    +malwareDetection: MalwareDetectionConfig
+    +behaviorAnalysis: BehaviorAnalysisConfig
+    +threatHunting: ThreatHuntingConfig
+}
+
+interface IncidentResponseConfig {
+    +enabled: boolean
+    +playbooks: PlaybookConfig[]
+    +escalation: EscalationConfig
+    +communication: CommunicationConfig
+    +forensics: ForensicsConfig
+    +recovery: RecoveryConfig
+}
+
+interface AuditLoggingConfig {
+    +enabled: boolean
+    +events: AuditEventConfig[]
+    +retention: number
+    +encryption: boolean
+    +integrity: IntegrityConfig
+    +compliance: ComplianceLoggingConfig
+}
+
+interface SecurityEvent
+interface ThreatAssessment
+interface AuthenticationRequest
+interface AuthenticationResult
+interface AuthorizationRequest
+interface AuthorizationResult
+interface EncryptionRequest
+interface EncryptionResult
+interface DecryptionRequest
+interface DecryptionResult
+interface ThreatDetectionRequest
+interface ComplianceValidationRequest
+interface ComplianceResult
+interface SecurityIncident
+interface IncidentResponse
+interface AuthProvider
+interface MFAConfig
+interface PasswordPolicyConfig
+interface SessionConfig
+interface TokenConfig
+interface SSOConfig
+interface RBACConfig
+interface ABACConfig
+interface PolicyConfig
+interface EnforcementConfig
+interface DelegationConfig
+interface DataEncryptionConfig
+interface TransportEncryptionConfig
+interface KeyManagementConfig
+interface FieldEncryptionConfig
+interface AlgorithmConfig
+interface ThreatIntelConfig
+interface AnomalyDetectionConfig
+interface VulnScanConfig
+interface SecurityMetricsConfig
+interface RetentionConfig
+interface DataSubjectRightsConfig
+interface ConsentConfig
+interface PrivacyControlsConfig
+interface AuditRequirementsConfig
+interface WAFConfig
+interface IDSIPSConfig
+interface MalwareDetectionConfig
+interface BehaviorAnalysisConfig
+interface ThreatHuntingConfig
+interface PlaybookConfig
+interface EscalationConfig
+interface CommunicationConfig
+interface ForensicsConfig
+interface RecoveryConfig
+interface AuditEventConfig
+interface IntegrityConfig
+interface ComplianceLoggingConfig
+interface SecurityError
+
+' Services and Managers
+class AuthenticationService
+class AuthorizationService
+class EncryptionService
+class ThreatDetectionService
+class ComplianceService
+class AuditService
+class IncidentResponseService
+class IdentityProvider // From Architecture Overview
+class MFAService // From Architecture Overview
+class SessionManager // From Architecture Overview
+class TokenService // From Architecture Overview
+class RBACEngine // From Architecture Overview
+class ABACEngine // From Architecture Overview
+class PermissionStore // From Architecture Overview
+class PolicyEngine // From Architecture Overview
+class KeyManagement // From Architecture Overview
+class DataEncryption // From Architecture Overview
+class TransportSecurity // From Architecture Overview
+class FieldEncryption // From Architecture Overview
+class WAF // From Architecture Overview
+class IDSIPS // From Architecture Overview
+class AnomalyDetection // From Architecture Overview
+class VulnerabilityScanner // From Architecture Overview
+class GDPRModule // From Architecture Overview
+class SOC2Module // From Architecture Overview
+class HIPPAAModule // From Architecture Overview
+
+' SecurityManager Class
+class SecurityManager {
+    -configurations: Map<string, SecurityConfiguration>
+    -authenticationService: AuthenticationService
+    -authorizationService: AuthorizationService
+    -encryptionService: EncryptionService
+    -threatDetectionService: ThreatDetectionService
+    -complianceService: ComplianceService
+    -auditService: AuditService
+    -incidentResponseService: IncidentResponseService
+
+    +constructor()
+    +registerConfiguration(config: SecurityConfiguration): void
+    +authenticate(request: AuthenticationRequest): Promise<AuthenticationResult>
+    +authorize(request: AuthorizationRequest): Promise<AuthorizationResult>
+    +encryptData(data: any, config: EncryptionRequest): Promise<EncryptionResult>
+    +decryptData(encryptedData: string, config: DecryptionRequest): Promise<DecryptionResult>
+    +detectThreats(request: ThreatDetectionRequest): Promise<ThreatAssessment>
+    +validateCompliance(request: ComplianceValidationRequest): Promise<ComplianceResult>
+    +handleSecurityIncident(incident: SecurityIncident): Promise<IncidentResponse>
+    -initializeSecurityServices(): void
+    -validateSecurityConfiguration(config: SecurityConfiguration): void
+    -initializeSecurityConfiguration(config: SecurityConfiguration): void
+    -validateAuthenticationRequest(request: AuthenticationRequest): Promise<void>
+    -checkSuspiciousActivity(request: AuthenticationRequest): Promise<void>
+    -handleMFAChallenge(result: AuthenticationResult, request: AuthenticationRequest): Promise<AuthenticationResult>
+    -createSecureSession(user: any, request: AuthenticationRequest): Promise<any>
+    -validateSession(sessionToken: string): Promise<any>
+    -validateEncryptionRequest(config: EncryptionRequest): Promise<void>
+    -validateDecryptionRequest(config: DecryptionRequest): Promise<void>
+    -checkKeyAccess(keyId: string, userId: string): Promise<void>
+    -triggerIncidentResponse(assessment: ThreatAssessment): Promise<void>
+    -validateSecurityIncident(incident: SecurityIncident): Promise<void>
+}
+
+' Relationships
+
+SecurityManager "1" o-- "1" AuthenticationService
+SecurityManager "1" o-- "1" AuthorizationService
+SecurityManager "1" o-- "1" EncryptionService
+SecurityManager "1" o-- "1" ThreatDetectionService
+SecurityManager "1" o-- "1" ComplianceService
+SecurityManager "1" o-- "1" AuditService
+SecurityManager "1" o-- "1" IncidentResponseService
+
+SecurityConfiguration "1" --> SecurityDomain
+SecurityConfiguration "1" *-- "1" AuthenticationConfig
+SecurityConfiguration "1" *-- "1" AuthorizationConfig
+SecurityConfiguration "1" *-- "1" EncryptionConfig
+SecurityConfiguration "1" *-- "1" SecurityMonitoringConfig
+SecurityConfiguration "1" *-- "1" ComplianceConfig
+SecurityConfiguration "1" *-- "1" ThreatDetectionConfig
+SecurityConfiguration "1" *-- "1" IncidentResponseConfig
+SecurityConfiguration "1" *-- "1" AuditLoggingConfig
+
+AuthenticationConfig *-- AuthProvider
+AuthenticationConfig *-- MFAConfig
+AuthenticationConfig *-- PasswordPolicyConfig
+AuthenticationConfig *-- SessionConfig
+AuthenticationConfig *-- TokenConfig
+AuthenticationConfig *-- SSOConfig
+
+AuthorizationConfig "1" --> AuthorizationModel
+AuthorizationConfig *-- RBACConfig
+AuthorizationConfig *-- ABACConfig
+AuthorizationConfig *-- PolicyConfig
+AuthorizationConfig *-- EnforcementConfig
+AuthorizationConfig *-- DelegationConfig
+
+EncryptionConfig "1" --> EncryptionAlgorithm
+EncryptionConfig *-- DataEncryptionConfig
+EncryptionConfig *-- TransportEncryptionConfig
+EncryptionConfig *-- KeyManagementConfig
+EncryptionConfig *-- FieldEncryptionConfig
+EncryptionConfig *-- AlgorithmConfig
+
+SecurityMonitoringConfig *-- ThreatIntelConfig
+SecurityMonitoringConfig *-- AnomalyDetectionConfig
+SecurityMonitoringConfig *-- VulnScanConfig
+SecurityMonitoringConfig *-- SecurityMetricsConfig
+
+ComplianceConfig *-- ComplianceFramework
+ComplianceConfig *-- RetentionConfig
+ComplianceConfig *-- DataSubjectRightsConfig
+ComplianceConfig *-- ConsentConfig
+ComplianceConfig *-- PrivacyControlsConfig
+ComplianceConfig *-- AuditRequirementsConfig
+
+ThreatDetectionConfig *-- WAFConfig
+ThreatDetectionConfig *-- IDSIPSConfig
+ThreatDetectionConfig *-- MalwareDetectionConfig
+ThreatDetectionConfig *-- BehaviorAnalysisConfig
+ThreatDetectionConfig *-- ThreatHuntingConfig
+
+IncidentResponseConfig *-- PlaybookConfig
+IncidentResponseConfig *-- EscalationConfig
+IncidentResponseConfig *-- CommunicationConfig
+IncidentResponseConfig *-- ForensicsConfig
+IncidentResponseConfig *-- RecoveryConfig
+
+AuditLoggingConfig *-- AuditEventConfig
+AuditLoggingConfig *-- IntegrityConfig
+AuditLoggingConfig *-- ComplianceLoggingConfig
+
+AuthenticationService --> IdentityProvider
+AuthenticationService --> MFAService
+AuthenticationService --> SessionManager
+AuthenticationService --> TokenService
+
+AuthorizationService --> RBACEngine
+AuthorizationService --> ABACEngine
+AuthorizationService --> PermissionStore
+AuthorizationService --> PolicyEngine
+
+EncryptionService --> KeyManagement
+EncryptionService --> DataEncryption
+EncryptionService --> TransportSecurity
+EncryptionService --> FieldEncryption
+
+ThreatDetectionService --> WAF
+ThreatDetectionService --> IDSIPS
+ThreatDetectionService --> AnomalyDetection
+ThreatDetectionService --> VulnerabilityScanner
+
+ComplianceService --> GDPRModule
+ComplianceService --> SOC2Module
+ComplianceService --> HIPPAAModule
+
+AuditService --> AuditLogger
+
+SecurityError --|> Error
+@enduml

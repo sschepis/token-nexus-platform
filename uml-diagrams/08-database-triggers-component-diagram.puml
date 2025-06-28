@@ -1,0 +1,34 @@
+@startuml
+!theme toy
+
+rectangle "Token Nexus Platform" {
+  component "Database" as DB
+  component "Parse Server Core" as ParseServer
+  component "Trigger Router" as Router
+  folder "Trigger Logic Modules" {
+    component "Before Triggers" as BeforeTriggers
+    component "After Triggers" as AfterTriggers
+  }
+  component "Validation Layer" as Validation
+  component "Business Logic Layer" as BusinessLogic
+  component "Audit Layer" as Audit
+  component "Notification Layer" as Notification
+  component "Data Layer" as DataLayer
+
+  DB --> ParseServer : "Database Operation"
+  ParseServer --> Router : "Routes Trigger Events"
+  Router --> BeforeTriggers : "Invokes Before Triggers"
+  Router --> AfterTriggers : "Invokes After Triggers"
+
+  BeforeTriggers --> Validation : "Performs Validation"
+  BeforeTriggers --> BusinessLogic : "Enforces Business Rules"
+
+  AfterTriggers --> Audit : "Logs Changes"
+  AfterTriggers --> Notification : "Publishes Events"
+
+  Validation --> DataLayer : "Validates Data"
+  BusinessLogic --> DataLayer : "Modifies Data"
+  Audit --> DataLayer : "Records Audit Trails"
+  Notification --> DataLayer : "Retrieves Data for Notifications"
+}
+@enduml

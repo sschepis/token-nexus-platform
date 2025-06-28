@@ -1,0 +1,118 @@
+@startuml
+!theme toy
+
+autonumber
+
+participant "Client" as Client
+participant "Parse Server" as ParseServer
+participant "Cloud Function Router" as Router
+participant "Authentication Layer" as AuthLayer
+participant "Permission Validation" as PermValidation
+participant "BaseCloudFunction Instance" as BaseCF
+participant "UserDataProcessor Instance" as UserDataProc
+participant "AuthenticationService" as AuthService
+participant "PermissionService" as PermService
+participant "ValidationService" as ValidationService
+participant "AuditService" as AuditService
+participant "Database" as DB
+participant "External APIs" as ExtAPIs
+participant "AI Assistant Integration" as AI
+
+Client -> ParseServer: Cloud Function Request (e.g., processUserData)
+activate ParseServer
+
+ParseServer -> Router: Route Request to Cloud Function
+activate Router
+
+Router -> AuthLayer: Forward Request
+activate AuthLayer
+
+AuthLayer -> BaseCF: Request Authentication (if applicable)
+activate BaseCF
+
+BaseCF -> AuthService: validateSession(sessionToken)
+activate AuthService
+AuthService --> BaseCF: Session Validation Result
+deactivate AuthService
+
+BaseCF -> PermValidation: Request Permission Validation
+activate PermValidation
+
+PermValidation -> PermService: checkPermission(user, permission)
+activate PermService
+PermService --> PermValidation: Permission Check Result
+deactivate PermService
+
+PermValidation -> BaseCF: Permission Validation Result
+deactivate PermValidation
+
+BaseCF -> BaseCF: Validate Organization Context
+alt organizationScoped == true
+    BaseCF -> PermService: validateOrganizationMembership(user, organizationId)
+    activate PermService
+    PermService --> BaseCF: Organization Membership Result
+    deactivate PermService
+end
+
+BaseCF -> ValidationService: validate(request.params, schema)*
+activate ValidationService
+ValidationService --> BaseCF: Validation Result
+deactivate ValidationService
+
+BaseCF -> UserDataProc: executeBusinessLogic(request, user, organizationId)
+activate UserDataProc
+
+UserDataProc -> DB: Fetch Target User (Parse.Query)
+activate DB
+DB --> UserDataProc: Target User Data
+deactivate DB
+
+UserDataProc -> PermService: canModifyUser(requestingUser, targetUser)
+activate PermService
+PermService --> UserDataProc: Modification Permission
+deactivate PermService
+
+opt Email Change
+    UserDataProc -> DB: Check if Email Exists (Parse.Query)
+    activate DB
+    DB --> UserDataProc: Email Existence Result
+    deactivate DB
+end
+
+UserDataProc -> UserDataProc: Process Data Transformations
+
+UserDataProc -> DB: Update User Record (user.save)
+activate DB
+DB --> UserDataProc: Updated User Record
+deactivate DB
+
+UserDataProc -> Analytics: Trigger Post-Processing Workflows (e.g., sendEmailVerification, updateUserSearchIndex, notifyUserDataChange)
+activate Analytics
+Analytics -> ExtAPIs: Send Email (for verification)
+activate ExtAPIs
+ExtAPIs --> Analytics: Email Sent Confirmation
+deactivate ExtAPIs
+Analytics -> AI: Update AI Assistant (e.g., for search index)
+activate AI
+AI --> Analytics: AI Update Confirmation
+deactivate AI
+Analytics --> UserDataProc
+deactivate Analytics
+
+UserDataProc --> BaseCF: Business Logic Result
+deactivate UserDataProc
+
+BaseCF -> AuditService: logSuccess or logError
+activate AuditService
+AuditService -> AuditService: Record Audit Trail
+AuditService -> AuditService: Send Alerts (if error)
+AuditService --> BaseCF: Audit Logging Confirmation
+deactivate AuditService
+
+BaseCF --> Client: Cloud Function Response (success/error, data, metadata)
+deactivate BaseCF
+deactivate AuthLayer
+deactivate Router
+deactivate ParseServer
+
+@enduml
